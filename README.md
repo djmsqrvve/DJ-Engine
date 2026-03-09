@@ -1,120 +1,109 @@
 # DJ Engine
 
 <p align="center">
-  <strong>A modular game engine for narrative-heavy JRPGs and visual novels</strong>
+  <strong>Custom Bevy 0.18 game framework for narrative-heavy JRPGs, procedural 2D animation, and palette-driven corruption effects.</strong>
 </p>
 
 <p align="center">
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.75+-orange?style=flat-square" alt="Rust"></a>
-  <a href="https://bevyengine.org/"><img src="https://img.shields.io/badge/Bevy-0.15-green?style=flat-square" alt="Bevy"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.93.1-orange?style=flat-square" alt="Rust 1.93.1"></a>
+  <a href="https://bevyengine.org/"><img src="https://img.shields.io/badge/Bevy-0.18-green?style=flat-square" alt="Bevy 0.18"></a>
+  <a href="https://github.com/djmsqrvve/dj_engine/actions/workflows/ci.yml"><img src="https://github.com/djmsqrvve/dj_engine/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
-  <a href="https://github.com/djmsqrvve/dj_engine/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square" alt="Build"></a>
 </p>
 
 <p align="center">
   <img src="docs/images/editor_screenshot.png" alt="DJ Engine Editor" width="800">
 </p>
 
----
-
-## ✨ Features
+## Features
 
 | Feature | Description |
-|---------|-------------|
-| **Story Graph** | Node-based dialogue and narrative branching |
-| **Egui Editor** | Visual editor for scenes and story graphs |
-| **Lua Scripting** | Runtime scripting via mlua |
-| **Data-Driven** | JSON-serializable scenes, databases, and graphs |
-| **Modular Design** | Plugin-based architecture for extensibility |
+| --- | --- |
+| Procedural 2D animation | Breathing, blinking, and expression-driven character motion |
+| Palette-driven rendering | Real-time palette swaps and corruption/distortion effects |
+| Story graph runtime | JSON-serializable dialogue, branching, and scripted actions |
+| Lua scripting | Runtime game logic via `mlua` for content-heavy iteration |
+| Modular Bevy plugins | Engine systems can be bundled or composed per game |
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/djmsqrvve/dj_engine.git
 cd dj_engine
 
-# Run the editor
+./dj d
 ./dj e
-
-# Run all tests
 ./dj t
-
-# Build for release
-./dj b
 ```
 
-## 🛠️ CLI Commands
+The workspace toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml), so `rustup` will automatically select the validated Rust version for local development, Codespaces, and CI.
 
-All commands go through the `dj` helper script:
+## Codespaces
+
+GitHub Codespaces is supported through [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json). The devcontainer installs the Bevy/Linux native build dependencies during image build and runs `rustup show && cargo fetch --locked` after creation.
+
+Codespaces support is compile-focused. The primary validation flow is:
+
+```bash
+cargo fmt --all --check
+RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace
+RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run
+RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
+```
+
+## Helper Commands
+
+All common tasks run through the `./dj` helper script:
 
 ```bash
 # Development
-./dj e          # Run editor
-./dj d          # Run DoomExe game
-./dj m          # Run minimal test
+./dj e                # Launch the editor
+./dj d                # Run DoomExe
+./dj d --verbose      # Run DoomExe with debug logging
+./dj m                # Run the minimal engine test binary
 
-# Testing & Quality
-./dj t          # Run all tests
-./dj c          # Check code compiles
-./dj fmt        # Format code
-./dj lint       # Run Clippy linter
+# Validation
+./dj t                # Run workspace tests
+./dj c                # cargo check --workspace
+./dj fmt              # cargo fmt --all
+./dj lint             # cargo clippy --workspace -- -W clippy::all
 
-# Build
-./dj b          # Build release
-./dj doc        # Generate documentation
-./dj clean      # Clean build artifacts
+# Build and tools
+./dj g                # Run the asset generator
+./dj b                # Build release binaries
+./dj doc              # Generate workspace docs
+./dj clean            # Remove build artifacts
 ```
 
-## 📁 Project Structure
+## Project Structure
 
-```
+```text
 dj_engine/
-├── engine/              # Core engine library
-│   ├── src/
-│   │   ├── core/        # Engine initialization
-│   │   ├── data/        # Serializable data types
-│   │   ├── editor/      # Egui visual editor
-│   │   ├── story_graph/ # Narrative system
-│   │   ├── scripting/   # Lua integration
-│   │   └── diagnostics/ # Debug tools
-│   └── examples/        # Example JSON files
-├── games/               # Game projects
-│   └── dev/doomexe/     # Main development game
-├── docs/                # Documentation
-└── tools/               # Asset utilities
+├── engine/                 # Core engine library
+├── games/dev/doomexe/      # Primary game project
+├── tools/asset_generator/  # Asset processing utilities
+├── docs/                   # Project and engine documentation
+└── dj                      # Workspace helper script
 ```
 
-## 📖 Documentation
+## Documentation
 
 | Document | Description |
-|----------|-------------|
-| [Getting Started](docs/GETTING_STARTED.md) | First-time setup guide |
-| [Architecture](docs/ARCHITECTURE.md) | System design overview |
-| [Code Style](docs/CODE_STYLE.md) | Coding standards |
-| [Testing Guide](docs/TESTING.md) | How to write and run tests |
-| [Project Structure](docs/PROJECT_STRUCTURE.md) | Detailed file layout |
+| --- | --- |
+| [Getting Started](docs/GETTING_STARTED.md) | Local setup, Codespaces notes, and validation commands |
+| [Architecture](docs/ARCHITECTURE.md) | Engine system overview |
+| [Testing Guide](docs/TESTING.md) | How tests are organized and run |
+| [Project Structure](docs/PROJECT_STRUCTURE.md) | Detailed workspace layout |
+| [Contributing](CONTRIBUTING.md) | Contribution workflow and expectations |
 
-## 🛠️ Prerequisites
+## Prerequisites
 
-- **Rust 1.75+** - [Install Rust](https://rustup.rs/)
-- **Git** - For version control
-- **Linux/WSL2** recommended (Windows native works but may have graphics quirks)
+- `rustup` with the pinned toolchain from [`rust-toolchain.toml`](rust-toolchain.toml)
+- `git`
+- Linux, WSL2, or GitHub Codespaces for the smoothest build experience
 
-## 🤝 Contributing
+For manual local Linux setup outside Codespaces, install the same native packages used by the devcontainer and CI before building Bevy-based crates.
 
-We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a PR.
+## License
 
-- 🐛 [Report a Bug](.github/ISSUE_TEMPLATE/bug_report.md)
-- 💡 [Request a Feature](.github/ISSUE_TEMPLATE/feature_request.md)
-- 📖 [Improve Documentation](docs/)
-
-## 📜 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-<p align="center">
-  Made with ❤️ by <a href="https://github.com/djmsqrvve">djmsqrvve</a>
-</p>
+MIT License. See [LICENSE](LICENSE).

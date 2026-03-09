@@ -1,154 +1,103 @@
 # Getting Started with DJ Engine
 
-This guide walks you through setting up DJ Engine for the first time.
+This guide covers the current setup path for local development and GitHub Codespaces.
 
-## Prerequisites
+## Toolchain
 
-- **Rust 1.75+** - [Install via rustup](https://rustup.rs/)
-- **Git** - For cloning the repository
-- **A terminal** - bash, PowerShell, or similar
+DJ Engine pins its Rust toolchain in [`../rust-toolchain.toml`](../rust-toolchain.toml). Install `rustup`, clone the repo, and let `rustup` select the pinned toolchain automatically when you enter the workspace.
 
-### Platform Notes
+## Platform Notes
 
 | Platform | Status | Notes |
-|----------|--------|-------|
-| Linux | ✅ Best | Recommended for development |
-| WSL2 | ✅ Good | Use with VcXsrv or WSLg |
-| Windows | ⚠️ Works | May have graphics quirks |
-| macOS | ⚠️ Untested | Should work |
+| --- | --- | --- |
+| Linux | Recommended | Best fit for Bevy native dependencies and local runtime smoke tests |
+| GitHub Codespaces | Supported | Best path for compile, test, and lint validation without local package setup |
+| WSL2 | Supported | Use Linux package instructions inside the distro |
+| Windows | Partial | Expect more graphics/runtime variance |
+| macOS | Untested | Compile may work, but not part of the current validated path |
 
----
-
-## Installation
-
-### 1. Clone the Repository
+## Clone the Repository
 
 ```bash
 git clone https://github.com/djmsqrvve/dj_engine.git
 cd dj_engine
 ```
 
-### 2. Build the Project
+## GitHub Codespaces
+
+Open the repository in GitHub Codespaces and wait for the devcontainer bootstrap to finish. The Codespaces configuration lives in [`.devcontainer/devcontainer.json`](../.devcontainer/devcontainer.json) and installs the Linux build dependencies required by Bevy, winit, and audio backends.
+
+After the container is ready, validate the workspace with:
 
 ```bash
-cargo build --workspace
+cargo fmt --all --check
+RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace
+RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run
+RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
 ```
 
-This compiles the engine and all game projects. First build takes 2-5 minutes.
+Codespaces support is intentionally compile-focused. Running Bevy windows remotely is not the primary success target for this setup.
 
-### 3. Verify Installation
+## Local Linux Setup
+
+If you are building outside Codespaces on Debian/Ubuntu, install the same native packages used by the devcontainer and CI first:
 
 ```bash
-./dj test
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends \
+  pkg-config \
+  libasound2-dev \
+  libudev-dev \
+  libwayland-dev \
+  libxkbcommon-dev \
+  libxkbcommon-x11-dev \
+  libxcursor-dev \
+  libxi-dev \
+  libxrandr-dev \
+  libxinerama-dev \
+  libx11-dev \
+  libx11-xcb-dev \
+  libgl1-mesa-dev \
+  libvulkan-dev \
+  libxcb1-dev \
+  libxcb-render0-dev \
+  libxcb-shape0-dev \
+  libxcb-xfixes0-dev \
+  clang \
+  lld \
+  cmake \
+  git
 ```
 
-You should see all tests passing:
-```
-test result: ok. 26 passed; 0 failed
-```
+Then run the same validation commands shown above.
 
----
-
-## Running the Editor
+## Common Commands
 
 ```bash
-./dj e
+./dj e           # Launch the editor
+./dj d           # Run DoomExe
+./dj d --verbose # Run DoomExe with debug logging
+./dj t           # Run workspace tests
+./dj c           # cargo check --workspace
+./dj fmt         # cargo fmt --all
+./dj lint        # cargo clippy --workspace -- -W clippy::all
+./dj g           # Run the asset generator
+./dj b           # Build release binaries
 ```
-
-This opens the Egui-based visual editor where you can:
-- Edit scenes (Level Editor view)
-- Create story graphs (Story Graph view)
-- Inspect entities and resources
-
-### All CLI Commands
-
-```bash
-# Development
-./dj e          # Run editor
-./dj d          # Run DoomExe game
-./dj m          # Run minimal test
-
-# Testing & Quality
-./dj t          # Run all tests
-./dj c          # Check code compiles
-./dj fmt        # Format code
-./dj lint       # Run Clippy linter
-
-# Build
-./dj b          # Build release
-./dj doc        # Generate documentation
-./dj clean      # Clean build artifacts
-```
-
----
 
 ## Project Structure Overview
 
-```
+```text
 dj_engine/
-├── engine/          # The core engine (what you're building on)
-├── games/dev/       # Your game projects go here
-├── docs/            # Documentation
-└── dj               # CLI helper script
+├── engine/                 # Core engine library
+├── games/dev/doomexe/      # Main game project
+├── tools/asset_generator/  # Asset processing tool
+├── docs/                   # Documentation
+└── dj                      # Helper script
 ```
 
----
+## Next References
 
-## Creating Your First Project
-
-1. Copy the template:
-```bash
-cp -r games/dev/doomexe games/dev/my_game
-```
-
-2. Update `games/dev/my_game/Cargo.toml`:
-```toml
-[package]
-name = "my_game"
-```
-
-3. Add to workspace in root `Cargo.toml`:
-```toml
-members = [
-    "engine",
-    "games/dev/doomexe",
-    "games/dev/my_game",  # Add this
-]
-```
-
-4. Run your game:
-```bash
-cargo run -p my_game
-```
-
----
-
-## Next Steps
-
-- Read the [Architecture Guide](ARCHITECTURE.md) to understand the system
-- Check out [Code Style](CODE_STYLE.md) before contributing
-- Explore [example JSON files](../engine/examples/) for data formats
-
----
-
-## Troubleshooting
-
-### Build fails with graphics errors
-
-On WSL2, you may need to set up X11 forwarding:
-```bash
-export DISPLAY=:0
-```
-
-### Tests fail
-
-Make sure you have the latest Rust:
-```bash
-rustup update
-```
-
-### Editor crashes on start
-
-Check the console output. Common issues:
-- Missing assets folder
-- Invalid JSON in project files
+- [Architecture Guide](ARCHITECTURE.md)
+- [Testing Guide](TESTING.md)
+- [Project Structure](PROJECT_STRUCTURE.md)

@@ -139,13 +139,13 @@ pub fn debug_input_system(keys: Res<ButtonInput<KeyCode>>, mut query: Query<&mut
         // U/D for corruption
         if keys.pressed(KeyCode::KeyU) {
             root.corruption = (root.corruption + 0.5).min(100.0);
-            if root.corruption as u32 % 10 == 0 {
+            if (root.corruption as u32).is_multiple_of(10) {
                 info!("Corruption: {:.0}%", root.corruption);
             }
         }
         if keys.pressed(KeyCode::KeyD) {
             root.corruption = (root.corruption - 0.5).max(0.0);
-            if root.corruption as u32 % 10 == 0 {
+            if (root.corruption as u32).is_multiple_of(10) {
                 info!("Corruption: {:.0}%", root.corruption);
             }
         }
