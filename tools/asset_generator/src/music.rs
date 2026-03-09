@@ -90,9 +90,9 @@ pub fn generate_overworld_theme() -> Vec<u8> {
         for chord in chords.iter() {
             // Arpeggiate slightly? No, block chords for pad.
             // Note On all
-            for (i, note) in chord.iter().enumerate() {
+            for note in chord {
                 track1.push(TrackEvent {
-                    delta: if i == 0 { 0.into() } else { 0.into() }, // Simultaneous
+                    delta: 0.into(), // Simultaneous
                     kind: TrackEventKind::Midi {
                         channel: 1.into(),
                         message: MidiMessage::NoteOn {

@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 use std::{
-    io::{self, Write},
+    io::{self, IsTerminal, Write},
     sync::{
         mpsc::{self, Receiver},
         Arc, Mutex,
@@ -41,38 +41,49 @@ pub struct ConsolePlugin;
 
 impl Plugin for ConsolePlugin {
     fn build(&self, app: &mut App) {
-        let (tx, rx) = mpsc::channel();
+        let interactive_console = io::stdin().is_terminal();
 
-        // Spawn background thread for stdin
-        std::thread::spawn(move || {
-            let stdin = io::stdin();
-            let mut input = String::new();
-            loop {
-                // Print prompt
-                print!("dj> ");
-                let _ = io::stdout().flush();
+        if interactive_console {
+            let (tx, rx) = mpsc::channel();
 
-                input.clear();
-                if stdin.read_line(&mut input).is_ok() {
-                    let cmd = input.trim().to_string();
-                    if !cmd.is_empty() {
-                        if tx.send(cmd).is_err() {
-                            break;
+            // Spawn background thread for stdin only when the process is interactive.
+            std::thread::spawn(move || {
+                let stdin = io::stdin();
+                let mut input = String::new();
+                loop {
+                    print!("dj> ");
+                    let _ = io::stdout().flush();
+
+                    input.clear();
+                    match stdin.read_line(&mut input) {
+                        Ok(0) => break,
+                        Ok(_) => {
+                            let cmd = input.trim().to_string();
+                            if !cmd.is_empty() && tx.send(cmd).is_err() {
+                                break;
+                            }
                         }
+                        Err(_) => break,
                     }
-                } else {
-                    break;
                 }
-            }
-        });
+            });
 
-        app.insert_resource(ConsoleReceiver(Arc::new(Mutex::new(rx))))
-            .init_resource::<ConsoleLogStore>()
+            app.insert_resource(ConsoleReceiver(Arc::new(Mutex::new(rx))));
+        } else {
+            debug!("Console CLI disabled: stdin is not interactive.");
+        }
+
+        app.init_resource::<ConsoleLogStore>()
             .add_message::<ConsoleCommandEvent>()
-            .add_systems(Update, listen_for_console_input)
+            .add_systems(
+                Update,
+                listen_for_console_input.run_if(resource_exists::<ConsoleReceiver>),
+            )
             .add_systems(Update, handle_console_commands);
 
-        info!("Console CLI API initialized. Type 'help' in terminal for commands.");
+        if interactive_console {
+            info!("Console CLI API initialized. Type 'help' in terminal for commands.");
+        }
     }
 }
 
@@ -167,8 +178,5 @@ fn handle_console_commands(
                 );
             }
         }
-
-        // Final prompt for the next input
-        let _ = io::stdout().flush();
     }
 }

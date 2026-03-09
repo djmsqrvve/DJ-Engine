@@ -8,7 +8,7 @@ members = [
 default-members = ["games/dev/doomexe"]
 
 [workspace.dependencies]
-bevy = { version = "0.18", features = ["dynamic_linking"] }
+bevy = { version = "0.18", features = ["dynamic_linking", "wav"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 mlua = { version = "0.10", features = ["lua54", "vendored", "send"] }
@@ -23,3 +23,12 @@ opt-level = 1
 
 [profile.dev.package."*"]
 opt-level = 3 # Optimize dependencies even in dev mode
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.dev-full]
+inherits = "release"
+debug = true

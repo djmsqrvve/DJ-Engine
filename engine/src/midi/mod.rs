@@ -3,6 +3,8 @@ use bevy::prelude::*;
 use midly::{MetaMessage, MidiMessage, Smf, TrackEventKind};
 use std::collections::HashMap;
 
+use crate::audio::AudioState;
+
 /// Events for controlling MIDI playback
 #[derive(Message, Debug, Clone)]
 pub enum MidiCommand {
@@ -248,22 +250,25 @@ fn midi_sequencer(
 // ... (Generate WAV / handle_midi_commands same as before) ...
 fn generate_wav(num_samples: u32, sample_rate: u32, samples: &[f32]) -> AudioSource {
     let mut bytes = Vec::new();
+    let data_len = num_samples * 2;
+    let total_len = 36 + data_len;
+
     bytes.extend_from_slice(b"RIFF");
-    let total_len = 36 + num_samples * 4;
-    bytes.extend_from_slice(&(total_len as u32).to_le_bytes());
+    bytes.extend_from_slice(&total_len.to_le_bytes());
     bytes.extend_from_slice(b"WAVE");
     bytes.extend_from_slice(b"fmt ");
     bytes.extend_from_slice(&(16u32).to_le_bytes());
-    bytes.extend_from_slice(&(3u16).to_le_bytes());
     bytes.extend_from_slice(&(1u16).to_le_bytes());
-    bytes.extend_from_slice(&(sample_rate).to_le_bytes());
-    bytes.extend_from_slice(&(sample_rate * 4).to_le_bytes());
-    bytes.extend_from_slice(&(4u16).to_le_bytes());
-    bytes.extend_from_slice(&(32u16).to_le_bytes());
+    bytes.extend_from_slice(&(1u16).to_le_bytes());
+    bytes.extend_from_slice(&sample_rate.to_le_bytes());
+    bytes.extend_from_slice(&(sample_rate * 2).to_le_bytes());
+    bytes.extend_from_slice(&(2u16).to_le_bytes());
+    bytes.extend_from_slice(&(16u16).to_le_bytes());
     bytes.extend_from_slice(b"data");
-    bytes.extend_from_slice(&(num_samples * 4).to_le_bytes());
+    bytes.extend_from_slice(&data_len.to_le_bytes());
     for sample in samples {
-        bytes.extend_from_slice(&sample.to_le_bytes());
+        let pcm = (sample.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+        bytes.extend_from_slice(&pcm.to_le_bytes());
     }
     AudioSource {
         bytes: bytes.into(),
@@ -285,6 +290,7 @@ fn handle_midi_commands(
     mut commands: Commands,
     mut events: MessageReader<MidiCommand>,
     mut manager: ResMut<MidiManager>,
+    audio_state: Res<AudioState>,
     midi_assets: Option<Res<MidiAssets>>,
 ) {
     let Some(assets) = midi_assets else { return };
@@ -295,7 +301,9 @@ fn handle_midi_commands(
                 let note_freq = 440.0 * 2.0_f32.powf((*key as f32 - 69.0) / 12.0);
                 let base_freq = 261.63; // C4
                 let speed = note_freq / base_freq;
-                let volume = (*velocity as f32 / 127.0).clamp(0.0, 1.0);
+                let volume = (*velocity as f32 / 127.0).clamp(0.0, 1.0)
+                    * audio_state.master_volume
+                    * audio_state.bgm_volume;
 
                 // Use square wave for bass notes (< 55 G3 ?)
                 let source = if *key < 55 {
@@ -321,7 +329,7 @@ fn handle_midi_commands(
                 }
             }
             MidiCommand::NoteOff { key } => {
-                if let Some(entity) = manager.active_voices.remove(&key) {
+                if let Some(entity) = manager.active_voices.remove(key) {
                     commands.entity(entity).despawn();
                 }
             }

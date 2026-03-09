@@ -15,7 +15,7 @@ use crate::story_graph::GraphExecutor;
 use bevy::prelude::*;
 use bevy_egui::{
     egui::{self, Color32, RichText},
-    EguiPlugin,
+    EguiPlugin, EguiPrimaryContextPass, PrimaryEguiContext,
 };
 use bevy_inspector_egui::bevy_inspector;
 use std::path::PathBuf;
@@ -125,8 +125,8 @@ impl Plugin for EditorPlugin {
                 ..default()
             })
             .init_resource::<ActiveStoryGraph>()
-            .add_systems(Update, configure_visuals_system)
-            .add_systems(Update, editor_ui_system)
+            .add_systems(EguiPrimaryContextPass, configure_visuals_system)
+            .add_systems(EguiPrimaryContextPass, editor_ui_system)
             .add_systems(OnEnter(EditorState::Playing), launch_project_system);
 
         if test_mode {
@@ -236,8 +236,8 @@ fn launch_project_system(
 
 fn editor_ui_system(world: &mut World) {
     let egui_ctx = {
-        let mut egui_query = world
-            .query_filtered::<&mut bevy_egui::EguiContext, With<bevy::window::PrimaryWindow>>();
+        let mut egui_query =
+            world.query_filtered::<&mut bevy_egui::EguiContext, With<PrimaryEguiContext>>();
         let Ok(mut egui_context) = egui_query.single_mut(world) else {
             warn!("Editor UI: primary Egui context unavailable, skipping frame");
             return;
@@ -268,7 +268,7 @@ fn editor_ui_system(world: &mut World) {
 
     let current_state = world.resource::<State<EditorState>>().get();
     let central_frame = if *current_state == EditorState::Playing {
-        egui::Frame::none()
+        egui::Frame::NONE
     } else {
         egui::Frame::central_panel(&egui_ctx.style())
     };
@@ -306,7 +306,7 @@ fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
         ui.menu_button("File", |ui| {
             if ui.button("💾 Save Project").clicked() {
                 save_project_impl(world);
-                ui.close_menu();
+                ui.close();
             }
             if ui.button("📂 Load Project").clicked() {
                 // For now, load default dev path
@@ -339,7 +339,7 @@ fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
                 }
 
                 info!("Editor: Loaded project path 'games/dev/doomexe'");
-                ui.close_menu();
+                ui.close();
             }
         });
 
@@ -782,15 +782,15 @@ fn draw_story_graph(ui: &mut egui::Ui, world: &mut World) {
         ui.separator();
         if ui.button("Start Node").clicked() {
             add_node_cmd = Some("Start");
-            ui.close_menu();
+            ui.close();
         }
         if ui.button("Dialogue Node").clicked() {
             add_node_cmd = Some("Dialogue");
-            ui.close_menu();
+            ui.close();
         }
         if ui.button("End Node").clicked() {
             add_node_cmd = Some("End");
-            ui.close_menu();
+            ui.close();
         }
     });
 

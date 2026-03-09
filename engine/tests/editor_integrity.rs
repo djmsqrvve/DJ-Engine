@@ -11,7 +11,6 @@ fn test_editor_initialization_and_state() {
     // Minimal plugins required for the editor resources and states to be registered
     // We don't add the full DefaultPlugins because we don't want a window/renderer in tests
     app.add_plugins(MinimalPlugins);
-    app.add_plugins(HierarchyPlugin);
     app.add_plugins(bevy::state::app::StatesPlugin);
 
     // We can't easily add EguiPlugin in headless without Winit/Window,

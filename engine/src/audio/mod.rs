@@ -22,10 +22,18 @@ impl AudioState {
     pub fn new() -> Self {
         Self {
             current_bgm: None,
-            master_volume: 1.0,
+            master_volume: 0.0,
             bgm_volume: 0.8,
             sfx_volume: 1.0,
         }
+    }
+
+    fn bgm_output_volume(&self) -> f32 {
+        self.master_volume * self.bgm_volume
+    }
+
+    fn sfx_output_volume(&self) -> f32 {
+        self.master_volume * self.sfx_volume
     }
 }
 
@@ -90,9 +98,11 @@ fn handle_audio_commands(
 
                 // Load and play new BGM
                 let audio_handle: Handle<AudioSource> = asset_server.load(track.clone());
+                let mut settings = PlaybackSettings::LOOP;
+                settings.volume = bevy::audio::Volume::Linear(audio_state.bgm_output_volume());
                 commands.spawn((
                     AudioPlayer::<AudioSource>(audio_handle),
-                    PlaybackSettings::LOOP,
+                    settings,
                     BgmSource,
                 ));
                 audio_state.current_bgm = Some(track.clone());
@@ -109,9 +119,11 @@ fn handle_audio_commands(
             AudioCommand::PlaySfx { sound } => {
                 // Play one-shot SFX
                 let audio_handle: Handle<AudioSource> = asset_server.load(sound.clone());
+                let mut settings = PlaybackSettings::DESPAWN;
+                settings.volume = bevy::audio::Volume::Linear(audio_state.sfx_output_volume());
                 commands.spawn((
                     AudioPlayer::<AudioSource>(audio_handle),
-                    PlaybackSettings::DESPAWN,
+                    settings,
                     SfxSource,
                 ));
                 debug!("Playing SFX: {}", sound);

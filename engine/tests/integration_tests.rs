@@ -80,7 +80,7 @@ fn test_story_graph_branching() {
     let executor = app.world().resource::<GraphExecutor>();
     let flags = app.world().resource::<StoryFlags>();
 
-    assert_eq!(flags.get("met_hamster"), true);
+    assert!(flags.get("met_hamster"));
     assert_eq!(executor.current_node, Some(2)); // Should have jumped to Node 2
     assert_eq!(executor.status, ExecutionStatus::WaitingForInput);
 }
