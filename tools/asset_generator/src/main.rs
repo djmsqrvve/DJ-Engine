@@ -15,13 +15,13 @@ fn main() {
     let midi_path = music_dir.join("overworld_theme.mid");
     std::fs::write(&midi_path, midi_bytes).expect("Failed to write MIDI file");
     println!("Generated MIDI: {:?}", midi_path);
-    
+
     // Process existing files (which are actually JPEGs right now)
     // ... rest of processing
     // Body: 1024x1024 -> 64x64
     if assets_dir.exists() {
         process_asset(assets_dir.join("body/body.png"), 64, 64);
-        
+
         // Heads: 1024x1024 -> 32x32
         process_asset(assets_dir.join("head/head.png"), 32, 32);
         process_asset(assets_dir.join("head/head_happy.png"), 32, 32);
@@ -42,7 +42,7 @@ fn process_asset(path: std::path::PathBuf, w: u32, h: u32) {
     }
 
     println!("Processing {:?}...", path);
-    
+
     // Read file bytes
     let bytes = std::fs::read(&path).expect("Failed to read file");
 
@@ -50,7 +50,7 @@ fn process_asset(path: std::path::PathBuf, w: u32, h: u32) {
     let img = match ImageReader::new(std::io::Cursor::new(bytes))
         .with_guessed_format()
         .expect("Failed to guess format")
-        .decode() 
+        .decode()
     {
         Ok(i) => i,
         Err(e) => {

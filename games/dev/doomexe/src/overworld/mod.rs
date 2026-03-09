@@ -1,9 +1,9 @@
-use bevy::prelude::*;
 use crate::state::GameState;
+use bevy::prelude::*;
 
-pub mod player;
-pub mod interaction;
 mod camera;
+pub mod interaction;
+pub mod player;
 
 pub struct OverworldPlugin;
 
@@ -16,7 +16,8 @@ impl Plugin for OverworldPlugin {
                     player::player_movement,
                     interaction::interaction_check,
                     camera::camera_follow_system,
-                ).run_if(in_state(GameState::Overworld)),
+                )
+                    .run_if(in_state(GameState::Overworld)),
             )
             .add_systems(OnExit(GameState::Overworld), teardown_overworld);
     }
@@ -37,8 +38,8 @@ fn setup_overworld(
     mut camera_query: Query<(Entity, &mut Projection), With<MainCamera>>,
 ) {
     // Configure existing Main Camera
-    if let Ok((entity, mut projection)) = camera_query.get_single_mut() {
-        if let Some(ortho) = projection.as_mut().as_any_mut().downcast_mut::<OrthographicProjection>() {
+    if let Ok((entity, mut projection)) = camera_query.single_mut() {
+        if let Projection::Orthographic(ortho) = &mut *projection {
             ortho.scale = 2.0;
         }
         commands.entity(entity).insert(camera::CameraFollow);
@@ -64,7 +65,9 @@ fn setup_overworld(
             ..default()
         },
         Transform::from_xyz(100.0, 50.0, 10.0),
-        NPC { id: "hamster_narrator".to_string() },
+        NPC {
+            id: "hamster_narrator".to_string(),
+        },
         OverworldEntity,
     ));
 
@@ -76,7 +79,9 @@ fn setup_overworld(
             ..default()
         },
         Transform::from_xyz(-100.0, -50.0, 10.0),
-        NPC { id: "glitch_puddle".to_string() },
+        NPC {
+            id: "glitch_puddle".to_string(),
+        },
         OverworldEntity,
     ));
 

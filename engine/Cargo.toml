@@ -12,11 +12,10 @@ mlua = { workspace = true }
 midly = { version = "0.5", features = ["std"] }
 rodio = "0.19"
 bevy_egui = { workspace = true }
-bevy-inspector-egui = "0.28"
+bevy-inspector-egui = "0.36.0"
 chrono = "0.4"
 uuid = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-
 

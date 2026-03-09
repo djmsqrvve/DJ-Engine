@@ -31,8 +31,8 @@ pub struct SceneManager {
     pub next_background: Option<String>,
 }
 
-/// Event to trigger a scene change.
-#[derive(Event)]
+/// Message to trigger a scene change.
+#[derive(Message)]
 pub struct ChangeSceneEvent {
     /// Path to the new background image
     pub background_path: String,
@@ -46,7 +46,7 @@ pub struct DJScenePlugin;
 impl Plugin for DJScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SceneManager>()
-            .add_event::<ChangeSceneEvent>()
+            .add_message::<ChangeSceneEvent>()
             .add_systems(Startup, setup_transition_overlay)
             .add_systems(Update, (handle_scene_change, update_transition));
 
@@ -75,7 +75,7 @@ pub struct TransitionOverlay;
 
 /// System to handle scene change events.
 fn handle_scene_change(
-    mut events: EventReader<ChangeSceneEvent>,
+    mut events: MessageReader<ChangeSceneEvent>,
     mut manager: ResMut<SceneManager>,
 ) {
     for event in events.read() {
@@ -85,7 +85,7 @@ fn handle_scene_change(
         }
 
         info!("Starting scene transition to: {}", event.background_path);
-        
+
         // Start fade out to black
         manager.state = TransitionState::FadingOut;
         manager.alpha = 0.0;
@@ -112,7 +112,7 @@ fn update_transition(
     match manager.state {
         TransitionState::FadingOut => {
             manager.alpha = (manager.alpha + manager.speed * dt).min(1.0);
-            
+
             if manager.alpha >= 1.0 {
                 // Screen is black, swap backgrounds
                 for entity in bg_query.iter() {
@@ -138,7 +138,7 @@ fn update_transition(
         }
         TransitionState::FadingIn => {
             manager.alpha = (manager.alpha - manager.speed * dt).max(0.0);
-            
+
             if manager.alpha <= 0.0 {
                 // Transition complete
                 manager.state = TransitionState::Idle;

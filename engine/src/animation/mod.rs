@@ -24,5 +24,3 @@ impl Plugin for DJAnimationPlugin {
         );
     }
 }
-
-

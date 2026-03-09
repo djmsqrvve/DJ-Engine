@@ -5,8 +5,8 @@
 
 use bevy::prelude::*;
 
-use super::scene::{Scene, Entity as SceneEntity, EntityType};
 use super::components::Vec3Data;
+use super::scene::{Entity as SceneEntity, EntityType, Scene};
 
 /// Resource holding the currently loaded scene data.
 #[derive(Resource, Default)]
@@ -84,7 +84,11 @@ pub fn spawn_scene_entities(
         return;
     };
 
-    info!("Spawning {} entities from scene '{}'", scene.entities.len(), scene.name);
+    info!(
+        "Spawning {} entities from scene '{}'",
+        scene.entities.len(),
+        scene.name
+    );
 
     for entity in &scene.entities {
         spawn_entity(&mut commands, entity, &asset_server);
@@ -177,7 +181,10 @@ fn spawn_entity(commands: &mut Commands, entity: &SceneEntity, asset_server: &As
     // TODO: Add audio source components
     // TODO: Add interactivity components
 
-    debug!("Spawned entity '{}' ({:?})", entity.name, entity.entity_type);
+    debug!(
+        "Spawned entity '{}' ({:?})",
+        entity.name, entity.entity_type
+    );
 }
 
 /// System to despawn all scene entities.
@@ -186,7 +193,7 @@ pub fn despawn_scene_entities(
     query: Query<Entity, With<SceneEntityMarker>>,
 ) {
     for entity in query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -203,8 +210,7 @@ impl Plugin for SceneDataPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::scene::{Scene, Entity as SceneEntity};
-    use crate::data::components::{TransformComponent, Vec3Data};
+    use crate::data::components::Vec3Data;
 
     #[test]
     fn test_vec3_conversion() {

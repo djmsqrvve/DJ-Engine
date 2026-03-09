@@ -212,7 +212,10 @@ impl AssetIndex {
 
     /// Get all sprites with a specific tag.
     pub fn sprites_with_tag(&self, tag: &str) -> Vec<&SpriteAsset> {
-        self.sprites.iter().filter(|s| s.tags.contains(&tag.to_string())).collect()
+        self.sprites
+            .iter()
+            .filter(|s| s.tags.contains(&tag.to_string()))
+            .collect()
     }
 }
 
@@ -223,8 +226,14 @@ mod tests {
     #[test]
     fn test_asset_index_serialization() {
         let mut index = AssetIndex::new();
-        index.sprites.push(SpriteAsset::new("hero", "sprites/hero.png").with_tags(vec!["character".to_string()]));
-        index.audio.push(AudioAsset::new("bgm_intro", "audio/intro.ogg", AudioType::Music));
+        index.sprites.push(
+            SpriteAsset::new("hero", "sprites/hero.png").with_tags(vec!["character".to_string()]),
+        );
+        index.audio.push(AudioAsset::new(
+            "bgm_intro",
+            "audio/intro.ogg",
+            AudioType::Music,
+        ));
 
         let json = serde_json::to_string_pretty(&index).unwrap();
         let parsed: AssetIndex = serde_json::from_str(&json).unwrap();

@@ -49,7 +49,6 @@ impl Default for DiagnosticConfig {
     }
 }
 
-
 /// Engine configuration resource.
 #[derive(Resource, Debug, Clone, Reflect)]
 #[reflect(Resource)]

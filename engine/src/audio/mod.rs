@@ -29,8 +29,8 @@ impl AudioState {
     }
 }
 
-/// Events for audio control.
-#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+/// Messages for audio control.
+#[derive(Message, Debug, Clone, PartialEq, Reflect)]
 pub enum AudioCommand {
     /// Play background music (with optional crossfade duration in seconds)
     PlayBgm { track: String, crossfade: f32 },
@@ -62,31 +62,34 @@ impl Plugin for DJAudioPlugin {
         app.insert_resource(AudioState::new())
             .register_type::<AudioState>()
             .register_type::<AudioCommand>()
-            .add_event::<AudioCommand>()
+            .add_message::<AudioCommand>()
             .add_systems(Update, handle_audio_commands);
 
-        info!("DJ Audio Plugin initialized (Note: If on WSL2, ensure PulseAudio/PipeWire is bridgeable if ALSA errors occur)");
+        info!("DJ Audio Plugin initialized");
     }
 }
 
 /// System that processes audio commands.
 fn handle_audio_commands(
     mut commands: Commands,
-    mut audio_commands: EventReader<AudioCommand>,
+    mut audio_commands: MessageReader<AudioCommand>,
     mut audio_state: ResMut<AudioState>,
     asset_server: Res<AssetServer>,
     bgm_query: Query<Entity, With<BgmSource>>,
 ) {
     for cmd in audio_commands.read() {
         match cmd {
-            AudioCommand::PlayBgm { track, crossfade: _ } => {
+            AudioCommand::PlayBgm {
+                track,
+                crossfade: _,
+            } => {
                 // Stop existing BGM first
                 for entity in bgm_query.iter() {
                     commands.entity(entity).despawn();
                 }
 
                 // Load and play new BGM
-                let audio_handle: Handle<AudioSource> = asset_server.load(track.as_str());
+                let audio_handle: Handle<AudioSource> = asset_server.load(track.clone());
                 commands.spawn((
                     AudioPlayer::<AudioSource>(audio_handle),
                     PlaybackSettings::LOOP,
@@ -105,7 +108,7 @@ fn handle_audio_commands(
             }
             AudioCommand::PlaySfx { sound } => {
                 // Play one-shot SFX
-                let audio_handle: Handle<AudioSource> = asset_server.load(sound.as_str());
+                let audio_handle: Handle<AudioSource> = asset_server.load(sound.clone());
                 commands.spawn((
                     AudioPlayer::<AudioSource>(audio_handle),
                     PlaybackSettings::DESPAWN,

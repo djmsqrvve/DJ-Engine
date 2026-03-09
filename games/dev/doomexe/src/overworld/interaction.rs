@@ -1,8 +1,8 @@
-use bevy::prelude::*;
+use super::{player::Player, NPC};
 use crate::state::GameState;
 use crate::story::StoryState;
-use dj_engine::story_graph::{GraphExecutor, StoryNode, StoryGraph};
-use super::{player::Player, NPC};
+use bevy::prelude::*;
+use dj_engine::story_graph::{GraphExecutor, StoryGraph, StoryNode};
 
 pub fn interaction_check(
     keys: Res<ButtonInput<KeyCode>>,
@@ -13,12 +13,14 @@ pub fn interaction_check(
     npc_query: Query<(&Transform, &NPC)>,
 ) {
     if keys.just_pressed(KeyCode::KeyE) {
-        if let Ok(player_transform) = player_query.get_single() {
+        if let Ok(player_transform) = player_query.single() {
             for (npc_transform, npc) in &npc_query {
-                let distance = player_transform.translation.distance(npc_transform.translation);
+                let distance = player_transform
+                    .translation
+                    .distance(npc_transform.translation);
                 if distance < 50.0 {
                     info!("Interacting with NPC: {}", npc.id);
-                    
+
                     match npc.id.as_str() {
                         "hamster_narrator" => {
                             let mut graph = StoryGraph::new();
@@ -65,7 +67,7 @@ pub fn interaction_check(
                             let set_met = graph.add(StoryNode::SetFlag {
                                 flag: "MetHamster".to_string(),
                                 value: true,
-                                next: Some(end), 
+                                next: Some(end),
                             });
                             let intro3 = graph.add(StoryNode::Dialogue {
                                 speaker: "Hamster Narrator".to_string(),
@@ -73,7 +75,7 @@ pub fn interaction_check(
                                 portrait: None,
                                 next: Some(set_met),
                             });
-                             let intro2 = graph.add(StoryNode::Dialogue {
+                            let intro2 = graph.add(StoryNode::Dialogue {
                                 speaker: "Hamster Narrator".to_string(),
                                 text: "This prototype was scraped from the internet after it caused too much... doom.".to_string(),
                                 portrait: None,
@@ -141,7 +143,7 @@ pub fn interaction_check(
                                 portrait: None,
                                 next: Some(end),
                             });
-                             let warn1 = graph.add(StoryNode::Dialogue {
+                            let warn1 = graph.add(StoryNode::Dialogue {
                                 speaker: "Glitch".to_string(),
                                 text: "It's a writhing mass of corrupted data.".to_string(),
                                 portrait: None,

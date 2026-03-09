@@ -5,7 +5,7 @@ pub enum GameState {
     #[default]
     TitleScreen,
     Overworld,
-    
+
     // Narrative states
     NarratorDialogue,
     Battle,

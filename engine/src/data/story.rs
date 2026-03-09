@@ -3,12 +3,12 @@
 //! This module provides serializable story graph types that complement
 //! the existing `story_graph::StoryNode` runtime types with JSON support.
 
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use bevy::prelude::*;
 
 use super::components::Vec3Data;
-use super::scene::{Scene, EntityType};
+use super::scene::{EntityType, Scene};
 
 /// Story graph type categorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Reflect)]
@@ -49,7 +49,6 @@ pub enum StoryNodeType {
 
 // Wait, I messed up the thinking. I can use MultiReplaceFileContent or multiple ReplaceFileContent.
 // I'll do StoryNodeType update first.
-
 
 /// Condition operator for story conditions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Reflect)]
@@ -114,7 +113,9 @@ pub struct RequiredItem {
     pub quantity: u32,
 }
 
-fn default_one() -> u32 { 1 }
+fn default_one() -> u32 {
+    1
+}
 
 /// Localized string (text in multiple languages).
 pub type LocalizedString = HashMap<String, String>;
@@ -243,8 +244,12 @@ pub struct CameraNodeData {
     pub next_node_id: Option<String>,
 }
 
-fn default_zoom() -> f32 { 1.0 }
-fn default_duration() -> f32 { 1.0 }
+fn default_zoom() -> f32 {
+    1.0
+}
+fn default_duration() -> f32 {
+    1.0
+}
 
 impl Default for CameraNodeData {
     fn default() -> Self {
@@ -274,7 +279,9 @@ pub struct TimeControlNodeData {
     pub next_node_id: Option<String>,
 }
 
-fn default_time_scale() -> f32 { 1.0 }
+fn default_time_scale() -> f32 {
+    1.0
+}
 
 impl Default for TimeControlNodeData {
     fn default() -> Self {
@@ -334,12 +341,15 @@ pub struct StoryNodeData {
     /// Items required by this node
     #[serde(default)]
     pub required_items: Vec<RequiredItem>,
-
 }
 
 impl StoryNodeData {
     /// Create a new dialogue node.
-    pub fn dialogue(id: impl Into<String>, speaker: impl Into<String>, text: impl Into<String>) -> Self {
+    pub fn dialogue(
+        id: impl Into<String>,
+        speaker: impl Into<String>,
+        text: impl Into<String>,
+    ) -> Self {
         let mut text_map = HashMap::new();
         text_map.insert("en".to_string(), text.into());
         Self {
@@ -398,9 +408,16 @@ impl StoryNodeData {
         match &self.data {
             StoryNodeVariant::Start(s) => s.next_node_id.as_deref().into_iter().collect(),
             StoryNodeVariant::Dialogue(d) => d.next_node_id.as_deref().into_iter().collect(),
-            StoryNodeVariant::Choice(c) => c.options.iter().map(|o| o.target_node_id.as_str()).collect(),
+            StoryNodeVariant::Choice(c) => c
+                .options
+                .iter()
+                .map(|o| o.target_node_id.as_str())
+                .collect(),
             StoryNodeVariant::Action(a) => a.next_node_id.as_deref().into_iter().collect(),
-            StoryNodeVariant::Conditional(c) => vec![c.true_target_node_id.as_str(), c.false_target_node_id.as_str()],
+            StoryNodeVariant::Conditional(c) => vec![
+                c.true_target_node_id.as_str(),
+                c.false_target_node_id.as_str(),
+            ],
             StoryNodeVariant::Camera(c) => c.next_node_id.as_deref().into_iter().collect(),
             StoryNodeVariant::TimeControl(t) => t.next_node_id.as_deref().into_iter().collect(),
             StoryNodeVariant::End(_) => vec![],
@@ -427,7 +444,12 @@ pub enum SceneValidationError {
     /// Node requires an entity that is missing from the scene
     MissingRequiredEntity { node_id: String, entity_id: String },
     /// Node requires an entity of a specific type, but found different type
-    WrongEntityType { node_id: String, entity_id: String, expected: EntityType, found: EntityType },
+    WrongEntityType {
+        node_id: String,
+        entity_id: String,
+        expected: EntityType,
+        found: EntityType,
+    },
 }
 
 /// A complete story graph.
@@ -481,7 +503,8 @@ impl StoryGraphData {
     /// Validate the story graph and return any errors.
     pub fn validate(&self) -> Vec<ValidationError> {
         let mut errors = Vec::new();
-        let node_ids: std::collections::HashSet<_> = self.nodes.iter().map(|n| n.id.as_str()).collect();
+        let node_ids: std::collections::HashSet<_> =
+            self.nodes.iter().map(|n| n.id.as_str()).collect();
 
         // Check root node exists
         if !node_ids.contains(self.root_node_id.as_str()) {
@@ -541,8 +564,6 @@ impl StoryGraphData {
 
         errors
     }
-
-
 }
 
 #[cfg(test)]
@@ -576,13 +597,15 @@ mod tests {
         };
 
         let errors = graph.validate();
-        assert!(errors.iter().any(|e| matches!(e, ValidationError::MissingRootNode(_))));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::MissingRootNode(_))));
     }
 
     #[test]
     fn test_validate_against_scene() {
-        use crate::data::scene::{Scene, Entity, EntityType};
-        
+        use crate::data::scene::{Entity, EntityType, Scene};
+
         let mut graph = StoryGraphData::new("test", "Test");
         let mut node = StoryNodeData::dialogue("node1", "Hero", "Hi");
         node.required_entities.push(RequiredEntity {
@@ -595,17 +618,23 @@ mod tests {
         let scene = Scene::default();
         let errors = graph.validate_against_scene(&scene);
         assert_eq!(errors.len(), 1);
-        assert!(matches!(errors[0], SceneValidationError::MissingRequiredEntity { .. }));
+        assert!(matches!(
+            errors[0],
+            SceneValidationError::MissingRequiredEntity { .. }
+        ));
 
         // Case 2: Entity exists but wrong type
         let mut scene = Scene::default();
         let mut entity = Entity::new("hero_01", "Hero");
         entity.entity_type = EntityType::Enemy; // Wrong type
         scene.add_entity(entity);
-        
+
         let errors = graph.validate_against_scene(&scene);
         assert_eq!(errors.len(), 1);
-        assert!(matches!(errors[0], SceneValidationError::WrongEntityType { .. }));
+        assert!(matches!(
+            errors[0],
+            SceneValidationError::WrongEntityType { .. }
+        ));
 
         // Case 3: Correct
         let mut scene = Scene::default();

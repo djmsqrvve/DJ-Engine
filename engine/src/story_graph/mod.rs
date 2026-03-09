@@ -3,10 +3,10 @@
 //! Replaces linear dialogue queues with a directed graph of nodes.
 //! Supports branching logic, events, and complex narrative flow.
 
-use bevy::prelude::*;
-use std::collections::HashMap;
 use crate::audio::AudioCommand;
 use crate::scene::ChangeSceneEvent;
+use bevy::prelude::*;
+use std::collections::HashMap;
 
 /// Unique identifier for a node in the graph.
 pub type NodeId = usize;
@@ -51,10 +51,7 @@ pub enum StoryNode {
         next: Option<NodeId>,
     },
     /// Wait for a specified duration in seconds.
-    Wait {
-        duration: f32,
-        next: Option<NodeId>,
-    },
+    Wait { duration: f32, next: Option<NodeId> },
     /// A generic event trigger for game-specific logic.
     Event {
         event_id: String,
@@ -62,9 +59,7 @@ pub enum StoryNode {
         next: Option<NodeId>,
     },
     /// Start execution of the graph.
-    Start {
-        next: Option<NodeId>,
-    },
+    Start { next: Option<NodeId> },
     /// End execution of the current graph.
     End,
 }
@@ -136,7 +131,7 @@ pub enum ExecutionStatus {
 #[reflect(Resource)]
 pub struct GraphExecutor {
     // For prototype simplicity, we store the struct directly.
-    pub active_graph: Option<StoryGraph>,     
+    pub active_graph: Option<StoryGraph>,
     pub current_node: Option<NodeId>,
     pub status: ExecutionStatus,
     pub wait_timer: Timer,
@@ -160,19 +155,19 @@ impl GraphExecutor {
         // Pass 1: Allocate IDs
         for node_data in &data.nodes {
             let next_id = graph.next_id; // Peek next ID
-            // We insert a placeholder to reserve the ID
-            graph.add(StoryNode::End); 
+                                         // We insert a placeholder to reserve the ID
+            graph.add(StoryNode::End);
             id_map.insert(node_data.id.clone(), next_id);
         }
 
         // Pass 2: Overwrite with actual data
         for node_data in &data.nodes {
             let runtime_id = id_map[&node_data.id];
-            
+
             let resolve = |opt_id: &Option<String>| -> Option<NodeId> {
                 opt_id.as_ref().and_then(|id| id_map.get(id).cloned())
             };
-            
+
             let node = match &node_data.data {
                 StoryNodeVariant::Start(d) => StoryNode::Start {
                     next: resolve(&d.next_node_id),
@@ -186,21 +181,25 @@ impl GraphExecutor {
                 StoryNodeVariant::Choice(c) => StoryNode::Choice {
                     speaker: "Player".into(), // Default?
                     prompt: c.prompt.get("en").cloned().unwrap_or_default(),
-                    options: c.options.iter().map(|o| GraphChoice {
-                        text: o.text.get("en").cloned().unwrap_or_default(),
-                        next: Some(id_map[&o.target_node_id]), // Choices must have targets?
-                        flag_required: None,
-                    }).collect(),
+                    options: c
+                        .options
+                        .iter()
+                        .map(|o| GraphChoice {
+                            text: o.text.get("en").cloned().unwrap_or_default(),
+                            next: Some(id_map[&o.target_node_id]), // Choices must have targets?
+                            flag_required: None,
+                        })
+                        .collect(),
                 },
                 StoryNodeVariant::Action(a) => {
-                     // For now, assume action is Event? or Lua script?
-                     // Maps to Event for prototype
-                     StoryNode::Event {
-                         event_id: "lua_script".into(),
-                         payload: a.lua_script_id.clone(),
-                         next: resolve(&a.next_node_id),
-                     }
-                },
+                    // For now, assume action is Event? or Lua script?
+                    // Maps to Event for prototype
+                    StoryNode::Event {
+                        event_id: "lua_script".into(),
+                        payload: a.lua_script_id.clone(),
+                        next: resolve(&a.next_node_id),
+                    }
+                }
                 StoryNodeVariant::End(e) => {
                     if let Some(scene) = &e.target_scene_id {
                         StoryNode::Scene {
@@ -211,18 +210,13 @@ impl GraphExecutor {
                     } else {
                         StoryNode::End
                     }
-                },
+                }
                 _ => StoryNode::End, // Unimplemented variants
             };
 
             graph.nodes.insert(runtime_id, node);
         }
 
-        if let Ok(start_id) = data.root_node_id.parse::<usize>() {
-             // If root_node_id happens to be numerical? unlikely. 
-             // We need to look up root node from map.
-        }
-        
         if let Some(start_id) = id_map.get(&data.root_node_id) {
             graph.set_start(*start_id);
         }
@@ -232,21 +226,28 @@ impl GraphExecutor {
 }
 
 /// Events sent FROM the Executor TO the UI/Game
-#[derive(Event, Debug, Clone)]
+#[derive(Message, Debug, Clone)]
 pub enum StoryFlowEvent {
-    ShowDialogue { speaker: String, text: String, portrait: Option<String> },
-    ShowChoices { prompt: String, options: Vec<String> }, // Only send text to UI
+    ShowDialogue {
+        speaker: String,
+        text: String,
+        portrait: Option<String>,
+    },
+    ShowChoices {
+        prompt: String,
+        options: Vec<String>,
+    }, // Only send text to UI
     GraphComplete,
 }
 
 /// Events sent FROM the UI/Game TO the Executor
-#[derive(Event, Debug, Clone)]
+#[derive(Message, Debug, Clone)]
 pub enum StoryInputEvent {
     Advance,
     SelectChoice(usize),
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct StoryEvent {
     pub id: String,
     pub payload: String,
@@ -257,17 +258,17 @@ pub struct StoryGraphPlugin;
 impl Plugin for StoryGraphPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<StoryGraph>()
-           .register_type::<StoryNode>()
-           .register_type::<GraphChoice>()
-           .register_type::<StoryFlags>()
-           .register_type::<ExecutionStatus>()
-           .register_type::<GraphExecutor>()
-           .init_resource::<GraphExecutor>()
-           .init_resource::<StoryFlags>()
-           .add_event::<StoryEvent>()
-           .add_event::<StoryFlowEvent>()
-           .add_event::<StoryInputEvent>()
-           .add_systems(Update, execute_graph);
+            .register_type::<StoryNode>()
+            .register_type::<GraphChoice>()
+            .register_type::<StoryFlags>()
+            .register_type::<ExecutionStatus>()
+            .register_type::<GraphExecutor>()
+            .init_resource::<GraphExecutor>()
+            .init_resource::<StoryFlags>()
+            .add_message::<StoryEvent>()
+            .add_message::<StoryFlowEvent>()
+            .add_message::<StoryInputEvent>()
+            .add_systems(Update, execute_graph);
     }
 }
 
@@ -282,11 +283,11 @@ enum NodeAction {
 fn execute_graph(
     mut executor: ResMut<GraphExecutor>,
     mut flags: ResMut<StoryFlags>,
-    mut audio_events: EventWriter<AudioCommand>,
-    mut scene_events: EventWriter<ChangeSceneEvent>,
-    mut flow_events: EventWriter<StoryFlowEvent>,
-    mut story_events: EventWriter<StoryEvent>,
-    mut input_events: EventReader<StoryInputEvent>,
+    mut audio_events: MessageWriter<AudioCommand>,
+    mut scene_events: MessageWriter<ChangeSceneEvent>,
+    mut flow_events: MessageWriter<StoryFlowEvent>,
+    mut story_events: MessageWriter<StoryEvent>,
+    mut input_events: MessageReader<StoryInputEvent>,
     time: Res<Time>,
 ) {
     // 1. Handle Input (if waiting)
@@ -307,7 +308,7 @@ fn execute_graph(
     // 2. Handle Timer (if waiting)
     if executor.status == ExecutionStatus::WaitingForTimer {
         executor.wait_timer.tick(time.delta());
-        if executor.wait_timer.finished() {
+        if executor.wait_timer.is_finished() {
             executor.status = ExecutionStatus::Running;
             advance_node(&mut executor);
         }
@@ -320,7 +321,7 @@ fn execute_graph(
         loops += 1;
 
         // In a real asset system we'd use Handle and Assets<StoryGraph>
-        
+
         if let Some(graph) = &executor.active_graph {
             if let Some(node_id) = executor.current_node {
                 if let Some(node) = graph.nodes.get(&node_id) {
@@ -330,7 +331,7 @@ fn execute_graph(
                         &mut flow_events,
                         &mut audio_events,
                         &mut scene_events,
-                        &mut story_events
+                        &mut story_events,
                     );
 
                     match action {
@@ -349,7 +350,7 @@ fn execute_graph(
                         }
                         NodeAction::End => {
                             executor.status = ExecutionStatus::Idle;
-                            flow_events.send(StoryFlowEvent::GraphComplete);
+                            flow_events.write(StoryFlowEvent::GraphComplete);
                         }
                     }
                 } else {
@@ -357,7 +358,7 @@ fn execute_graph(
                 }
             } else {
                 executor.status = ExecutionStatus::Idle;
-                flow_events.send(StoryFlowEvent::GraphComplete);
+                flow_events.write(StoryFlowEvent::GraphComplete);
             }
         } else {
             executor.status = ExecutionStatus::Idle;
@@ -367,40 +368,51 @@ fn execute_graph(
 
 fn advance_node(executor: &mut GraphExecutor) {
     // Helper to move to the 'default next' of the current node
-    // This duplicates logic inside process_node if we aren't careful, 
+    // This duplicates logic inside process_node if we aren't careful,
     // but process_node returns 'Advance' meaning "Go to my .next field".
-    
+
     // We need to peek at the current node to know its next.
     // This is slightly inefficient but safe.
     let next_id = if let Some(graph) = &executor.active_graph {
         if let Some(node_id) = executor.current_node {
             if let Some(node) = graph.nodes.get(&node_id) {
-                 match node {
+                match node {
                     StoryNode::Dialogue { next, .. } => *next,
                     StoryNode::Audio { next, .. } => *next,
                     StoryNode::Scene { next, .. } => *next,
                     StoryNode::Wait { next, .. } => *next,
                     StoryNode::SetFlag { next, .. } => *next,
-                    StoryNode::SetFlag { next, .. } => *next,
                     StoryNode::Event { next, .. } => *next,
                     StoryNode::Start { next, .. } => *next,
                     _ => None,
                 }
-            } else { None }
-        } else { None }
-    } else { None };
-    
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     executor.current_node = next_id;
 }
 
 fn handle_choice_selection(executor: &mut GraphExecutor, index: usize) {
     let next_id = if let Some(graph) = &executor.active_graph {
         if let Some(node_id) = executor.current_node {
-             if let StoryNode::Choice { options, .. } = &graph.nodes[&node_id] {
-                 options.get(index).and_then(|opt| opt.next)
-             } else { None }
-        } else { None }
-    } else { None };
+            if let StoryNode::Choice { options, .. } = &graph.nodes[&node_id] {
+                options.get(index).and_then(|opt| opt.next)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
     executor.current_node = next_id;
     executor.status = ExecutionStatus::Running;
@@ -409,63 +421,80 @@ fn handle_choice_selection(executor: &mut GraphExecutor, index: usize) {
 fn process_node(
     node: &StoryNode,
     flags: &mut StoryFlags,
-    flow: &mut EventWriter<StoryFlowEvent>,
-    audio: &mut EventWriter<AudioCommand>,
-    scene: &mut EventWriter<ChangeSceneEvent>,
-    story: &mut EventWriter<StoryEvent>,
+    flow: &mut MessageWriter<StoryFlowEvent>,
+    audio: &mut MessageWriter<AudioCommand>,
+    scene: &mut MessageWriter<ChangeSceneEvent>,
+    story: &mut MessageWriter<StoryEvent>,
 ) -> NodeAction {
     match node {
-        StoryNode::Dialogue { speaker, text, portrait, .. } => {
-            flow.send(StoryFlowEvent::ShowDialogue { 
-                speaker: speaker.clone(), 
-                text: text.clone(), 
-                portrait: portrait.clone() 
+        StoryNode::Dialogue {
+            speaker,
+            text,
+            portrait,
+            ..
+        } => {
+            flow.write(StoryFlowEvent::ShowDialogue {
+                speaker: speaker.clone(),
+                text: text.clone(),
+                portrait: portrait.clone(),
             });
             NodeAction::WaitInput
         }
-        StoryNode::Choice { prompt, options, .. } => {
+        StoryNode::Choice {
+            prompt, options, ..
+        } => {
             let option_texts = options.iter().map(|o| o.text.clone()).collect();
-            flow.send(StoryFlowEvent::ShowChoices { 
-                prompt: prompt.clone(), 
-                options: option_texts 
+            flow.write(StoryFlowEvent::ShowChoices {
+                prompt: prompt.clone(),
+                options: option_texts,
             });
             NodeAction::WaitInput
         }
         StoryNode::Audio { command, .. } => {
-            audio.send(command.clone());
+            audio.write(command.clone());
             NodeAction::Advance
         }
         StoryNode::Scene { path, duration, .. } => {
-            scene.send(ChangeSceneEvent { 
-                background_path: path.clone(), 
-                duration: *duration 
+            scene.write(ChangeSceneEvent {
+                background_path: path.clone(),
+                duration: *duration,
             });
             NodeAction::Advance // Or WaitTimer if we want to block? For now Advance.
         }
-        StoryNode::Wait { duration, .. } => {
-            NodeAction::WaitTimer(*duration)
-        }
-        StoryNode::Branch { flag, if_true, if_false } => {
+        StoryNode::Wait { duration, .. } => NodeAction::WaitTimer(*duration),
+        StoryNode::Branch {
+            flag,
+            if_true,
+            if_false,
+        } => {
             if flags.get(flag) {
-                if let Some(id) = if_true { NodeAction::Jump(*id) } else { NodeAction::Advance }
+                if let Some(id) = if_true {
+                    NodeAction::Jump(*id)
+                } else {
+                    NodeAction::Advance
+                }
             } else {
-                if let Some(id) = if_false { NodeAction::Jump(*id) } else { NodeAction::Advance }
+                if let Some(id) = if_false {
+                    NodeAction::Jump(*id)
+                } else {
+                    NodeAction::Advance
+                }
             }
         }
         StoryNode::SetFlag { flag, value, .. } => {
             flags.set(flag, *value);
             NodeAction::Advance
         }
-        StoryNode::Event { event_id, payload, .. } => {
-            story.send(StoryEvent { id: event_id.clone(), payload: payload.clone() });
+        StoryNode::Event {
+            event_id, payload, ..
+        } => {
+            story.write(StoryEvent {
+                id: event_id.clone(),
+                payload: payload.clone(),
+            });
             NodeAction::Advance
         }
-        StoryNode::End => {
-            NodeAction::End
-        }
-        StoryNode::Start { .. } => {
-            NodeAction::Advance
-        }
+        StoryNode::End => NodeAction::End,
+        StoryNode::Start { .. } => NodeAction::Advance,
     }
 }
-

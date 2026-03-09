@@ -1,16 +1,13 @@
 //! Engine diagnostics and performance monitoring.
 
+use crate::{story_graph::GraphExecutor, types::DiagnosticConfig};
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
-use crate::{
-    story_graph::GraphExecutor,
-    types::DiagnosticConfig,
-};
 
-pub mod inspector;
 pub mod console;
+pub mod inspector;
 
 /// Plugin that provides diagnostic overlays and performance tracking.
 pub struct DiagnosticsPlugin;
@@ -19,13 +16,16 @@ impl Plugin for DiagnosticsPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<DiagnosticConfig>()
             .init_resource::<DiagnosticConfig>()
-            .add_plugins(FrameTimeDiagnosticsPlugin)
+            .add_plugins(FrameTimeDiagnosticsPlugin::default())
             .add_systems(Startup, setup_diagnostics)
-            .add_systems(Update, (
-                toggle_diagnostics_system,
-                update_diagnostics_system.run_if(resource_exists::<DiagnosticConfig>),
-                console_fps_logger_system.run_if(resource_exists::<DiagnosticConfig>),
-            ))
+            .add_systems(
+                Update,
+                (
+                    toggle_diagnostics_system,
+                    update_diagnostics_system.run_if(resource_exists::<DiagnosticConfig>),
+                    console_fps_logger_system.run_if(resource_exists::<DiagnosticConfig>),
+                ),
+            )
             // Disabled temporarily due to WSL2/LLVMpipe compatibility issues (incompatible window kind panic)
             // .add_plugins(inspector::InspectorPlugin)
             .add_plugins(console::ConsolePlugin);
@@ -105,34 +105,34 @@ fn update_diagnostics_system(
     let fps = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(|diag| diag.smoothed());
-    
+
     let frame_time = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
         .and_then(|diag| diag.smoothed());
 
     let entity_count = entities.iter().count();
-    
+
     let story_status = if let Some(exec) = executor {
         format!("{:?}", exec.status)
     } else {
         "No Executor".to_string()
     };
 
-    let (width, height) = if let Ok(window) = windows.get_single() {
+    let (width, height) = if let Ok(window) = windows.single() {
         (window.width() as i32, window.height() as i32)
     } else {
         (0, 0)
     };
 
-    if let Ok((mut text, mut color)) = query.get_single_mut() {
+    if let Ok((mut text, mut color)) = query.single_mut() {
         let fps_text = fps.map_or("N/A".to_string(), |v| format!("{:.1}", v));
         let ms_text = frame_time.map_or("N/A".to_string(), |v| format!("{:.2}", v));
 
         text.0 = format!(
-            "FPS: {}\nFrame Time: {}ms\nEntities: {}\nStoryStatus: {}\nWindow: {}x{}", 
+            "FPS: {}\nFrame Time: {}ms\nEntities: {}\nStoryStatus: {}\nWindow: {}x{}",
             fps_text, ms_text, entity_count, story_status, width, height
         );
-        
+
         // Color coding based on performance
         if let Some(v) = fps {
             let new_color = if v < 30.0 {
@@ -159,13 +159,13 @@ fn console_fps_logger_system(
             .get(&FrameTimeDiagnosticsPlugin::FPS)
             .and_then(|diag| diag.smoothed())
             .unwrap_or(0.0);
-            
-        let (w, h) = if let Ok(window) = windows.get_single() {
+
+        let (w, h) = if let Ok(window) = windows.single() {
             (window.width() as i32, window.height() as i32)
         } else {
             (0, 0)
         };
-        
+
         info!("Performance: {:.1} FPS | Window: {}x{}", fps, w, h);
         *last_log = time.elapsed_secs();
     }

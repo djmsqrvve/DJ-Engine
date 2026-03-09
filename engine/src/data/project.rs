@@ -170,7 +170,10 @@ impl Default for ProjectSettings {
     fn default() -> Self {
         Self {
             platforms: vec!["pc".to_string()],
-            default_resolution: Size2i { width: 1280, height: 720 },
+            default_resolution: Size2i {
+                width: 1280,
+                height: 720,
+            },
             target_fps: 60,
             vsync: true,
             pixel_perfect: true,
@@ -212,7 +215,10 @@ impl Default for EditorPreferences {
             theme: EditorTheme::Dark,
             ui_scale: 1.0,
             font_size: 14,
-            grid_size: Size2i { width: 32, height: 32 },
+            grid_size: Size2i {
+                width: 32,
+                height: 32,
+            },
             snap: SnapSettings::default(),
             default_gizmo_mode: GizmoMode::Move,
             keybindings: HashMap::new(),

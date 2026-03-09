@@ -8,8 +8,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "MINIMAL TEST WINDOW".into(),
-                resolution: WindowResolution::new(800.0, 600.0)
-                    .with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(800, 600).with_scale_factor_override(1.0),
                 position: WindowPosition::Centered(MonitorSelection::Primary),
                 ..default()
             }),
@@ -22,7 +21,7 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
-    
+
     // UI Text
     commands.spawn((
         Text::new("IF YOU SEE THIS RED WINDOW, THE GRAPHICS DRIVER IS WORKING!"),
@@ -36,6 +35,6 @@ fn setup(mut commands: Commands) {
             top: Val::Percent(45.0),
             left: Val::Percent(10.0),
             ..default()
-        }
+        },
     ));
 }

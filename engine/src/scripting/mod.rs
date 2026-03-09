@@ -14,7 +14,7 @@ pub use ffi::{
 };
 
 /// Events for script control.
-#[derive(Event, Debug, Clone, Reflect)]
+#[derive(Message, Debug, Clone, Reflect)]
 pub enum ScriptCommand {
     /// Load and execute a Lua script from file
     Load { path: String },
@@ -37,7 +37,7 @@ impl Plugin for DJScriptingPlugin {
 
         app.insert_resource(lua_ctx)
             .register_type::<ScriptCommand>()
-            .add_event::<ScriptCommand>()
+            .add_message::<ScriptCommand>()
             .add_systems(Update, handle_script_commands);
 
         info!("DJ Scripting Plugin initialized");
@@ -45,16 +45,13 @@ impl Plugin for DJScriptingPlugin {
 }
 
 /// System that processes script commands.
-fn handle_script_commands(
-    lua_ctx: Res<LuaContext>,
-    mut events: EventReader<ScriptCommand>,
-) {
+fn handle_script_commands(lua_ctx: Res<LuaContext>, mut events: MessageReader<ScriptCommand>) {
     for event in events.read() {
         match event {
             ScriptCommand::Load { path } => {
                 info!("Scripting: Loading script from {}", path);
                 let lua = lua_ctx.lua.lock().unwrap();
-                
+
                 let result: mlua::Result<()> = (|| {
                     let script = std::fs::read_to_string(path)?;
                     lua.load(&script).exec()

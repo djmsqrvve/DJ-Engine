@@ -21,4 +21,3 @@ impl Plugin for DJAssetPlugin {
         // TODO: Register PaletteLoader
     }
 }
-

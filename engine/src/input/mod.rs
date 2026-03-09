@@ -132,9 +132,11 @@ mod tests {
     fn test_default_config_has_mappings() {
         let config = InputConfig::default();
         assert!(!config.keyboard_map.is_empty());
-        
+
         // Verify confirm is mapped
-        let has_confirm = config.keyboard_map.iter()
+        let has_confirm = config
+            .keyboard_map
+            .iter()
             .any(|(_, action)| *action == InputAction::Confirm);
         assert!(has_confirm);
     }

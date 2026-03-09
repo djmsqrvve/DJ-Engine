@@ -3,9 +3,9 @@
 //! Extends the engine's generic scripting with hamster-specific APIs.
 
 use bevy::prelude::*;
-use dj_engine::scripting::{LuaContext, create_shared_state, register_generic_state_api};
-use std::sync::{Arc, RwLock};
+use dj_engine::scripting::{create_shared_state, register_generic_state_api, LuaContext};
 use mlua::prelude::*;
+use std::sync::{Arc, RwLock};
 
 use crate::types::{Expression, HamsterNarrator};
 
@@ -16,23 +16,23 @@ impl Plugin for GameScriptingPlugin {
     fn build(&self, app: &mut App) {
         // Create hamster-specific state buffer
         let buffer = Arc::new(RwLock::new(HamsterStateBuffer::default()));
-        
+
         // Register hamster APIs with Lua
         if let Some(lua_ctx) = app.world().get_resource::<LuaContext>() {
             let lua = lua_ctx.lua.lock().unwrap();
-            
+
             // Register generic state API
             let generic_state = create_shared_state();
             if let Err(e) = register_generic_state_api(&lua, generic_state) {
                 error!("Failed to register generic state API: {}", e);
             }
-            
+
             // Register hamster-specific API
             if let Err(e) = register_hamster_api(&lua, buffer.clone()) {
                 error!("Failed to register hamster Lua API: {}", e);
             }
         }
-        
+
         app.insert_resource(SharedHamsterStateResource(buffer));
         app.add_systems(Update, sync_hamster_state_system);
         app.add_systems(Startup, run_startup_scripts);
@@ -102,7 +102,7 @@ fn sync_hamster_state_system(
     mut query: Query<&mut HamsterNarrator>,
     shared_resource: Res<SharedHamsterStateResource>,
 ) {
-    if let Ok(mut narrator) = query.get_single_mut() {
+    if let Ok(mut narrator) = query.single_mut() {
         let mut buffer = shared_resource.0.write().unwrap();
 
         // Apply pending writes from Lua -> ECS
@@ -127,7 +127,7 @@ fn sync_hamster_state_system(
 /// Run startup scripts.
 fn run_startup_scripts(lua_ctx: Res<LuaContext>) {
     let lua = lua_ctx.lua.lock().unwrap();
-    
+
     let possible_paths = [
         "games/dev/doomexe/assets/scripts/hamster_test.lua",
         "assets/scripts/hamster_test.lua",

@@ -3,11 +3,10 @@
 //! A [`Scene`] represents a single map/level containing layers and entities.
 //! Scenes can be JRPG maps, TD maps, or shared between both game types.
 
-use serde::{Deserialize, Serialize};
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-
-use super::components::{EntityComponents, Vec3Data, ColorData};
+use super::components::{ColorData, EntityComponents, Vec3Data};
 
 /// Scene type categorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Reflect)]
@@ -76,7 +75,9 @@ pub struct SceneAudio {
     pub loop_music: bool,
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 /// Scene script hooks.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, Reflect)]
@@ -288,7 +289,10 @@ pub struct Scene {
 }
 
 fn default_tile_size() -> TileSize {
-    TileSize { width: 32, height: 32 }
+    TileSize {
+        width: 32,
+        height: 32,
+    }
 }
 
 impl Default for Scene {
@@ -297,7 +301,10 @@ impl Default for Scene {
             id: String::new(),
             name: "New Scene".to_string(),
             scene_type: SceneType::default(),
-            size_tiles: TileSize { width: 20, height: 15 },
+            size_tiles: TileSize {
+                width: 20,
+                height: 15,
+            },
             tile_size: default_tile_size(),
             background_color: ColorData::black(),
             default_spawn: DefaultSpawn::default(),
@@ -381,12 +388,18 @@ impl Scene {
 
     /// Get all entities in a specific layer.
     pub fn entities_in_layer(&self, layer_id: &str) -> Vec<&Entity> {
-        self.entities.iter().filter(|e| e.layer_id == layer_id).collect()
+        self.entities
+            .iter()
+            .filter(|e| e.layer_id == layer_id)
+            .collect()
     }
 
     /// Get all entities of a specific type.
     pub fn entities_of_type(&self, entity_type: EntityType) -> Vec<&Entity> {
-        self.entities.iter().filter(|e| e.entity_type == entity_type).collect()
+        self.entities
+            .iter()
+            .filter(|e| e.entity_type == entity_type)
+            .collect()
     }
 }
 
@@ -411,7 +424,7 @@ mod tests {
 
         assert!(scene.find_entity("npc_01").is_some());
         assert!(scene.find_entity("nonexistent").is_none());
-        
+
         let npcs = scene.entities_of_type(EntityType::Npc);
         assert_eq!(npcs.len(), 1);
     }
@@ -421,7 +434,7 @@ mod tests {
         let mut scene = Scene::new("test", "Test");
         scene.add_entity(Entity::new("e1", "Entity 1"));
         scene.add_entity(Entity::new("e2", "Entity 2"));
-        
+
         let removed = scene.remove_entity("e1");
         assert!(removed.is_some());
         assert_eq!(scene.entities.len(), 1);

@@ -10,10 +10,7 @@ use super::components::{BlinkingAnimation, BreathingAnimation, IdleMotion};
 /// System that applies breathing animation to entities.
 ///
 /// Uses a sine wave to smoothly scale the entity up and down.
-pub fn breathing_system(
-    time: Res<Time>,
-    mut query: Query<(&BreathingAnimation, &mut Transform)>,
-) {
+pub fn breathing_system(time: Res<Time>, mut query: Query<(&BreathingAnimation, &mut Transform)>) {
     for (breathing, mut transform) in query.iter_mut() {
         // Calculate current scale based on sine wave
         let t = time.elapsed_secs() * breathing.frequency * 2.0 * PI + breathing.phase;

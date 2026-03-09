@@ -1,7 +1,7 @@
-use bevy::prelude::*;
-use crate::story::StoryState;
-use crate::overworld::NPC;
 use super::minimap::MapTarget;
+use crate::overworld::NPC;
+use crate::story::StoryState;
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct ObjectiveText;
@@ -35,10 +35,7 @@ pub fn setup_tracker(mut commands: Commands) {
         });
 }
 
-pub fn update_tracker(
-    story: Res<StoryState>,
-    mut query: Query<&mut Text, With<ObjectiveText>>,
-) {
+pub fn update_tracker(story: Res<StoryState>, mut query: Query<&mut Text, With<ObjectiveText>>) {
     if story.is_changed() {
         for mut text in &mut query {
             if !story.has_flag("MetHamster") {

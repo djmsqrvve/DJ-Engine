@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::overworld::player::Player;
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct MinimapRoot;
@@ -12,7 +12,7 @@ pub struct MinimapObjectiveIcon;
 
 // Waypoint Arrow on the main screen
 #[derive(Component)]
-pub struct WaypointArrow; 
+pub struct WaypointArrow;
 
 // Generic Marker for the current objective
 #[derive(Component)]
@@ -31,7 +31,7 @@ pub fn setup_minimap(mut commands: Commands) {
                 border: UiRect::all(Val::Px(2.0)),
                 ..default()
             },
-            BorderColor(Color::WHITE),
+            BorderColor::all(Color::WHITE),
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
             MinimapRoot,
         ))
@@ -90,15 +90,29 @@ pub fn update_minimap_and_waypoint(
     player_query: Query<&Transform, With<Player>>,
     target_query: Query<&Transform, With<MapTarget>>,
     mut minimap_obj_query: Query<&mut Node, (With<MinimapObjectiveIcon>, Without<WaypointArrow>)>,
-    mut arrow_query: Query<(&mut Node, &mut Transform), (With<WaypointArrow>, Without<Player>, Without<MapTarget>, Without<MinimapObjectiveIcon>)>,
+    mut arrow_query: Query<
+        (&mut Node, &mut Transform),
+        (
+            With<WaypointArrow>,
+            Without<Player>,
+            Without<MapTarget>,
+            Without<MinimapObjectiveIcon>,
+        ),
+    >,
 ) {
-    let Ok(player_transform) = player_query.get_single() else { return };
-    
+    let Ok(player_transform) = player_query.single() else {
+        return;
+    };
+
     // Find generic target
-    let target_transform = target_query.get_single().ok();
-    
+    let target_transform = target_query.single().ok();
+
     // Toggle Visibility based on if target exists
-    let display_mode = if target_transform.is_some() { Display::Flex } else { Display::None };
+    let display_mode = if target_transform.is_some() {
+        Display::Flex
+    } else {
+        Display::None
+    };
 
     for mut node in &mut minimap_obj_query {
         node.display = display_mode;
@@ -108,21 +122,23 @@ pub fn update_minimap_and_waypoint(
     }
 
     // If no target, we are done
-    let Some(target_t) = target_transform else { return };
+    let Some(target_t) = target_transform else {
+        return;
+    };
     let delta = target_t.translation - player_transform.translation;
-    
+
     // --- Update Minimap Dot ---
     // Scale down world coordinates to map pixels (e.g., 1 world unit = 0.5 map pixels)
     // Map is 150x150, Center is 75,75.
-    let map_scale = 0.5;
-    let map_x = 75.0 + (delta.x * map_scale);
-    let map_y = 75.0 - (delta.y * map_scale); // UI +Top is Down.
-    
+    let map_scale: f32 = 0.5;
+    let map_x: f32 = 75.0 + (delta.x * map_scale);
+    let map_y: f32 = 75.0 - (delta.y * map_scale); // UI +Top is Down.
+
     for mut node in &mut minimap_obj_query {
         // Clamp to map bounds (0-150)
         let clamped_x = map_x.clamp(0.0, 144.0);
         let clamped_y = map_y.clamp(0.0, 144.0);
-        
+
         node.left = Val::Px(clamped_x);
         node.top = Val::Px(clamped_y);
     }
@@ -130,10 +146,10 @@ pub fn update_minimap_and_waypoint(
     // --- Update Waypoint Arrow ---
     let dir = delta.truncate().normalize_or_zero();
     let angle = dir.y.atan2(dir.x);
-    
+
     for (_, mut transform) in &mut arrow_query {
         transform.rotation = Quat::from_rotation_z(angle);
-        
+
         // Offset from center
         transform.translation = Vec3::new(dir.x * 60.0, dir.y * 60.0, 0.0);
     }

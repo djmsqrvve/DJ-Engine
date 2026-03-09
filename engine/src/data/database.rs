@@ -90,7 +90,9 @@ pub struct ItemRow {
     pub scripts: ItemScripts,
 }
 
-fn default_max_stack() -> u32 { 99 }
+fn default_max_stack() -> u32 {
+    99
+}
 
 impl Default for ItemRow {
     fn default() -> Self {
@@ -207,8 +209,12 @@ pub struct TowerRow {
     pub description: LocalizedString,
 }
 
-fn default_tower_range() -> f32 { 200.0 }
-fn default_tower_cooldown() -> f32 { 1.0 }
+fn default_tower_range() -> f32 {
+    200.0
+}
+fn default_tower_cooldown() -> f32 {
+    1.0
+}
 
 impl Default for TowerRow {
     fn default() -> Self {
@@ -268,8 +274,12 @@ pub struct EnemyRow {
     pub behavior_profile_id: String,
 }
 
-fn default_hp() -> i32 { 100 }
-fn default_speed() -> f32 { 100.0 }
+fn default_hp() -> i32 {
+    100
+}
+fn default_speed() -> f32 {
+    100.0
+}
 
 impl Default for EnemyRow {
     fn default() -> Self {
@@ -315,9 +325,15 @@ pub struct LootEntry {
     pub max_quantity: u32,
 }
 
-fn default_chance() -> f32 { 1.0 }
-fn default_min_qty() -> u32 { 1 }
-fn default_max_qty() -> u32 { 1 }
+fn default_chance() -> f32 {
+    1.0
+}
+fn default_min_qty() -> u32 {
+    1
+}
+fn default_max_qty() -> u32 {
+    1
+}
 
 /// A loot table definition.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -476,13 +492,14 @@ mod tests {
     #[test]
     fn test_database_serialization() {
         let mut db = Database::new();
-        db.items.push(ItemRow::new("sword_01", "Iron Sword").with_type(ItemType::Weapon));
+        db.items
+            .push(ItemRow::new("sword_01", "Iron Sword").with_type(ItemType::Weapon));
         db.npcs.push(NpcRow::new("merchant_01", "Merchant"));
         db.enemies.push(EnemyRow::new("goblin_01", "Goblin"));
 
         let json = serde_json::to_string_pretty(&db).unwrap();
         let parsed: Database = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(db.items.len(), parsed.items.len());
         assert!(parsed.find_item("sword_01").is_some());
     }

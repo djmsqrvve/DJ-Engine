@@ -22,8 +22,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "DJ Engine V1.0".into(),
-                        resolution: WindowResolution::new(800.0, 600.0)
-                            .with_scale_factor_override(1.0),
+                        resolution: WindowResolution::new(800, 600).with_scale_factor_override(1.0),
                         position: WindowPosition::Centered(MonitorSelection::Primary),
                         present_mode: bevy::window::PresentMode::AutoVsync,
                         ..default()

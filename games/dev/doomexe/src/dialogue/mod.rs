@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::state::GameState;
+use bevy::prelude::*;
 
 mod ui;
 
@@ -21,11 +21,18 @@ impl Plugin for DialoguePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DialogueUiState>()
             .add_systems(OnEnter(GameState::NarratorDialogue), ui::setup_dialogue_ui)
-            .add_systems(Update, (
-                ui::dialogue_input,
-                ui::update_dialogue_ui,
-                ui::typewriter_system,
-            ).run_if(in_state(GameState::NarratorDialogue)))
-            .add_systems(OnExit(GameState::NarratorDialogue), ui::teardown_dialogue_ui);
+            .add_systems(
+                Update,
+                (
+                    ui::dialogue_input,
+                    ui::update_dialogue_ui,
+                    ui::typewriter_system,
+                )
+                    .run_if(in_state(GameState::NarratorDialogue)),
+            )
+            .add_systems(
+                OnExit(GameState::NarratorDialogue),
+                ui::teardown_dialogue_ui,
+            );
     }
 }

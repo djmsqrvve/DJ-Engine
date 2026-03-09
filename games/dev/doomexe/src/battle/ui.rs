@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use super::BattleResultEvent;
+use bevy::prelude::*;
 
 #[derive(Component)]
 pub struct BattleButton(pub BattleResultEvent);
@@ -19,7 +19,7 @@ pub fn setup_battle_ui(mut commands: Commands) {
                 ..default()
             },
             // Transparent background
-            BackgroundColor(Color::NONE), 
+            BackgroundColor(Color::NONE),
             BattleUIRoot,
         ))
         .with_children(|parent| {
@@ -36,15 +36,30 @@ pub fn setup_battle_ui(mut commands: Commands) {
                 ))
                 .with_children(|panel| {
                     // Win Button
-                    spawn_button(panel, "Simulate WIN", Color::srgb(0.2, 0.8, 0.2), BattleResultEvent::Win);
-                    
+                    spawn_button(
+                        panel,
+                        "Simulate WIN",
+                        Color::srgb(0.2, 0.8, 0.2),
+                        BattleResultEvent::Win,
+                    );
+
                     // Lose Button
-                    spawn_button(panel, "Simulate LOSE", Color::srgb(0.8, 0.2, 0.2), BattleResultEvent::Lose);
+                    spawn_button(
+                        panel,
+                        "Simulate LOSE",
+                        Color::srgb(0.8, 0.2, 0.2),
+                        BattleResultEvent::Lose,
+                    );
                 });
         });
 }
 
-fn spawn_button(parent: &mut ChildBuilder, text: &str, color: Color, event: BattleResultEvent) {
+fn spawn_button(
+    parent: &mut bevy::ecs::hierarchy::ChildSpawnerCommands<'_>,
+    text: &str,
+    color: Color,
+    event: BattleResultEvent,
+) {
     parent
         .spawn((
             Button,
@@ -75,21 +90,21 @@ pub fn battle_ui_interaction(
         (&Interaction, &BattleButton, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
-    mut ev_writer: EventWriter<BattleResultEvent>,
+    mut ev_writer: MessageWriter<BattleResultEvent>,
 ) {
     for (interaction, button_type, mut bg_color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 // Dim on press
                 bg_color.0.set_alpha(0.5);
-                
+
                 // Fire event based on button type
                 match button_type.0 {
                     BattleResultEvent::Win => {
-                        ev_writer.send(BattleResultEvent::Win);
+                        ev_writer.write(BattleResultEvent::Win);
                     }
                     BattleResultEvent::Lose => {
-                        ev_writer.send(BattleResultEvent::Lose);
+                        ev_writer.write(BattleResultEvent::Lose);
                     }
                 }
             }
@@ -106,6 +121,6 @@ pub fn battle_ui_interaction(
 
 pub fn cleanup_battle_ui(mut commands: Commands, query: Query<Entity, With<BattleUIRoot>>) {
     for entity in &query {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }

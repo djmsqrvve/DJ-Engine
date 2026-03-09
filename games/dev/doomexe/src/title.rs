@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::state::GameState;
+use bevy::prelude::*;
 use dj_engine::input::{ActionState, InputAction};
 
 #[derive(Component)]
@@ -74,7 +74,12 @@ fn setup_title_ui(mut commands: Commands, mut state: ResMut<TitleState>) {
         });
 }
 
-fn spawn_menu_option(parent: &mut ChildBuilder, text: &str, index: usize, action: MenuAction) {
+fn spawn_menu_option(
+    parent: &mut bevy::ecs::hierarchy::ChildSpawnerCommands<'_>,
+    text: &str,
+    index: usize,
+    action: MenuAction,
+) {
     parent.spawn((
         Text::new(text),
         TextFont {
@@ -95,7 +100,7 @@ fn title_input(
     mut next_state: ResMut<NextState<GameState>>,
     mut state: ResMut<TitleState>,
     actions: Res<ActionState>,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
     mut query: Query<(&MenuOption, &mut TextColor)>,
 ) {
     // Handle Navigation
@@ -122,7 +127,8 @@ fn title_input(
     // Handle Selection
     if actions.just_pressed(InputAction::Confirm) {
         // Find selected action
-        let action = query.iter()
+        let action = query
+            .iter()
             .find(|(opt, _)| opt.index == state.selected_index)
             .map(|(opt, _)| opt.action);
 
@@ -138,7 +144,7 @@ fn title_input(
                     next_state.set(GameState::Overworld);
                 }
                 MenuAction::Quit => {
-                    app_exit.send(AppExit::Success);
+                    app_exit.write(AppExit::Success);
                 }
             }
         }
@@ -146,7 +152,7 @@ fn title_input(
 }
 
 fn teardown_title_ui(mut commands: Commands, query: Query<Entity, With<TitleMenu>>) {
-    if let Ok(entity) = query.get_single() {
-        commands.entity(entity).despawn_recursive();
+    if let Ok(entity) = query.single() {
+        commands.entity(entity).despawn();
     }
 }

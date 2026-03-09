@@ -1,10 +1,10 @@
-use bevy::prelude::*;
-use std::collections::HashMap;
-use midly::{Smf, TrackEventKind, MidiMessage, MetaMessage};
 use bevy::audio::PlaybackMode;
+use bevy::prelude::*;
+use midly::{MetaMessage, MidiMessage, Smf, TrackEventKind};
+use std::collections::HashMap;
 
 /// Events for controlling MIDI playback
-#[derive(Event, Debug, Clone)]
+#[derive(Message, Debug, Clone)]
 pub enum MidiCommand {
     NoteOn { key: u8, velocity: u8 },
     NoteOff { key: u8 },
@@ -58,24 +58,24 @@ pub struct MidiPlugin;
 
 impl Plugin for MidiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<MidiCommand>()
-           .init_resource::<MidiManager>()
-           .init_resource::<MidiPlayback>()
-           .add_systems(Startup, (setup_midi_assets, load_overworld_midi))
-           .add_systems(Update, (handle_midi_commands, midi_sequencer));
-           
+        app.add_message::<MidiCommand>()
+            .init_resource::<MidiManager>()
+            .init_resource::<MidiPlayback>()
+            .add_systems(Startup, (setup_midi_assets, load_overworld_midi))
+            .add_systems(Update, (handle_midi_commands, midi_sequencer));
+
         info!("MIDI Plugin initialized");
     }
 }
 
 // ... (Audio setup code same as before, preserving it) ...
 fn setup_midi_assets(mut commands: Commands, mut assets: ResMut<Assets<AudioSource>>) {
-     // Generate 1 second of C4 (Middle C, ~261.63 Hz) at 44100Hz
+    // Generate 1 second of C4 (Middle C, ~261.63 Hz) at 44100Hz
     let sample_rate = 44100;
     let duration_secs = 2; // Loop length
     let num_samples = sample_rate * duration_secs;
-    let frequency = 261.63; 
-    
+    let frequency = 261.63;
+
     // Sine Wave
     let mut sine_buffer = Vec::with_capacity(num_samples);
     for i in 0..num_samples {
@@ -83,7 +83,7 @@ fn setup_midi_assets(mut commands: Commands, mut assets: ResMut<Assets<AudioSour
         let sample = (t * frequency * 2.0 * std::f32::consts::PI).sin();
         sine_buffer.push(sample);
     }
-    
+
     let sine_source = generate_wav(num_samples as u32, sample_rate as u32, &sine_buffer);
     let sine_handle = assets.add(sine_source);
 
@@ -105,15 +105,15 @@ fn load_overworld_midi(mut commands: Commands) {
     if let Ok(bytes) = std::fs::read(path) {
         if let Ok(smf) = Smf::parse(&bytes) {
             info!("Loaded MIDI: tracks={}", smf.tracks.len());
-            
+
             let ticks_per_beat = match smf.header.timing {
                 midly::Timing::Metrical(t) => t.as_int(),
                 _ => 480,
             };
-            
+
             // Flatten tracks
             let mut events = Vec::new();
-            
+
             for track in smf.tracks {
                 let mut current_tick = 0;
                 for event in track {
@@ -122,17 +122,21 @@ fn load_overworld_midi(mut commands: Commands) {
                         TrackEventKind::Midi { message, .. } => {
                             // Map message to owned
                             // Midly messages have lifetimes, need to convert to our own 'static types if needed.
-                            // Or handle carefully. Midly 0.5 `MidiMessage` is Copy/Clone? 
+                            // Or handle carefully. Midly 0.5 `MidiMessage` is Copy/Clone?
                             // `MidiMessage` has lifetime? Yes `MidiMessage<'a>`.
                             // We need to convert to a simpler owned enum or store raw bytes.
                             // For MVP, handling NoteOn/Off is enough.
-                            
+
                             let owned_msg = match message {
-                                MidiMessage::NoteOn { key, vel } => Some(MidiMessage::NoteOn { key, vel }),
-                                MidiMessage::NoteOff { key, vel } => Some(MidiMessage::NoteOff { key, vel }),
+                                MidiMessage::NoteOn { key, vel } => {
+                                    Some(MidiMessage::NoteOn { key, vel })
+                                }
+                                MidiMessage::NoteOff { key, vel } => {
+                                    Some(MidiMessage::NoteOff { key, vel })
+                                }
                                 _ => None, // Ignore others for now
                             };
-                            
+
                             if let Some(msg) = owned_msg {
                                 events.push(SequencerEvent {
                                     tick: current_tick,
@@ -150,18 +154,18 @@ fn load_overworld_midi(mut commands: Commands) {
                     }
                 }
             }
-            
+
             // Sort by tick
             events.sort_by_key(|e| e.tick);
-            
+
             let duration = events.last().map(|e| e.tick).unwrap_or(0);
-            
+
             commands.insert_resource(MidiSequence {
                 events,
                 ticks_per_beat,
                 duration_ticks: duration,
             });
-            
+
             // Start Playback
             commands.insert_resource(MidiPlayback {
                 is_playing: true,
@@ -184,19 +188,22 @@ fn midi_sequencer(
     time: Res<Time>,
     sequence: Option<Res<MidiSequence>>,
     mut playback: ResMut<MidiPlayback>,
-    mut commands: EventWriter<MidiCommand>,
+    mut commands: MessageWriter<MidiCommand>,
 ) {
     let Some(sequence) = sequence else { return };
-    if !playback.is_playing { return; }
-    
+    if !playback.is_playing {
+        return;
+    }
+
     // Calculate ticks to advance
     // Seconds * (microsec/sec) / (microsec/beat) * (ticks/beat)
     let delta_secs = time.delta_secs_f64();
-    let ticks_per_sec = (1_000_000.0 / playback.microseconds_per_beat as f64) * playback.ticks_per_beat as f64;
+    let ticks_per_sec =
+        (1_000_000.0 / playback.microseconds_per_beat as f64) * playback.ticks_per_beat as f64;
     let delta_ticks = delta_secs * ticks_per_sec;
-    
+
     playback.current_tick += delta_ticks;
-    
+
     // Process events
     while playback.event_index < sequence.events.len() {
         let event = &sequence.events[playback.event_index];
@@ -207,10 +214,13 @@ fn midi_sequencer(
                     match message {
                         MidiMessage::NoteOn { key, vel } => {
                             // Midly key/vel are wrappers.
-                            commands.send(MidiCommand::NoteOn { key: key.as_int(), velocity: vel.as_int() });
+                            commands.write(MidiCommand::NoteOn {
+                                key: key.as_int(),
+                                velocity: vel.as_int(),
+                            });
                         }
                         MidiMessage::NoteOff { key, .. } => {
-                             commands.send(MidiCommand::NoteOff { key: key.as_int() });
+                            commands.write(MidiCommand::NoteOff { key: key.as_int() });
                         }
                         _ => {}
                     }
@@ -221,17 +231,17 @@ fn midi_sequencer(
             }
             playback.event_index += 1;
         } else {
-            break; 
+            break;
         }
     }
-    
+
     // Looping ??
     if playback.event_index >= sequence.events.len() && playback.loop_playback {
-         // Reset
-         playback.current_tick = 0.0;
-         playback.event_index = 0;
-         // Note: active notes might get stuck if NoteOff was at the very end. 
-         // Real sequencer would silence all notes.
+        // Reset
+        playback.current_tick = 0.0;
+        playback.event_index = 0;
+        // Note: active notes might get stuck if NoteOff was at the very end.
+        // Real sequencer would silence all notes.
     }
 }
 
@@ -239,23 +249,25 @@ fn midi_sequencer(
 fn generate_wav(num_samples: u32, sample_rate: u32, samples: &[f32]) -> AudioSource {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(b"RIFF");
-    let total_len = 36 + num_samples * 4; 
+    let total_len = 36 + num_samples * 4;
     bytes.extend_from_slice(&(total_len as u32).to_le_bytes());
     bytes.extend_from_slice(b"WAVE");
     bytes.extend_from_slice(b"fmt ");
-    bytes.extend_from_slice(&(16u32).to_le_bytes()); 
-    bytes.extend_from_slice(&(3u16).to_le_bytes()); 
-    bytes.extend_from_slice(&(1u16).to_le_bytes()); 
-    bytes.extend_from_slice(&(sample_rate).to_le_bytes()); 
-    bytes.extend_from_slice(&(sample_rate * 4).to_le_bytes()); 
-    bytes.extend_from_slice(&(4u16).to_le_bytes()); 
-    bytes.extend_from_slice(&(32u16).to_le_bytes()); 
+    bytes.extend_from_slice(&(16u32).to_le_bytes());
+    bytes.extend_from_slice(&(3u16).to_le_bytes());
+    bytes.extend_from_slice(&(1u16).to_le_bytes());
+    bytes.extend_from_slice(&(sample_rate).to_le_bytes());
+    bytes.extend_from_slice(&(sample_rate * 4).to_le_bytes());
+    bytes.extend_from_slice(&(4u16).to_le_bytes());
+    bytes.extend_from_slice(&(32u16).to_le_bytes());
     bytes.extend_from_slice(b"data");
     bytes.extend_from_slice(&(num_samples * 4).to_le_bytes());
     for sample in samples {
         bytes.extend_from_slice(&sample.to_le_bytes());
     }
-    AudioSource { bytes: bytes.into() }
+    AudioSource {
+        bytes: bytes.into(),
+    }
 }
 
 fn generate_wav_square(num_samples: u32, sample_rate: u32, freq: f32) -> AudioSource {
@@ -271,9 +283,9 @@ fn generate_wav_square(num_samples: u32, sample_rate: u32, freq: f32) -> AudioSo
 
 fn handle_midi_commands(
     mut commands: Commands,
-    mut events: EventReader<MidiCommand>,
+    mut events: MessageReader<MidiCommand>,
     mut manager: ResMut<MidiManager>,
-    midi_assets: Option<Res<MidiAssets>>, 
+    midi_assets: Option<Res<MidiAssets>>,
 ) {
     let Some(assets) = midi_assets else { return };
 
@@ -286,28 +298,33 @@ fn handle_midi_commands(
                 let volume = (*velocity as f32 / 127.0).clamp(0.0, 1.0);
 
                 // Use square wave for bass notes (< 55 G3 ?)
-                let source = if *key < 55 { assets.square_wave.clone() } else { assets.sine_wave.clone() };
+                let source = if *key < 55 {
+                    assets.square_wave.clone()
+                } else {
+                    assets.sine_wave.clone()
+                };
 
-                let entity = commands.spawn((
-                    AudioPlayer(source),
-                    PlaybackSettings {
-                        mode: PlaybackMode::Loop,
-                        speed,
-                        volume: bevy::audio::Volume::new(volume),
-                        ..default()
-                    },
-                )).id();
-                
+                let entity = commands
+                    .spawn((
+                        AudioPlayer(source),
+                        PlaybackSettings {
+                            mode: PlaybackMode::Loop,
+                            speed,
+                            volume: bevy::audio::Volume::Linear(volume),
+                            ..default()
+                        },
+                    ))
+                    .id();
+
                 if let Some(old_entity) = manager.active_voices.insert(*key, entity) {
                     commands.entity(old_entity).despawn();
                 }
             }
             MidiCommand::NoteOff { key } => {
-                if let Some(entity) = manager.active_voices.remove(key) {
+                if let Some(entity) = manager.active_voices.remove(&key) {
                     commands.entity(entity).despawn();
                 }
             }
         }
     }
 }
-

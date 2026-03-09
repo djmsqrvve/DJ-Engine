@@ -1,11 +1,11 @@
-use bevy::prelude::*;
+use super::BattleResultEvent;
 use crate::hamster::components::{CharacterRoot, Expression};
 use crate::state::GameState;
 use crate::story::StoryState;
-use super::BattleResultEvent;
+use bevy::prelude::*;
 
 pub fn handle_battle_result(
-    mut events: EventReader<BattleResultEvent>,
+    mut events: MessageReader<BattleResultEvent>,
     mut hamster_query: Query<&mut CharacterRoot>,
     mut story: ResMut<StoryState>,
     mut next_state: ResMut<NextState<GameState>>,
@@ -18,7 +18,7 @@ pub fn handle_battle_result(
                     hamster.expression = Expression::Happy;
                     // Winning reduces corruption slightly (healing)
                     hamster.corruption = (hamster.corruption - 10.0).max(0.0);
-                    
+
                     story.add_flag("DefeatedGlitch");
                 }
                 BattleResultEvent::Lose => {

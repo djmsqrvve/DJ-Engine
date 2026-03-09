@@ -13,7 +13,10 @@ pub fn toggle_visibility_system(
     mut query: Query<&mut Visibility, With<CharacterRoot>>,
 ) {
     if state.is_changed() {
-        let should_show = matches!(*state.get(), GameState::NarratorDialogue | GameState::Battle);
+        let should_show = matches!(
+            *state.get(),
+            GameState::NarratorDialogue | GameState::Battle
+        );
         for mut vis in &mut query {
             *vis = if should_show {
                 Visibility::Inherited
@@ -26,10 +29,7 @@ pub fn toggle_visibility_system(
 }
 
 /// Breathing animation - smooth scale oscillation on body.
-pub fn breathing_system(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &BreathingAnimation)>,
-) {
+pub fn breathing_system(time: Res<Time>, mut query: Query<(&mut Transform, &BreathingAnimation)>) {
     let t = time.elapsed_secs();
     for (mut transform, anim) in &mut query {
         let phase = t * anim.frequency * 2.0 * PI;
@@ -40,10 +40,7 @@ pub fn breathing_system(
 }
 
 /// Blinking animation - toggle eye visibility.
-pub fn blinking_system(
-    time: Res<Time>,
-    mut query: Query<(&mut BlinkingAnimation, &mut Sprite)>,
-) {
+pub fn blinking_system(time: Res<Time>, mut query: Query<(&mut BlinkingAnimation, &mut Sprite)>) {
     for (mut blink, mut sprite) in &mut query {
         blink.timer.tick(time.delta());
 
@@ -60,15 +57,14 @@ pub fn blinking_system(
             blink.timer = Timer::from_seconds(duration, TimerMode::Once);
         }
 
-        sprite.color.set_alpha(if blink.is_closed { 0.0 } else { 1.0 });
+        sprite
+            .color
+            .set_alpha(if blink.is_closed { 0.0 } else { 1.0 });
     }
 }
 
 /// Idle motion - subtle head movement.
-pub fn idle_motion_system(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &IdleMotion)>,
-) {
+pub fn idle_motion_system(time: Res<Time>, mut query: Query<(&mut Transform, &IdleMotion)>) {
     let t = time.elapsed_secs();
     for (mut transform, motion) in &mut query {
         let phase = t * motion.frequency * 2.0 * PI;
@@ -82,11 +78,11 @@ pub fn idle_motion_system(
 /// Expression switching - update head sprite when expression changes.
 pub fn expression_system(
     query: Query<&CharacterRoot, Changed<CharacterRoot>>,
-    mut parts: Query<(&mut Sprite, &ExpressionSprite, &Parent)>,
+    mut parts: Query<(&mut Sprite, &ExpressionSprite)>,
 ) {
     for root in query.iter() {
         info!("Expression changed to {:?}", root.expression);
-        for (mut sprite, expr_sprite, _parent) in parts.iter_mut() {
+        for (mut sprite, expr_sprite) in parts.iter_mut() {
             // Only update if this part belongs to a changed root
             // (simplified - in production would check parent chain)
             let handle = expr_sprite.handle_for(root.expression);
@@ -107,10 +103,10 @@ pub fn corruption_system(
             // Apply color tint based on corruption palette
             let tint = match effect.palette_index {
                 0 => Color::WHITE,
-                1 => Color::srgba(1.0, 0.9, 0.9, 1.0),   // Slight red
-                2 => Color::srgba(0.9, 0.7, 0.9, 1.0),   // Purple tint
-                3 => Color::srgba(0.7, 0.9, 1.0, 1.0),   // Blue tint
-                _ => Color::srgba(1.0, 0.6, 0.6, 1.0),   // Strong red
+                1 => Color::srgba(1.0, 0.9, 0.9, 1.0), // Slight red
+                2 => Color::srgba(0.9, 0.7, 0.9, 1.0), // Purple tint
+                3 => Color::srgba(0.7, 0.9, 1.0, 1.0), // Blue tint
+                _ => Color::srgba(1.0, 0.6, 0.6, 1.0), // Strong red
             };
             sprite.color = tint;
         }
@@ -118,10 +114,7 @@ pub fn corruption_system(
 }
 
 /// Debug input for testing expressions and corruption.
-pub fn debug_input_system(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut CharacterRoot>,
-) {
+pub fn debug_input_system(keys: Res<ButtonInput<KeyCode>>, mut query: Query<&mut CharacterRoot>) {
     for mut root in &mut query {
         // Number keys for expressions
         if keys.just_pressed(KeyCode::Digit1) {
@@ -136,7 +129,7 @@ pub fn debug_input_system(
             root.expression = Expression::Angry;
             info!("Expression: Angry");
         }
-        
+
         // A to cycle expressions
         if keys.just_pressed(KeyCode::KeyA) {
             root.expression = root.expression.next();

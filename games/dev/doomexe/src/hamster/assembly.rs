@@ -1,5 +1,6 @@
 //! Character assembly - spawning sprite hierarchies.
 
+use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
@@ -18,7 +19,7 @@ fn create_color_texture(images: &mut Assets<Image>, color: Color) -> Handle<Imag
         TextureDimension::D2,
         &pixel,
         TextureFormat::Rgba8UnormSrgb,
-        bevy::render::render_asset::RenderAssetUsages::RENDER_WORLD,
+        RenderAssetUsages::RENDER_WORLD,
     );
     images.add(image)
 }
@@ -232,6 +233,6 @@ pub fn spawn_character(commands: &mut Commands, images: &mut Assets<Image>) -> E
     commands.entity(root).add_child(right_foot);
 
     info!("🐹 Procedural Hamster spawned (Shapes only!)");
-    
+
     root
 }

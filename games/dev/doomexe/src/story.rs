@@ -1,6 +1,6 @@
+use crate::state::GameState;
 use bevy::prelude::*;
 use dj_engine::story_graph::StoryEvent;
-use crate::state::GameState;
 
 #[derive(Resource, Default, Debug)]
 pub struct StoryState {
@@ -31,7 +31,7 @@ impl Plugin for StoryPlugin {
 }
 
 fn handle_story_events(
-    mut events: EventReader<StoryEvent>,
+    mut events: MessageReader<StoryEvent>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     for event in events.read() {

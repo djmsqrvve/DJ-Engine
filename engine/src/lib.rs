@@ -21,11 +21,11 @@ pub mod core;
 pub mod data;
 pub mod diagnostics;
 pub mod input;
+pub mod midi;
 pub mod rendering;
 pub mod scene;
 pub mod scripting;
 pub mod story_graph;
-pub mod midi;
 pub mod types;
 
 pub mod editor;
@@ -43,22 +43,20 @@ pub mod prelude {
     pub use crate::input::{ActionState, DJInputPlugin, InputAction, InputConfig};
     pub use crate::rendering::RenderingPlugin;
     pub use crate::scene::*;
-    pub use crate::story_graph::*;
     pub use crate::scripting::*;
+    pub use crate::story_graph::*;
 
     // Engine types
     pub use crate::types::*;
 
     // Data model types (for editor and runtime)
-    pub use crate::data::{
-        Project, ProjectSettings, EditorPreferences,
-        Scene, Layer, Entity, SceneType, EntityType,
-        Database, ItemRow, NpcRow, TowerRow, EnemyRow, LootTableRow, QuestRow,
-        AssetIndex, Prefab,
-        StoryGraphData, StoryNodeData, StoryNodeType,
-        load_project, load_scene, load_database, load_story_graph, DataError,
-    };
     pub use crate::data::spawner::{LoadedScene, SceneDataPlugin};
+    pub use crate::data::{
+        load_database, load_project, load_scene, load_story_graph, AssetIndex, DataError, Database,
+        EditorPreferences, EnemyRow, Entity, EntityType, ItemRow, Layer, LootTableRow, NpcRow,
+        Prefab, Project, ProjectSettings, QuestRow, Scene, SceneType, StoryGraphData,
+        StoryNodeData, StoryNodeType, TowerRow,
+    };
 
     // Re-export commonly used rendering items
     pub use crate::rendering::{MainCamera, GAME_HEIGHT, GAME_WIDTH};

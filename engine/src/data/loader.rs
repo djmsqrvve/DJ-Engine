@@ -7,11 +7,11 @@ use std::fs;
 use std::path::Path;
 use thiserror::Error;
 
+use super::assets::AssetIndex;
+use super::database::Database;
 use super::project::Project;
 use super::scene::Scene;
-use super::database::Database;
 use super::story::StoryGraphData;
-use super::assets::AssetIndex;
 
 /// Error type for data loading operations.
 #[derive(Debug, Error)]
@@ -178,11 +178,11 @@ mod tests {
     #[test]
     fn test_load_save_project() {
         let project = Project::new("Test Project");
-        
+
         let mut file = NamedTempFile::new().unwrap();
         let json = serde_json::to_string_pretty(&project).unwrap();
         file.write_all(json.as_bytes()).unwrap();
-        
+
         let loaded = load_project(file.path()).unwrap();
         assert_eq!(project.name, loaded.name);
     }

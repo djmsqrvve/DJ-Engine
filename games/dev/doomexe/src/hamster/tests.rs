@@ -1,19 +1,19 @@
 #[cfg(test)]
 mod tests {
-    use bevy::prelude::*;
     use crate::hamster::components::*;
     use crate::hamster::HamsterPlugin;
+    use bevy::prelude::*;
 
     #[test]
     fn test_expression_cycling() {
         let mut expr = Expression::Neutral;
-        
+
         expr = expr.next();
         assert_eq!(expr, Expression::Happy);
-        
+
         expr = expr.next();
         assert_eq!(expr, Expression::Angry);
-        
+
         expr = expr.next();
         assert_eq!(expr, Expression::Neutral);
     }
@@ -21,7 +21,7 @@ mod tests {
     #[test]
     fn test_corruption_effect_updates() {
         let mut effect = CorruptionEffect::default();
-        
+
         // Test 0 corruption
         effect.update_from_level(0.0);
         assert_eq!(effect.level, 0.0);
@@ -58,9 +58,9 @@ mod tests {
 
         // We can't easily compare handles for equality in unit tests without a world,
         // but we can check if the method returns a reference.
-        // Actually Handle<T> implements PartialEq and Eq if T does? 
+        // Actually Handle<T> implements PartialEq and Eq if T does?
         // Bevy Handles are just IDs. They should be comparable.
-        
+
         assert_eq!(sprites.handle_for(Expression::Neutral), &h_neutral);
         assert_eq!(sprites.handle_for(Expression::Happy), &h_happy);
         assert_eq!(sprites.handle_for(Expression::Angry), &h_angry);
@@ -73,12 +73,12 @@ mod tests {
         // We also need ImagePlugin to register the Image asset type used by sprites
         // And InputPlugin for keyboard input resources
         app.add_plugins(MinimalPlugins)
-           .add_plugins(AssetPlugin::default())
-           .add_plugins(ImagePlugin::default_nearest())
-           .add_plugins(bevy::input::InputPlugin)
-           .add_plugins(bevy::state::app::StatesPlugin)
-           .init_state::<crate::state::GameState>()
-           .add_plugins(HamsterPlugin);
+            .add_plugins(AssetPlugin::default())
+            .add_plugins(ImagePlugin::default_nearest())
+            .add_plugins(bevy::input::InputPlugin)
+            .add_plugins(bevy::state::app::StatesPlugin)
+            .init_state::<crate::state::GameState>()
+            .add_plugins(HamsterPlugin);
 
         // Run one frame to ensure startup systems and one cycle of update systems run
         app.update();
@@ -86,6 +86,10 @@ mod tests {
         // Verify that the hamster root was spawned
         let world = app.world_mut();
         let mut root_query = world.query::<&CharacterRoot>();
-        assert_eq!(root_query.iter(world).count(), 1, "Should spawn exactly one hamster root");
+        assert_eq!(
+            root_query.iter(world).count(),
+            1,
+            "Should spawn exactly one hamster root"
+        );
     }
 }

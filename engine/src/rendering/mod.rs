@@ -19,4 +19,3 @@ impl Plugin for RenderingPlugin {
         // TODO: Register CRT post-processing pass
     }
 }
-

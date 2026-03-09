@@ -3,8 +3,8 @@
 //! Provides a generic scripting bridge that games can extend with their own APIs.
 
 use bevy::prelude::*;
-use std::sync::{Arc, RwLock};
 use mlua::prelude::*;
+use std::sync::{Arc, RwLock};
 
 /// Registers core FFI functions into the Lua global table.
 /// Games should call this first, then register their own APIs.
