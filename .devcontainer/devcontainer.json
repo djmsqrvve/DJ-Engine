@@ -4,6 +4,28 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {
+      "password": "vscode",
+      "webPort": "6080",
+      "vncPort": "5901"
+    }
+  },
+  "runArgs": ["--shm-size=1g"],
+  "forwardPorts": [6080, 5901],
+  "portsAttributes": {
+    "6080": {
+      "label": "desktop"
+    },
+    "5901": {
+      "label": "vnc"
+    }
+  },
+  "containerEnv": {
+    "RUSTC_WRAPPER": "",
+    "CARGO_TARGET_DIR": "/home/vscode/.cache/dj-engine/cargo-target/dj_engine_bevy18",
+    "LIBGL_ALWAYS_SOFTWARE": "1"
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -16,5 +38,8 @@
       }
     }
   },
-  "postCreateCommand": "rustup show && cargo fetch --locked"
+  "onCreateCommand": "bash .devcontainer/on-create.sh",
+  "updateContentCommand": "bash .devcontainer/update-content.sh",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postAttachCommand": "bash .devcontainer/post-attach.sh"
 }

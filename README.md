@@ -40,9 +40,18 @@ The workspace toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml
 
 ## Codespaces
 
-GitHub Codespaces is supported through [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json). The devcontainer installs the Bevy/Linux native build dependencies during image build and runs `rustup show && cargo fetch --locked` after creation.
+GitHub Codespaces is supported through [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json). The devcontainer now includes a lightweight remote desktop for GUI apps, installs the Bevy/Linux native build and Mesa runtime dependencies during image build, and warms workspace binaries through `onCreateCommand` and `updateContentCommand` so Codespaces prebuilds can reuse them.
 
-Codespaces support is compile-focused. The primary validation flow is:
+To run the editor or game inside Codespaces:
+
+```bash
+./dj e --test-mode
+timeout 20s ./dj d
+```
+
+Open the forwarded `desktop` port on `6080` in your browser and connect with password `vscode` to view GUI windows.
+
+Codespaces support is still compile-first, with GUI runtime intended for smoke runs and manual checks. The primary validation flow is:
 
 ```bash
 cargo fmt --all --check
@@ -50,6 +59,8 @@ RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace
 RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run
 RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
 ```
+
+For prebuilds, repository admins still need to enable a Codespaces prebuild configuration in GitHub repository settings and point it at [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json).
 
 ## Helper Commands
 

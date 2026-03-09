@@ -16,7 +16,10 @@ RUN apt-get update \
         libx11-dev \
         libx11-xcb-dev \
         libgl1-mesa-dev \
+        libgl1-mesa-dri \
         libvulkan-dev \
+        mesa-utils \
+        mesa-vulkan-drivers \
         libxcb1-dev \
         libxcb-render0-dev \
         libxcb-shape0-dev \
