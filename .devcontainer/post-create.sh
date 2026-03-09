@@ -7,4 +7,6 @@ Codespaces desktop is available on forwarded port 6080 (password: vscode).
 Runtime smoke commands:
   ./dj e --test-mode
   timeout 20s ./dj d
+Optional full runtime warmup:
+  bash .devcontainer/warm-runtime.sh
 EOF

@@ -25,7 +25,7 @@ cd dj_engine
 
 ## GitHub Codespaces
 
-Open the repository in GitHub Codespaces and wait for the devcontainer bootstrap to finish. The Codespaces configuration lives in [`.devcontainer/devcontainer.json`](../.devcontainer/devcontainer.json), installs the Linux build dependencies required by Bevy, winit, and audio backends, and warms build artifacts through `onCreateCommand` plus `updateContentCommand` so prebuilds can reuse real compiled binaries.
+Open the repository in GitHub Codespaces and wait for the devcontainer bootstrap to finish. The Codespaces configuration lives in [`.devcontainer/devcontainer.json`](../.devcontainer/devcontainer.json), installs the Linux build dependencies required by Bevy, winit, and audio backends, exposes SSH for `gh codespace ssh`, and warms the compile-validation layer through `onCreateCommand` plus `updateContentCommand`.
 
 After the container is ready, validate the workspace with:
 
@@ -41,6 +41,12 @@ To view the editor or game remotely, open the forwarded `desktop` port on `6080`
 ```bash
 ./dj e --test-mode
 timeout 20s ./dj d
+```
+
+If you want the heavier runtime binary warmup after the Codespace is ready, run:
+
+```bash
+bash .devcontainer/warm-runtime.sh
 ```
 
 Repository admins who want faster startup should also enable a Codespaces prebuild configuration in GitHub repository settings and select [`.devcontainer/devcontainer.json`](../.devcontainer/devcontainer.json).

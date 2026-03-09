@@ -9,6 +9,9 @@
       "password": "vscode",
       "webPort": "6080",
       "vncPort": "5901"
+    },
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
     }
   },
   "runArgs": ["--shm-size=1g"],

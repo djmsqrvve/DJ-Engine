@@ -40,7 +40,7 @@ The workspace toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml
 
 ## Codespaces
 
-GitHub Codespaces is supported through [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json). The devcontainer now includes a lightweight remote desktop for GUI apps, installs the Bevy/Linux native build and Mesa runtime dependencies during image build, and warms workspace binaries through `onCreateCommand` and `updateContentCommand` so Codespaces prebuilds can reuse them.
+GitHub Codespaces is supported through [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json). The devcontainer now includes a lightweight remote desktop for GUI apps, an SSH server so `gh codespace ssh` can work against ready environments, and the Bevy/Linux native build plus Mesa runtime dependencies during image build. Provisioning warms the compile-validation layer through `onCreateCommand` and `updateContentCommand`, while a separate script handles the heavier runtime binary warmup.
 
 To run the editor or game inside Codespaces:
 
@@ -50,6 +50,12 @@ timeout 20s ./dj d
 ```
 
 Open the forwarded `desktop` port on `6080` in your browser and connect with password `vscode` to view GUI windows.
+
+If you want to prebuild runtime binaries after the Codespace is reachable, run:
+
+```bash
+bash .devcontainer/warm-runtime.sh
+```
 
 Codespaces support is still compile-first, with GUI runtime intended for smoke runs and manual checks. The primary validation flow is:
 
