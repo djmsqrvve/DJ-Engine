@@ -6,6 +6,7 @@ Welcome to the DJ Engine documentation. This index helps you find what you need.
 
 | Guide | Description | Audience |
 |-------|-------------|----------|
+| [AI Handoff Suite](AI_HANDOFF_SUITE/README.md) | Current source-derived repo handoff for new coding agents | AI agents |
 | [Getting Started](GETTING_STARTED.md) | First-time setup and hello world | New users |
 | [Architecture](ARCHITECTURE.md) | System design and core concepts | Contributors |
 | [Code Style](CODE_STYLE.md) | Coding standards and conventions | Contributors |
