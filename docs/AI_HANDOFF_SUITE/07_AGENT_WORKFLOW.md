@@ -4,13 +4,14 @@
 
 Start with:
 
-1. `docs/AI_HANDOFF_SUITE/README.md`
-2. `docs/AI_HANDOFF_SUITE/01_CURRENT_STATE.md`
-3. `Cargo.toml`
-4. `engine/src/lib.rs`
-5. `engine/src/core/mod.rs`
-6. `games/dev/doomexe/src/main.rs`
-7. the specific module you are changing
+1. `docs/AI_HANDOFF_SUITE/00_ACCURACY_AUDIT.md`
+2. `docs/AI_HANDOFF_SUITE/README.md`
+3. `docs/AI_HANDOFF_SUITE/01_CURRENT_STATE.md`
+4. `Cargo.toml`
+5. `engine/src/lib.rs`
+6. `engine/src/core/mod.rs`
+7. `games/dev/doomexe/src/main.rs`
+8. the specific module you are changing
 
 ## Fast Orientation Commands
 
@@ -80,4 +81,5 @@ smoke will answer the question faster.
 - Check `git status` before and after edits.
 - Keep commits focused and descriptive.
 - Do not overwrite user-authored handoff notes unless explicitly asked.
-
+- If older prose conflicts with current refs or source, trust current refs and
+  code.

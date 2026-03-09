@@ -2,6 +2,14 @@
 
 Date: 2026-03-09
 
+## Git Snapshot
+
+- Canonical repo: `/home/dj/dev/engines/DJ-Engine`
+- Branch: `main`
+- HEAD: `5f0107d`
+- Remote refs: `origin/main` only
+- Worktree: clean
+
 ## Snapshot
 
 - This is a Cargo workspace with three members:
@@ -68,6 +76,9 @@ timeout 20s ./dj d
 - `games/dev/doomexe/src/assets/mod.rs` is currently just a placeholder plugin.
 - The diagnostics inspector plugin is intentionally disabled due to window-kind
   issues in some Linux/WSL software-rendered environments.
+- The branch-cleanup claims from the earlier conversation are reflected in the
+  current refs, but new agents should still start with `git status` and
+  `git branch -a` instead of assuming history from prose.
 
 ## Accepted Clippy Noise
 
@@ -79,4 +90,3 @@ The current known acceptable warning buckets are:
 - `clippy::module_inception`
 - one `field_reassign_with_default` warning in editor code
 - one `collapsible_else_if` warning in story graph code
-
