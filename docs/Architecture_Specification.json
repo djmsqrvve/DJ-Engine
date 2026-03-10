@@ -11,7 +11,7 @@
   
   "core_architecture": {
     "paradigm": "Entity Component System (ECS)",
-    "framework": "Bevy 0.15",
+    "framework": "Bevy 0.18",
     "language": "Rust",
     "scripting": "Lua 5.4 (via mlua)",
     "editor": "Egui + custom node editor"
@@ -225,7 +225,7 @@
     
     "component_bloat": {
       "question": "How to avoid 20-component monolithic Unit?",
-      "answer": "Use Bevy 0.15 Required Components + selective composition",
+      "answer": "Use Bevy 0.18 Required Components + selective composition",
       "rule": "Base unit has 4-5 components; games add 2-3 each via Optional marker components"
     }
   },

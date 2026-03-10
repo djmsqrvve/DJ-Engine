@@ -12,7 +12,7 @@ Data-driven content: scenes, story graphs, and game data in JSON
 
 Non-programmers can build full JRPG and TD levels in an editor
 
-Runtime: Bevy 0.15 + Rust + Lua (mlua) with a standardized Lua API
+Runtime: Bevy 0.18 + Rust + Lua (mlua) with a standardized Lua API
 
 1. Overall context (what already exists)
 I already have:
@@ -165,7 +165,7 @@ A Bevy-based runtime that loads these JSON files.
 A separate editor (Rust, or Rust + egui, or similar) that reads/writes the same types.
 
 3. Constraints & style
-Language: Rust 2021, Bevy 0.15 style.
+Language: Rust 2021, Bevy 0.18 style.
 
 Use serde everywhere.
 

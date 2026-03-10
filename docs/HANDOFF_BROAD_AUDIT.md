@@ -18,13 +18,13 @@ Run a broad, repo-wide technical audit to identify and fix compile errors, API r
 ## Verified Commands
 Use this target dir consistently for speed and cache isolation:
 ```bash
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18
 ```
 
 Baseline checks:
 ```bash
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace --no-run
 cargo fmt --all
 ```
 

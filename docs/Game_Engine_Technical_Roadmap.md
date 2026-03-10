@@ -6,7 +6,7 @@
 This roadmap provides a **practical, phased approach** to building dj_engine as a "Warcraft 3 Custom Map" style architecture where Unit/Character, Story, and Event systems are 90% identical between JRPG (DoomExe) and RTS (RTS-TBD) implementations. The key insight is that **controller input and camera perspective are the only genre-specific layers**; everything else can be unified.
 
 **Current Status:**
-- ✅ Bevy 0.15 with ECS foundation
+- ✅ Bevy 0.18 with ECS foundation
 - ✅ Lua scripting (mlua) for game logic
 - ✅ Egui editor with palette, hierarchy/inspector
 - ✅ Story Graph node editor (visual only)
@@ -226,7 +226,7 @@ Currently:
 - RTS needs: pathfinding, auto-attack, selection circle
 - **Solution:** Use Bevy's **Composition** pattern; build both from shared base
 
-### 2.2 Core Unit/Character Components (Bevy 0.15 Required Components)
+### 2.2 Core Unit/Character Components (Bevy 0.18 Required Components)
 
 ```rust
 /// Base component—**required** for any playable unit
@@ -880,7 +880,7 @@ let db: ItemDatabase = serde_json::from_str(include_str!("../assets/items.json")
 
 ```toml
 [dependencies]
-bevy = "0.15"
+bevy = "0.18"
 mlua = { version = "0.9", features = ["lua54", "serde"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -925,7 +925,7 @@ By end of Phase 5, you should have:
 - **Warcraft 3 Editor:** Hub-and-spoke dialogue, critical path merging
 - **Baldur's Gate 3:** Layered branching (consequential + thematic + character-driven)
 - **Steins;Gate:** Phone-as-controller for narrative (alternative input metaphor)
-- **Bevy 0.15:** Required Components pattern, Remote Protocol for editing
+- **Bevy 0.18:** Required Components pattern, Remote Protocol for editing
 - **Lua in RTS:** Spring Engine (open-source RTS with full Lua scripting)
 
 ---

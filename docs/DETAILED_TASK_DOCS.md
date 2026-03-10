@@ -355,7 +355,7 @@ license = "MIT"
 
 [workspace.dependencies]
 # Bevy engine (pinned)
-bevy = "0.14"
+bevy = "0.18"
 
 # Lua scripting
 mlua = { version = "0.9", features = ["lua54", "serialize"] }

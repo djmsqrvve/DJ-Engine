@@ -521,7 +521,7 @@ See "DOCUMENTATION NAVIGATION BY ROLE" section above for your reading path
 ✅ **Role-Based**: Guides for dev, artist, designer, lead  
 ✅ **Cross-Referenced**: Docs link to each other  
 ✅ **Actionable**: Every section ends with next steps  
-✅ **Current**: Based on Bevy 0.14, Rust 2021, modern patterns  
+✅ **Current**: Based on Bevy 0.18, Rust 2021, modern patterns  
 
 ---
 

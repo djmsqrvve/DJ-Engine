@@ -168,7 +168,7 @@ homepage = "https://yourorg.com"
 
 [workspace.dependencies]
 # Core engine dependencies
-bevy = { version = "0.14", features = ["dynamic_linking"] }  # Dynamic linking speeds up compilation
+bevy = { version = "0.18", features = ["dynamic_linking"] }  # Dynamic linking speeds up compilation
 bevy_asset_loader = { version = "0.20", features = ["2d"] }
 
 # Scripting

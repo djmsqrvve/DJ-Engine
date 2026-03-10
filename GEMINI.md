@@ -2,7 +2,7 @@
 
 ## 🚀 Project Status: Milestone 1 (Hamster Narrator)
 **Current Phase:** Phase 1 of 5 (Story Graph & Foundation)
-**Core Tech:** Rust, Bevy 0.15, Lua 5.4 (mlua), Egui
+**Core Tech:** Rust, Bevy 0.18, Lua 5.4 (mlua), Egui
 
 ## 🗺️ Documentation Map
 *   **`docs/MASTER-DOCUMENTATION-INDEX.md`**: The entry point.

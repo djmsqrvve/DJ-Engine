@@ -59,7 +59,7 @@ cargo init dj_engine
 cd dj_engine
 
 # 4. Add Bevy dependencies (from roadmap Cargo.toml section)
-cargo add bevy@0.15 mlua@0.9 serde_json uuid
+cargo add bevy@0.18 mlua@0.9 serde_json uuid
 ```
 
 ### Phase 2: First Implementation (Weeks 1-4)
@@ -228,7 +228,7 @@ Game resumes normally
 ## 🔧 BEST PRACTICES EXTRACTED FROM DOCS
 
 ### DO:
-- ✅ Use Bevy's `#[require(Component)]` macro (Bevy 0.15 feature)
+- ✅ Use Bevy's `#[require(Component)]` macro (Bevy 0.18 feature)
 - ✅ Serialize Story Graphs to JSON for content authoring
 - ✅ Layer TimeScale (global pause, but combat continues if needed)
 - ✅ Use Required Components to minimize archetype fragmentation
@@ -309,7 +309,7 @@ START: "I'm implementing dj_engine now"
 
 ### If you're new to Bevy ECS:
 
-1. **Read:** Bevy 0.15 quick start (in IDE Guide reference links)
+1. **Read:** Bevy 0.18 quick start (in IDE Guide reference links)
 2. **Watch:** "Practical ECS for Game Development in Rust with Bevy" (FOSDEM 2026)
 3. **Code:** Implement smallest piece first (just the StoryNode component)
 4. **Test:** Write unit tests (use AI Guide section 5 Prompt 2)
@@ -415,7 +415,7 @@ A: Use Bevy Remote Protocol (IDE Guide section 8) to inspect entities in real-ti
 ## 📖 REFERENCE MATERIALS USED
 
 ### 2026 Research Sources
-- Bevy 0.15 official documentation (bevyengine.org)
+- Bevy 0.18 official documentation (bevyengine.org)
 - FOSDEM 2026: "Practical ECS for Game Development in Rust with Bevy"
 - Cursor AI Editor official documentation
 - Claude 3.5 Sonnet capabilities for code analysis
@@ -442,7 +442,7 @@ A: Use Bevy Remote Protocol (IDE Guide section 8) to inspect entities in real-ti
 | **Maintenance** | Update quarterly as Bevy evolves |
 | **Team Size** | 1-5 developers |
 | **Timeline** | 20 weeks (5 months) to MVP |
-| **Technologies** | Rust, Bevy 0.15, Lua, JSON, Egui |
+| **Technologies** | Rust, Bevy 0.18, Lua, JSON, Egui |
 | **License** | See your project LICENSE |
 
 ---
@@ -476,4 +476,4 @@ And most importantly:
 
 **Last Updated:** 2026-01-21 14:35 PST  
 **Maintained by:** dj_engine Team  
-**Next Review:** Q2 2026 (when Bevy 0.16 released)
+**Next Review:** Q2 2026

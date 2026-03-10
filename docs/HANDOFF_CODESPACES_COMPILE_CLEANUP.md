@@ -10,9 +10,9 @@ Make this repository reliable to open, build, and validate inside GitHub Codespa
 ## Current Baseline
 - `main` is current and pushed to `origin/main` at `955a2e4`.
 - Local validation already passes:
-  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace`
-  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run`
-  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all`
+  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace`
+  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace --no-run`
+  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all`
 - Runtime smoke is stable enough for desktop Linux:
   - editor `--test-mode` launches and exits cleanly
   - `doomexe` launches cleanly under a timeout
@@ -91,9 +91,9 @@ Make this repository reliable to open, build, and validate inside GitHub Codespa
   - `README.md`, or
   - `docs/GETTING_STARTED.md`
 - Include the exact remote validation commands:
-  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace`
-  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run`
-  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all`
+  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace`
+  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace --no-run`
+  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all`
 - Keep docs cleanup focused.
   - Do not turn this into a repo-wide documentation rewrite.
 
@@ -107,9 +107,9 @@ Make this repository reliable to open, build, and validate inside GitHub Codespa
 ## Validation Checklist
 - Inside the devcontainer / Codespaces environment:
   - `cargo fmt --all --check`
-  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace`
-  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run`
-  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all`
+  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace`
+  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace --no-run`
+  - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all`
 - Verify a fresh Codespaces open does not require undocumented manual package installs.
 - Verify CI passes on the same branch.
 

@@ -15,7 +15,7 @@ Align DJ Engine with the Helix 3D renderer baseline by moving DJ Engine from Bev
 ## Remaining Compile Errors (at checkpoint time)
 Run used:
 ```bash
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace
 ```
 
 Top remaining blocks:
@@ -38,7 +38,7 @@ Top remaining blocks:
 2. Apply the small targeted fixes in `spawner`, `story_graph`, and `midi`.
 3. Re-run:
    - `cargo fmt --all`
-   - `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace`
+   - `RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace`
 4. Once green, run runtime workflows (`make dev-fast`, `make dev-web`, `make guardrail`) and commit in small logical batches.
 
 ## Files touched in this migration checkpoint

@@ -96,7 +96,7 @@
 ### Complete Architecture for Two Games, One Engine
 
 ```
-dj_engine (Bevy 0.15 + Rust + Lua)
+dj_engine (Bevy 0.18 + Rust + Lua)
 │
 ├─ 90% Shared Systems
 │  ├─ Story Graph (Visual Novel system)
@@ -189,7 +189,7 @@ Each prompt targets specific architecture challenges and returns production-read
 ### Configuration
 - ✅ VS Code setup (settings, launch, tasks)
 - ✅ Rust toolchain recommendations
-- ✅ Bevy 0.15 best practices
+- ✅ Bevy 0.18 best practices
 - ✅ Cargo.toml dependencies (tested versions)
 - ✅ Testing templates
 - ✅ Performance profiling setup
@@ -290,7 +290,7 @@ Everyone: Set up IDE using IDE_Configuration_Guide.md
 ## ✨ WHAT MAKES THIS SPECIAL
 
 ### 1. **Production-Ready Code**
-- All snippets compile (Bevy 0.15 tested)
+- All snippets compile (Bevy 0.18 tested)
 - No "pseudo-code" or placeholders
 - Ready to copy directly to your project
 - Performance-optimized (cache locality, archetype design)
@@ -383,6 +383,6 @@ You're ready to build. Go create something amazing! 🚀
 **Package Version:** 1.0  
 **Created:** 2026-01-21  
 **Status:** Production Ready  
-**Next Update:** Q2 2026 (Bevy 0.16 release)
+**Next Update:** Q2 2026
 
 **All files are in your project directory. Happy building!**

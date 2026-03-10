@@ -149,7 +149,7 @@ Do NOT use `/tmp/` for CARGO_TARGET_DIR — tmpfs is full.
 
 **7. Stale Docs**
 - `docs/AI_HANDOFF_SUITE/06_REMOTE_DEV_AND_CI.md` lines 108, 117-119: still references
-  `/tmp/dj_engine_bevy18`
+  `~/.cargo-targets/dj_engine_bevy18`
 - `AGENTS.md`: still says Bevy 0.15 (actual is 0.18)
 
 **8. Story Graph Validation**

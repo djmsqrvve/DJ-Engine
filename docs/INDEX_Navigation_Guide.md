@@ -310,7 +310,7 @@ git add assets/lua/*.lua
 
 ```
 Check quarterly for updates:
-- Bevy 0.16 release → review breaking changes vs Roadmap
+- Bevy release → review breaking changes vs Roadmap
 - Rust language updates → verify code still compiles
 - New LLM capabilities → update AI prompts in AI_Coding_Assistant_Config.md
 - IDE tool updates → refresh IDE_Configuration_Guide.md
@@ -320,9 +320,9 @@ Check quarterly for updates:
 
 ## 🎓 LEARNING RESOURCES REFERENCED
 
-### Bevy 0.15 Documentation
+### Bevy 0.18 Documentation
 - Official: https://bevyengine.org/learn/quick-start/
-- Docs.rs: https://docs.rs/bevy/0.15/bevy/
+- Docs.rs: https://docs.rs/bevy/0.18/bevy/
 
 ### Rust + ECS Resources
 - FOSDEM 2026: "Practical ECS for Game Development in Rust with Bevy"
@@ -401,12 +401,12 @@ Before you start coding, make sure you have:
 | **Total Package Size** | ~6,750 lines of documentation |
 | **Estimated Read Time** | 70-105 minutes (all documents) |
 | **Estimated Implementation Time** | 20 weeks (1 dev), 10 weeks (3 devs) |
-| **Target Framework** | Bevy 0.15 |
+| **Target Framework** | Bevy 0.18 |
 | **Language** | Rust |
 | **Scripting** | Lua 5.4 |
 | **Created** | 2026-01-21 |
 | **Status** | Production Ready |
-| **Next Update** | Q2 2026 (Bevy 0.16 release) |
+| **Next Update** | Q2 2026 |
 
 ---
 

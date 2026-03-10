@@ -7,7 +7,7 @@
 **Why VS Code?**
 - Best Rust extension ecosystem (rust-analyzer, better_TOML, etc.)
 - Egui + Bevy debugging support mature
-- Remote Protocol integration (Bevy 0.15 inspector over network)
+- Remote Protocol integration (Bevy 0.18 inspector over network)
 - Fast startup, lightweight
 
 **Why Cursor if you have budget ($20/month)?**
@@ -43,7 +43,7 @@
 
 | Extension | Purpose | Install Command |
 |-----------|---------|-----------------|
-| **Bevy Cheat Book** | In-editor Bevy 0.15 API docs | `bevy_cheatbook` snippet pack |
+| **Bevy Cheat Book** | In-editor Bevy 0.18 API docs | `bevy_cheatbook` snippet pack |
 | **WGSL** | WebGPU shader support (Bevy uses WGSL) | For graphics debugging |
 | **Biome** or **Prettier** | Format Rust/JSON/TOML consistently | Use Biome for Rust formatting |
 
@@ -358,7 +358,7 @@
 
 ### Connecting External Editor to Running Bevy App
 
-Bevy 0.15 introduced **Bevy Remote Protocol (BRP)** allowing editors to inspect/modify ECS at runtime.
+Bevy 0.18 introduced **Bevy Remote Protocol (BRP)** allowing editors to inspect/modify ECS at runtime.
 
 **Setup (VS Code):**
 

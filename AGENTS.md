@@ -4,7 +4,7 @@ This file provides essential information for AI coding agents working with the D
 
 ## Project Overview
 
-**DJ Engine** is a custom game framework built on Rust and Bevy 0.15, designed for procedural 2D character animation and narrative-heavy JRPGs with "cursed" visual effects. The engine emphasizes palette-driven corruption effects and Lua scripting for flexible game logic.
+**DJ Engine** is a custom game framework built on Rust and Bevy 0.18, designed for procedural 2D character animation and narrative-heavy JRPGs with "cursed" visual effects. The engine emphasizes palette-driven corruption effects and Lua scripting for flexible game logic.
 
 ### Key Features
 - **Procedural 2D Animation**: Breathing, blinking, expression-driven character animations
@@ -14,7 +14,7 @@ This file provides essential information for AI coding agents working with the D
 - **Universal Actor System**: Standardized ECS components for both JRPG and RTS gameplay
 
 ### Technology Stack
-- **Engine**: Bevy 0.15 (ECS, Rendering, Audio, Input)
+- **Engine**: Bevy 0.18 (ECS, Rendering, Audio, Input)
 - **Language**: Rust (core systems), Lua (game logic & content)
 - **Data Formats**: JSON (assets, story graphs), TOML (config), Lua (scripts)
 - **UI**: bevy_egui (tools/debug), Bevy UI (in-game interfaces)
@@ -155,7 +155,7 @@ Games can enable individual plugins or use the full bundle:
 ### Key Architectural Patterns
 
 1. **Resource-Driven Configuration**: `EngineConfig` and `DiagnosticConfig` as Bevy resources
-2. **Component Dependencies**: Uses Bevy 0.15 `#[require(Component)]` for enforcing relationships
+2. **Component Dependencies**: Uses Bevy 0.18 `#[require(Component)]` for enforcing relationships
 3. **Data-Driven Design**: JSON for story graphs, scenes, and databases loaded at runtime
 4. **FFI Boundaries**: Clear separation between Rust systems and Lua scripting
 5. **Event-Driven Communication**: Bevy events for cross-system communication

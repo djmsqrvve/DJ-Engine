@@ -105,7 +105,7 @@ CI uses:
 
 ```bash
 RUSTC_WRAPPER=""
-CARGO_TARGET_DIR=/tmp/dj_engine_bevy18
+CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18
 ```
 
 ## Recommended Remote Validation
@@ -114,9 +114,9 @@ Inside Codespaces or equivalent Linux remote environments:
 
 ```bash
 cargo fmt --all --check
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace --no-run
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
 ./dj e --test-mode
 timeout 20s ./dj d
 ```

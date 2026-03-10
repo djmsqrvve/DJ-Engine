@@ -261,7 +261,7 @@ Generate:
 4. Proper event ordering to prevent TLE (tight loop errors)
 
 Constraints:
-- Use Bevy 0.15 syntax
+- Use Bevy 0.18 syntax
 - Must work with `bevy_picking` for choice button clicks
 - TimeScale must be respected by all systems
 - No mutable borrow conflicts
@@ -442,7 +442,7 @@ How can I use Bevy's archetype system to skip static entities?"
 
 ```
 CONTEXT:
-  Project: dj_engine (Bevy 0.15 game engine)
+  Project: dj_engine (Bevy 0.18 game engine)
   Goal: Unified JRPG/RTS architecture
   Language: Rust
   Constraint: Single-player only
@@ -576,7 +576,7 @@ src/systems/story.rs:87
 - [ ] Refactoring ECS systems
 - [ ] Finding performance bottlenecks
 - [ ] Generating documentation
-- [ ] Translating code patterns to Bevy 0.15
+- [ ] Translating code patterns to Bevy 0.18
 - [ ] Exploring alternative architectures
 
 ## ⚠️ CAUTION AREAS
