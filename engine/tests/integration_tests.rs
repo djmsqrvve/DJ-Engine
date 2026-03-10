@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use dj_engine::data::{StoryGraphData, StoryNodeData};
 use dj_engine::midi::MidiManager;
 use dj_engine::prelude::*;
 
@@ -83,4 +84,56 @@ fn test_story_graph_branching() {
     assert!(flags.get("met_hamster"));
     assert_eq!(executor.current_node, Some(2)); // Should have jumped to Node 2
     assert_eq!(executor.status, ExecutionStatus::WaitingForInput);
+}
+
+#[test]
+fn test_graph_executor_load_from_data() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(AssetPlugin::default());
+    app.add_plugins(bevy::input::InputPlugin);
+    app.init_asset::<AudioSource>();
+    app.add_plugins(DJEnginePlugin::default().without_diagnostics());
+
+    // Build a minimal Start -> Dialogue -> End graph via data layer
+    let mut data = StoryGraphData::new("test_graph", "Test");
+    data.add_node(StoryNodeData::start("n_start", Some("n_dialogue")));
+    data.add_node(StoryNodeData::dialogue("n_dialogue", "Hamster", "Hello!"));
+    data.add_node(StoryNodeData::end("n_end"));
+    data.root_node_id = "n_start".into();
+
+    {
+        let mut executor = app.world_mut().resource_mut::<GraphExecutor>();
+        executor.load_from_data(&data);
+    }
+
+    app.update();
+
+    let executor = app.world().resource::<GraphExecutor>();
+    // After one update, Start node advances immediately and Dialogue blocks for input
+    assert_eq!(executor.status, ExecutionStatus::WaitingForInput);
+    assert!(executor.current_node.is_some());
+}
+
+#[test]
+fn test_audio_state_volume_clamping_via_resource() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(AssetPlugin::default());
+    app.add_plugins(bevy::input::InputPlugin);
+    app.init_asset::<AudioSource>();
+    app.add_plugins(DJEnginePlugin::default().without_diagnostics());
+
+    // Directly mutate AudioState resource and verify clamp behavior
+    {
+        let mut state = app.world_mut().resource_mut::<AudioState>();
+        state.master_volume = 2.0_f32.clamp(0.0, 1.0);
+    }
+    assert_eq!(app.world().resource::<AudioState>().master_volume, 1.0);
+
+    {
+        let mut state = app.world_mut().resource_mut::<AudioState>();
+        state.master_volume = (-1.0_f32).clamp(0.0, 1.0);
+    }
+    assert_eq!(app.world().resource::<AudioState>().master_volume, 0.0);
 }

@@ -133,11 +133,70 @@ mod tests {
         let config = InputConfig::default();
         assert!(!config.keyboard_map.is_empty());
 
-        // Verify confirm is mapped
         let has_confirm = config
             .keyboard_map
             .iter()
             .any(|(_, action)| *action == InputAction::Confirm);
         assert!(has_confirm);
+    }
+
+    #[test]
+    fn test_default_config_all_directions_mapped() {
+        let config = InputConfig::default();
+        for action in [
+            InputAction::Up,
+            InputAction::Down,
+            InputAction::Left,
+            InputAction::Right,
+        ] {
+            assert!(
+                config.keyboard_map.iter().any(|(_, a)| *a == action),
+                "{:?} not mapped",
+                action
+            );
+        }
+    }
+
+    #[test]
+    fn test_action_state_pressed() {
+        let mut state = ActionState::default();
+        assert!(!state.pressed(InputAction::Confirm));
+        state.pressed.insert(InputAction::Confirm);
+        assert!(state.pressed(InputAction::Confirm));
+        assert!(!state.pressed(InputAction::Cancel));
+    }
+
+    #[test]
+    fn test_action_state_just_pressed() {
+        let mut state = ActionState::default();
+        state.just_pressed.insert(InputAction::Up);
+        assert!(state.just_pressed(InputAction::Up));
+        assert!(!state.just_pressed(InputAction::Down));
+    }
+
+    #[test]
+    fn test_action_state_just_released() {
+        let mut state = ActionState::default();
+        state.just_released.insert(InputAction::Left);
+        assert!(state.just_released(InputAction::Left));
+        assert!(!state.just_released(InputAction::Right));
+    }
+
+    #[test]
+    fn test_action_state_default_is_empty() {
+        let state = ActionState::default();
+        for action in [
+            InputAction::Confirm,
+            InputAction::Cancel,
+            InputAction::Menu,
+            InputAction::Up,
+            InputAction::Down,
+            InputAction::Left,
+            InputAction::Right,
+        ] {
+            assert!(!state.pressed(action));
+            assert!(!state.just_pressed(action));
+            assert!(!state.just_released(action));
+        }
     }
 }
