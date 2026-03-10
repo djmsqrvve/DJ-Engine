@@ -125,19 +125,34 @@ mod tests {
 
     #[test]
     fn test_color_entry_to_rgba() {
-        let c = ColorEntry { index: 0, r: 255, g: 128, b: 0 };
+        let c = ColorEntry {
+            index: 0,
+            r: 255,
+            g: 128,
+            b: 0,
+        };
         assert_eq!(c.to_rgba(), [255, 128, 0, 255]);
     }
 
     #[test]
     fn test_color_entry_to_rgba_black() {
-        let c = ColorEntry { index: 0, r: 0, g: 0, b: 0 };
+        let c = ColorEntry {
+            index: 0,
+            r: 0,
+            g: 0,
+            b: 0,
+        };
         assert_eq!(c.to_rgba(), [0, 0, 0, 255]);
     }
 
     #[test]
     fn test_color_entry_alpha_always_255() {
-        let c = ColorEntry { index: 5, r: 10, g: 20, b: 30 };
+        let c = ColorEntry {
+            index: 5,
+            r: 10,
+            g: 20,
+            b: 30,
+        };
         assert_eq!(c.to_rgba()[3], 255);
     }
 
@@ -146,8 +161,18 @@ mod tests {
         let palette = PaletteDefinition {
             palette_name: "test_palette".into(),
             colors: vec![
-                ColorEntry { index: 0, r: 255, g: 0, b: 0 },
-                ColorEntry { index: 1, r: 0, g: 255, b: 0 },
+                ColorEntry {
+                    index: 0,
+                    r: 255,
+                    g: 0,
+                    b: 0,
+                },
+                ColorEntry {
+                    index: 1,
+                    r: 0,
+                    g: 255,
+                    b: 0,
+                },
             ],
         };
         let json = serde_json::to_string(&palette).unwrap();
