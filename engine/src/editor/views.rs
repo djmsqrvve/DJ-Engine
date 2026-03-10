@@ -1,6 +1,6 @@
 use super::types::{ActiveStoryGraph, EditorUiState, COLOR_BG, COLOR_PRIMARY};
 use crate::data::components::Vec3Data;
-use crate::data::story::{StoryNodeData, StoryNodeType, StoryNodeVariant};
+use crate::data::story::{StoryNodeData, StoryNodeType};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32};
 
@@ -290,14 +290,7 @@ pub(crate) fn draw_story_graph(ui: &mut egui::Ui, world: &mut World) {
         // Apply connection
         if let Some((from, to)) = connection_established {
             if let Some(node) = graph.0.nodes.iter_mut().find(|n| n.id == from) {
-                // Ugly mutation manually based on type
-                // TODO: Add helper 'set_next' to StoryNodeData
-                match &mut node.data {
-                    StoryNodeVariant::Start(d) => d.next_node_id = Some(to),
-                    StoryNodeVariant::Dialogue(d) => d.next_node_id = Some(to),
-                    StoryNodeVariant::Action(a) => a.next_node_id = Some(to),
-                    _ => {}
-                }
+                node.data.set_next_node_id(to);
             }
         }
     });

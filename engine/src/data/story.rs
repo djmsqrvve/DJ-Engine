@@ -325,6 +325,19 @@ pub enum StoryNodeVariant {
     End(EndNodeData),
 }
 
+impl StoryNodeVariant {
+    pub fn set_next_node_id(&mut self, id: String) -> bool {
+        match self {
+            Self::Start(d) => { d.next_node_id = Some(id); true }
+            Self::Dialogue(d) => { d.next_node_id = Some(id); true }
+            Self::Action(a) => { a.next_node_id = Some(id); true }
+            Self::Camera(c) => { c.next_node_id = Some(id); true }
+            Self::TimeControl(t) => { t.next_node_id = Some(id); true }
+            Self::Choice(_) | Self::Conditional(_) | Self::End(_) => false,
+        }
+    }
+}
+
 /// A node in a story graph.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Reflect)]
 pub struct StoryNodeData {
@@ -528,7 +541,27 @@ impl StoryGraphData {
             }
         }
 
-        // TODO: Check for unreachable nodes (would need graph traversal)
+        // Check for unreachable nodes via BFS from root
+        if node_ids.contains(self.root_node_id.as_str()) {
+            let mut reachable = std::collections::HashSet::new();
+            let mut queue = std::collections::VecDeque::new();
+            queue.push_back(self.root_node_id.as_str());
+            reachable.insert(self.root_node_id.as_str());
+            while let Some(current) = queue.pop_front() {
+                if let Some(node) = self.find_node(current) {
+                    for next in node.next_node_ids() {
+                        if reachable.insert(next) {
+                            queue.push_back(next);
+                        }
+                    }
+                }
+            }
+            for node in &self.nodes {
+                if !reachable.contains(node.id.as_str()) {
+                    errors.push(ValidationError::UnreachableNode(node.id.clone()));
+                }
+            }
+        }
 
         errors
     }
@@ -644,5 +677,66 @@ mod tests {
 
         let errors = graph.validate_against_scene(&scene);
         assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn test_set_next_node_id_supported() {
+        let cases: Vec<StoryNodeVariant> = vec![
+            StoryNodeVariant::Start(StartNodeData { next_node_id: None }),
+            StoryNodeVariant::Dialogue(DialogueNodeData::default()),
+            StoryNodeVariant::Action(ActionNodeData::default()),
+            StoryNodeVariant::Camera(CameraNodeData::default()),
+            StoryNodeVariant::TimeControl(TimeControlNodeData::default()),
+        ];
+        for mut variant in cases {
+            assert!(variant.set_next_node_id("target".into()));
+        }
+    }
+
+    #[test]
+    fn test_set_next_node_id_unsupported() {
+        let cases: Vec<StoryNodeVariant> = vec![
+            StoryNodeVariant::Choice(ChoiceNodeData::default()),
+            StoryNodeVariant::Conditional(ConditionalNodeData {
+                condition: StoryCondition {
+                    variable: String::new(),
+                    operator: ConditionOperator::Equals,
+                    value: serde_json::Value::Null,
+                },
+                true_target_node_id: String::new(),
+                false_target_node_id: String::new(),
+            }),
+            StoryNodeVariant::End(EndNodeData::default()),
+        ];
+        for mut variant in cases {
+            assert!(!variant.set_next_node_id("target".into()));
+        }
+    }
+
+    #[test]
+    fn test_validation_unreachable_node() {
+        let mut graph = StoryGraphData::new("test", "Test");
+        graph.root_node_id = "start".into();
+        graph.add_node(StoryNodeData::start("start", Some("end")));
+        graph.add_node(StoryNodeData::end("end"));
+        graph.add_node(StoryNodeData::dialogue("orphan", "Ghost", "Nobody reaches me"));
+
+        let errors = graph.validate();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnreachableNode(id) if id == "orphan")));
+    }
+
+    #[test]
+    fn test_validation_all_reachable() {
+        let mut graph = StoryGraphData::new("test", "Test");
+        graph.root_node_id = "start".into();
+        graph.add_node(StoryNodeData::start("start", Some("end")));
+        graph.add_node(StoryNodeData::end("end"));
+
+        let errors = graph.validate();
+        assert!(!errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnreachableNode(_))));
     }
 }
