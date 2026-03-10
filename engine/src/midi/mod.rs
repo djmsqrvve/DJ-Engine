@@ -286,6 +286,59 @@ fn generate_wav_square(num_samples: u32, sample_rate: u32, freq: f32) -> AudioSo
     generate_wav(num_samples, sample_rate, &samples)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_midi_playback_default() {
+        let p = MidiPlayback::default();
+        assert!(!p.is_playing);
+        assert_eq!(p.current_tick, 0.0);
+        assert_eq!(p.event_index, 0);
+        assert!(!p.loop_playback);
+    }
+
+    #[test]
+    fn test_midi_manager_default() {
+        let m = MidiManager::default();
+        assert!(m.active_voices.is_empty());
+    }
+
+    #[test]
+    fn test_generate_wav_valid_header() {
+        let samples: Vec<f32> = vec![0.0; 44100];
+        let source = generate_wav(44100, 44100, &samples);
+        let bytes = &source.bytes;
+        assert_eq!(&bytes[0..4], b"RIFF");
+        assert_eq!(&bytes[8..12], b"WAVE");
+        assert_eq!(&bytes[12..16], b"fmt ");
+        assert_eq!(&bytes[36..40], b"data");
+    }
+
+    #[test]
+    fn test_generate_wav_square_valid_header() {
+        let source = generate_wav_square(44100, 44100, 440.0);
+        let bytes = &source.bytes;
+        assert_eq!(&bytes[0..4], b"RIFF");
+        assert_eq!(&bytes[8..12], b"WAVE");
+    }
+
+    #[test]
+    fn test_sequencer_event_fields() {
+        let event = SequencerEvent {
+            tick: 480,
+            kind: SequencerEventKind::Tempo(500_000),
+        };
+        assert_eq!(event.tick, 480);
+        if let SequencerEventKind::Tempo(bpm) = event.kind {
+            assert_eq!(bpm, 500_000);
+        } else {
+            panic!("expected Tempo");
+        }
+    }
+}
+
 fn handle_midi_commands(
     mut commands: Commands,
     mut events: MessageReader<MidiCommand>,

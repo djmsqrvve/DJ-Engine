@@ -176,3 +176,32 @@ pub fn generate_overworld_theme() -> Vec<u8> {
     smf.write(&mut buffer).unwrap();
     buffer
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use midly::Smf;
+
+    #[test]
+    fn test_overworld_theme_valid_midi_header() {
+        let bytes = generate_overworld_theme();
+        assert!(bytes.len() > 14, "MIDI output too short");
+        assert_eq!(&bytes[0..4], b"MThd", "missing MIDI header magic");
+    }
+
+    #[test]
+    fn test_overworld_theme_track_count() {
+        let bytes = generate_overworld_theme();
+        let smf = Smf::parse(&bytes).expect("failed to parse generated MIDI");
+        assert_eq!(smf.tracks.len(), 3, "expected 3 tracks (bass, chords, melody)");
+    }
+
+    #[test]
+    fn test_overworld_theme_has_events() {
+        let bytes = generate_overworld_theme();
+        let smf = Smf::parse(&bytes).expect("failed to parse generated MIDI");
+        for track in &smf.tracks {
+            assert!(!track.is_empty(), "track should have events");
+        }
+    }
+}
