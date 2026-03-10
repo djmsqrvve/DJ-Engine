@@ -31,6 +31,37 @@ pub struct SceneManager {
     pub next_background: Option<String>,
 }
 
+/// Pure transition tick logic, extracted for testability.
+///
+/// Given the current state, alpha, speed, and delta time, returns the next (state, alpha).
+/// Does not handle background swapping — that remains in the system.
+pub fn tick_transition(
+    state: TransitionState,
+    alpha: f32,
+    speed: f32,
+    dt: f32,
+) -> (TransitionState, f32) {
+    match state {
+        TransitionState::FadingOut => {
+            let new_alpha = (alpha + speed * dt).min(1.0);
+            if new_alpha >= 1.0 {
+                (TransitionState::FadingIn, new_alpha)
+            } else {
+                (TransitionState::FadingOut, new_alpha)
+            }
+        }
+        TransitionState::FadingIn => {
+            let new_alpha = (alpha - speed * dt).max(0.0);
+            if new_alpha <= 0.0 {
+                (TransitionState::Idle, new_alpha)
+            } else {
+                (TransitionState::FadingIn, new_alpha)
+            }
+        }
+        other => (other, alpha),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -47,6 +78,41 @@ mod tests {
         assert_eq!(m.alpha, 0.0);
         assert_eq!(m.speed, 0.0);
         assert!(m.next_background.is_none());
+    }
+
+    #[test]
+    fn test_tick_fading_out_advances_alpha() {
+        let (state, alpha) = tick_transition(TransitionState::FadingOut, 0.0, 1.0, 0.3);
+        assert_eq!(state, TransitionState::FadingOut);
+        assert!((alpha - 0.3).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_tick_fading_out_transitions_to_fading_in_at_full() {
+        let (state, alpha) = tick_transition(TransitionState::FadingOut, 0.9, 1.0, 0.5);
+        assert_eq!(state, TransitionState::FadingIn);
+        assert_eq!(alpha, 1.0);
+    }
+
+    #[test]
+    fn test_tick_fading_in_decreases_alpha() {
+        let (state, alpha) = tick_transition(TransitionState::FadingIn, 1.0, 1.0, 0.4);
+        assert_eq!(state, TransitionState::FadingIn);
+        assert!((alpha - 0.6).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_tick_fading_in_transitions_to_idle_at_zero() {
+        let (state, alpha) = tick_transition(TransitionState::FadingIn, 0.1, 1.0, 0.5);
+        assert_eq!(state, TransitionState::Idle);
+        assert_eq!(alpha, 0.0);
+    }
+
+    #[test]
+    fn test_tick_idle_is_noop() {
+        let (state, alpha) = tick_transition(TransitionState::Idle, 0.5, 1.0, 1.0);
+        assert_eq!(state, TransitionState::Idle);
+        assert_eq!(alpha, 0.5);
     }
 }
 
@@ -128,43 +194,32 @@ fn update_transition(
 
     let dt = time.delta_secs();
 
-    match manager.state {
-        TransitionState::FadingOut => {
-            manager.alpha = (manager.alpha + manager.speed * dt).min(1.0);
+    let prev_state = manager.state;
+    let (next_state, next_alpha) = tick_transition(manager.state, manager.alpha, manager.speed, dt);
+    manager.state = next_state;
+    manager.alpha = next_alpha;
 
-            if manager.alpha >= 1.0 {
-                // Screen is black, swap backgrounds
-                for entity in bg_query.iter() {
-                    commands.entity(entity).despawn();
-                }
-
-                if let Some(path) = manager.next_background.take() {
-                    let texture = asset_server.load(path);
-                    commands.spawn((
-                        Sprite {
-                            image: texture,
-                            custom_size: Some(Vec2::new(320.0, 240.0)),
-                            ..default()
-                        },
-                        Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
-                        SceneBackground,
-                    ));
-                }
-
-                // Start fading in
-                manager.state = TransitionState::FadingIn;
-            }
+    // When FadingOut just reached full black, swap the background
+    if prev_state == TransitionState::FadingOut && next_state == TransitionState::FadingIn {
+        for entity in bg_query.iter() {
+            commands.entity(entity).despawn();
         }
-        TransitionState::FadingIn => {
-            manager.alpha = (manager.alpha - manager.speed * dt).max(0.0);
-
-            if manager.alpha <= 0.0 {
-                // Transition complete
-                manager.state = TransitionState::Idle;
-                info!("Scene transition complete");
-            }
+        if let Some(path) = manager.next_background.take() {
+            let texture = asset_server.load(path);
+            commands.spawn((
+                Sprite {
+                    image: texture,
+                    custom_size: Some(Vec2::new(320.0, 240.0)),
+                    ..default()
+                },
+                Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
+                SceneBackground,
+            ));
         }
-        _ => {}
+    }
+
+    if prev_state == TransitionState::FadingIn && next_state == TransitionState::Idle {
+        info!("Scene transition complete");
     }
 
     // Apply alpha to overlay

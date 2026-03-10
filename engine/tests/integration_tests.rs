@@ -1,7 +1,10 @@
 use bevy::prelude::*;
+use dj_engine::animation::components::{BlinkingAnimation, BreathingAnimation};
 use dj_engine::data::{StoryGraphData, StoryNodeData};
 use dj_engine::midi::MidiManager;
 use dj_engine::prelude::*;
+use dj_engine::scripting::ffi::{create_shared_state, register_core_api, register_generic_state_api};
+use dj_engine::scripting::context::LuaContext;
 
 #[test]
 fn test_engine_initialization() {
@@ -136,4 +139,92 @@ fn test_audio_state_volume_clamping_via_resource() {
         state.master_volume = (-1.0_f32).clamp(0.0, 1.0);
     }
     assert_eq!(app.world().resource::<AudioState>().master_volume, 0.0);
+}
+
+#[test]
+fn test_breathing_system_applies_scale_at_phase() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(AssetPlugin::default());
+    app.add_plugins(bevy::input::InputPlugin);
+    app.init_asset::<AudioSource>();
+    app.add_plugins(DJEnginePlugin::default().without_diagnostics());
+
+    // phase=PI/2 means sin(0 + PI/2)=1.0 on the first frame (elapsed≈0),
+    // giving scale_factor = 1.0 + amplitude * 1.0 > 1.0
+    let entity = app
+        .world_mut()
+        .spawn((
+            BreathingAnimation {
+                phase: std::f32::consts::FRAC_PI_2,
+                ..BreathingAnimation::hamster_default()
+            },
+            Transform::from_xyz(0.0, 0.0, 0.0),
+        ))
+        .id();
+
+    app.update();
+
+    let transform = app.world().entity(entity).get::<Transform>().unwrap();
+    assert!(
+        transform.scale.y > 1.0,
+        "breathing should expand scale.y, got {}",
+        transform.scale.y
+    );
+}
+
+#[test]
+fn test_blinking_system_triggers_on_expired_timer() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(AssetPlugin::default());
+    app.add_plugins(bevy::input::InputPlugin);
+    app.init_asset::<AudioSource>();
+    app.add_plugins(DJEnginePlugin::default().without_diagnostics());
+
+    // timer=0.0 → after subtracting delta(0) it stays 0 ≤ 0, triggering blink
+    let entity = app
+        .world_mut()
+        .spawn(BlinkingAnimation {
+            timer: 0.0,
+            ..BlinkingAnimation::hamster_default()
+        })
+        .id();
+
+    app.update();
+
+    let blink = app.world().entity(entity).get::<BlinkingAnimation>().unwrap();
+    assert!(blink.is_blinking, "blink should have started when timer expired");
+}
+
+#[test]
+fn test_lua_context_basic_execution() {
+    let ctx = LuaContext::new();
+    let lua = ctx.lua.lock().unwrap();
+    let result: i32 = lua.load("return 1 + 1").eval().unwrap();
+    assert_eq!(result, 2);
+}
+
+#[test]
+fn test_lua_context_with_ffi_roundtrip() {
+    let ctx = LuaContext::new();
+    let lua = ctx.lua.lock().unwrap();
+    register_core_api(&lua).unwrap();
+    let state = create_shared_state();
+    register_generic_state_api(&lua, state.clone()).unwrap();
+
+    lua.load(
+        r#"
+        set_float("score", 100.0)
+        set_string("player", "hamster")
+        set_bool("game_over", false)
+    "#,
+    )
+    .exec()
+    .unwrap();
+
+    let data = state.read().unwrap();
+    assert!((data.floats["score"] - 100.0).abs() < f32::EPSILON);
+    assert_eq!(data.strings["player"], "hamster");
+    assert!(!data.bools["game_over"]);
 }
