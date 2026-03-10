@@ -2,6 +2,7 @@ mod sequencer;
 mod wav;
 
 use bevy::prelude::*;
+use bevy::reflect::TypePath;
 use midly::MidiMessage;
 use std::collections::HashMap;
 
@@ -56,17 +57,35 @@ pub struct MidiPlayback {
     pub loop_playback: bool,
 }
 
+/// Asset type for loaded MIDI files.
+#[derive(Asset, TypePath, Clone)]
+pub struct MidiFileAsset {
+    pub events: Vec<SequencerEvent>,
+    pub ticks_per_beat: u16,
+    pub duration_ticks: u32,
+}
+
+/// Tracks the in-flight async MIDI load handle.
+#[derive(Resource)]
+pub struct MidiLoadState(Handle<MidiFileAsset>);
+
 pub struct MidiPlugin;
 
 impl Plugin for MidiPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<MidiCommand>()
+            .init_asset::<MidiFileAsset>()
+            .register_asset_loader(wav::MidiLoader)
             .init_resource::<MidiManager>()
             .init_resource::<MidiPlayback>()
-            .add_systems(Startup, (wav::setup_midi_assets, wav::load_overworld_midi))
+            .add_systems(Startup, (wav::setup_midi_assets, wav::start_midi_load))
             .add_systems(
                 Update,
-                (sequencer::handle_midi_commands, sequencer::midi_sequencer),
+                (
+                    sequencer::handle_midi_commands,
+                    sequencer::midi_sequencer,
+                    wav::apply_loaded_midi,
+                ),
             );
 
         info!("MIDI Plugin initialized");

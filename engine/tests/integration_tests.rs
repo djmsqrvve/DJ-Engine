@@ -237,3 +237,33 @@ fn test_lua_context_with_ffi_roundtrip() {
     assert_eq!(data.strings["player"], "hamster");
     assert!(!data.bools["game_over"]);
 }
+
+#[test]
+fn test_script_load_from_file() {
+    use std::io::Write;
+
+    let ctx = LuaContext::new();
+    let lua = ctx.lua.lock().unwrap();
+    register_core_api(&lua).unwrap();
+    let state = create_shared_state();
+    register_generic_state_api(&lua, state.clone()).unwrap();
+
+    let mut tmp = tempfile::NamedTempFile::new().unwrap();
+    writeln!(
+        tmp,
+        r#"
+        set_float("health", 99.0)
+        set_string("name", "tester")
+        set_bool("alive", true)
+    "#
+    )
+    .unwrap();
+
+    let script = std::fs::read_to_string(tmp.path()).unwrap();
+    lua.load(&script).exec().unwrap();
+
+    let data = state.read().unwrap();
+    assert!((data.floats["health"] - 99.0).abs() < f32::EPSILON);
+    assert_eq!(data.strings["name"], "tester");
+    assert!(data.bools["alive"]);
+}
