@@ -1019,13 +1019,14 @@ fn world_to_scene(world: &mut World) -> Scene {
         // For now, simple filter: if it has a name starting with "Editor", skip?
         // Or better, only save things we know we spawned.
 
-        let mut components = EntityComponents::default();
-
-        components.transform = TransformComponent {
-            position: Vec3Data::new(pos.x, pos.y, pos.z),
-            rotation: Vec3Data::default(), // Simplification
-            scale: Vec3Data::new(scale.x, scale.y, scale.z),
-            lock_uniform_scale: false,
+        let mut components = EntityComponents {
+            transform: TransformComponent {
+                position: Vec3Data::new(pos.x, pos.y, pos.z),
+                rotation: Vec3Data::default(),
+                scale: Vec3Data::new(scale.x, scale.y, scale.z),
+                lock_uniform_scale: false,
+            },
+            ..EntityComponents::default()
         };
 
         if let Some([r, g, b, a]) = sprite_color {

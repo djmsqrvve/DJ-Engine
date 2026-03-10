@@ -473,12 +473,10 @@ fn process_node(
                 } else {
                     NodeAction::Advance
                 }
+            } else if let Some(id) = if_false {
+                NodeAction::Jump(*id)
             } else {
-                if let Some(id) = if_false {
-                    NodeAction::Jump(*id)
-                } else {
-                    NodeAction::Advance
-                }
+                NodeAction::Advance
             }
         }
         StoryNode::SetFlag { flag, value, .. } => {
