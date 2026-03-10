@@ -62,6 +62,57 @@ pub struct BgmSource;
 #[derive(Component)]
 pub struct SfxSource;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FadeDirection {
+    In,
+    Out,
+}
+
+/// Attach to a BGM entity to drive a volume fade over time.
+#[derive(Component)]
+pub struct BgmFade {
+    pub direction: FadeDirection,
+    pub elapsed: f32,
+    pub duration: f32,
+    pub from_volume: f32,
+    pub to_volume: f32,
+}
+
+impl BgmFade {
+    pub fn fade_in(duration: f32, target_volume: f32) -> Self {
+        Self {
+            direction: FadeDirection::In,
+            elapsed: 0.0,
+            duration,
+            from_volume: 0.0,
+            to_volume: target_volume,
+        }
+    }
+
+    pub fn fade_out(duration: f32, current_volume: f32) -> Self {
+        Self {
+            direction: FadeDirection::Out,
+            elapsed: 0.0,
+            duration,
+            from_volume: current_volume,
+            to_volume: 0.0,
+        }
+    }
+
+    pub fn progress(&self) -> f32 {
+        (self.elapsed / self.duration).clamp(0.0, 1.0)
+    }
+
+    pub fn current_volume(&self) -> f32 {
+        let t = self.progress();
+        self.from_volume + (self.to_volume - self.from_volume) * t
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.elapsed >= self.duration
+    }
+}
+
 /// Plugin providing audio functionality.
 pub struct DJAudioPlugin;
 
@@ -107,6 +158,55 @@ mod tests {
         state.master_volume = 0.0;
         assert_eq!(state.sfx_output_volume(), 0.0);
     }
+
+    #[test]
+    fn test_bgm_fade_in_starts_silent() {
+        let fade = BgmFade::fade_in(1.0, 0.8);
+        assert_eq!(fade.current_volume(), 0.0);
+        assert_eq!(fade.direction, FadeDirection::In);
+    }
+
+    #[test]
+    fn test_bgm_fade_out_starts_loud() {
+        let fade = BgmFade::fade_out(1.0, 0.8);
+        assert!((fade.current_volume() - 0.8).abs() < f32::EPSILON);
+        assert_eq!(fade.direction, FadeDirection::Out);
+    }
+
+    #[test]
+    fn test_bgm_fade_progress() {
+        let mut fade = BgmFade::fade_in(2.0, 1.0);
+        assert_eq!(fade.progress(), 0.0);
+        assert_eq!(fade.current_volume(), 0.0);
+
+        fade.elapsed = 1.0;
+        assert!((fade.progress() - 0.5).abs() < f32::EPSILON);
+        assert!((fade.current_volume() - 0.5).abs() < f32::EPSILON);
+
+        fade.elapsed = 2.0;
+        assert!((fade.progress() - 1.0).abs() < f32::EPSILON);
+        assert!((fade.current_volume() - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_bgm_fade_complete() {
+        let mut fade = BgmFade::fade_out(1.0, 0.5);
+        assert!(!fade.is_complete());
+        fade.elapsed = 0.5;
+        assert!(!fade.is_complete());
+        fade.elapsed = 1.0;
+        assert!(fade.is_complete());
+        fade.elapsed = 1.5;
+        assert!(fade.is_complete());
+    }
+
+    #[test]
+    fn test_bgm_fade_clamps_progress() {
+        let mut fade = BgmFade::fade_in(1.0, 1.0);
+        fade.elapsed = 5.0;
+        assert!((fade.progress() - 1.0).abs() < f32::EPSILON);
+        assert!((fade.current_volume() - 1.0).abs() < f32::EPSILON);
+    }
 }
 
 impl Plugin for DJAudioPlugin {
@@ -115,7 +215,7 @@ impl Plugin for DJAudioPlugin {
             .register_type::<AudioState>()
             .register_type::<AudioCommand>()
             .add_message::<AudioCommand>()
-            .add_systems(Update, handle_audio_commands);
+            .add_systems(Update, (handle_audio_commands, tick_bgm_fades));
 
         info!("DJ Audio Plugin initialized");
     }
@@ -131,37 +231,57 @@ fn handle_audio_commands(
 ) {
     for cmd in audio_commands.read() {
         match cmd {
-            AudioCommand::PlayBgm {
-                track,
-                crossfade: _,
-            } => {
-                // Stop existing BGM first
-                for entity in bgm_query.iter() {
-                    commands.entity(entity).despawn();
+            AudioCommand::PlayBgm { track, crossfade } => {
+                let target_vol = audio_state.bgm_output_volume();
+                if *crossfade > 0.0 {
+                    for entity in bgm_query.iter() {
+                        commands
+                            .entity(entity)
+                            .insert(BgmFade::fade_out(*crossfade, target_vol))
+                            .remove::<BgmSource>();
+                    }
+                    let audio_handle: Handle<AudioSource> = asset_server.load(track.clone());
+                    let mut settings = PlaybackSettings::LOOP;
+                    settings.volume = bevy::audio::Volume::Linear(0.0);
+                    commands.spawn((
+                        AudioPlayer::<AudioSource>(audio_handle),
+                        settings,
+                        BgmSource,
+                        BgmFade::fade_in(*crossfade, target_vol),
+                    ));
+                } else {
+                    for entity in bgm_query.iter() {
+                        commands.entity(entity).despawn();
+                    }
+                    let audio_handle: Handle<AudioSource> = asset_server.load(track.clone());
+                    let mut settings = PlaybackSettings::LOOP;
+                    settings.volume = bevy::audio::Volume::Linear(target_vol);
+                    commands.spawn((
+                        AudioPlayer::<AudioSource>(audio_handle),
+                        settings,
+                        BgmSource,
+                    ));
                 }
-
-                // Load and play new BGM
-                let audio_handle: Handle<AudioSource> = asset_server.load(track.clone());
-                let mut settings = PlaybackSettings::LOOP;
-                settings.volume = bevy::audio::Volume::Linear(audio_state.bgm_output_volume());
-                commands.spawn((
-                    AudioPlayer::<AudioSource>(audio_handle),
-                    settings,
-                    BgmSource,
-                ));
                 audio_state.current_bgm = Some(track.clone());
                 info!("Playing BGM: {}", track);
             }
-            AudioCommand::StopBgm { fade_out: _ } => {
-                // Stop current BGM
-                for entity in bgm_query.iter() {
-                    commands.entity(entity).despawn();
+            AudioCommand::StopBgm { fade_out } => {
+                if *fade_out > 0.0 {
+                    let target_vol = audio_state.bgm_output_volume();
+                    for entity in bgm_query.iter() {
+                        commands
+                            .entity(entity)
+                            .insert(BgmFade::fade_out(*fade_out, target_vol));
+                    }
+                } else {
+                    for entity in bgm_query.iter() {
+                        commands.entity(entity).despawn();
+                    }
                 }
                 audio_state.current_bgm = None;
                 info!("Stopped BGM");
             }
             AudioCommand::PlaySfx { sound } => {
-                // Play one-shot SFX
                 let audio_handle: Handle<AudioSource> = asset_server.load(sound.clone());
                 let mut settings = PlaybackSettings::DESPAWN;
                 settings.volume = bevy::audio::Volume::Linear(audio_state.sfx_output_volume());
@@ -180,6 +300,30 @@ fn handle_audio_commands(
             }
             AudioCommand::SetSfxVolume(vol) => {
                 audio_state.sfx_volume = vol.clamp(0.0, 1.0);
+            }
+        }
+    }
+}
+
+/// Ticks active BGM fades, interpolating volume each frame.
+fn tick_bgm_fades(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut BgmFade, &mut AudioSink)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut fade, mut sink) in query.iter_mut() {
+        fade.elapsed += dt;
+        sink.set_volume(bevy::audio::Volume::Linear(fade.current_volume()));
+
+        if fade.is_complete() {
+            match fade.direction {
+                FadeDirection::Out => {
+                    commands.entity(entity).despawn();
+                }
+                FadeDirection::In => {
+                    commands.entity(entity).remove::<BgmFade>();
+                }
             }
         }
     }
