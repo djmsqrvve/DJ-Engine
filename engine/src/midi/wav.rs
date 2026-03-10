@@ -109,8 +109,15 @@ impl AssetLoader for MidiLoader {
     }
 }
 
-pub(super) fn start_midi_load(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let handle = asset_server.load::<MidiFileAsset>("music/overworld_theme.mid");
+pub(super) fn start_midi_load(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    auto_load: Option<Res<super::AutoLoadMidi>>,
+) {
+    let Some(config) = auto_load else {
+        return;
+    };
+    let handle = asset_server.load::<MidiFileAsset>(&config.path);
     commands.insert_resource(MidiLoadState(handle));
 }
 

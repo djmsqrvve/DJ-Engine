@@ -39,6 +39,7 @@ pub mod prelude {
     pub use crate::animation::DJAnimationPlugin;
     pub use crate::assets::DJAssetPlugin;
     pub use crate::audio::{AudioCommand, AudioState, BgmSource, DJAudioPlugin, SfxSource};
+    pub use crate::midi::AutoLoadMidi;
     pub use crate::diagnostics::DiagnosticsPlugin;
     pub use crate::input::{ActionState, DJInputPlugin, InputAction, InputConfig};
     pub use crate::rendering::RenderingPlugin;

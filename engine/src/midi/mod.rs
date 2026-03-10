@@ -69,6 +69,12 @@ pub struct MidiFileAsset {
 #[derive(Resource)]
 pub struct MidiLoadState(Handle<MidiFileAsset>);
 
+/// Insert this resource to enable automatic MIDI file loading at startup.
+#[derive(Resource)]
+pub struct AutoLoadMidi {
+    pub path: String,
+}
+
 pub struct MidiPlugin;
 
 impl Plugin for MidiPlugin {

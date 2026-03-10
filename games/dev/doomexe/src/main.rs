@@ -32,6 +32,7 @@ fn main() {
         )
         // Engine plugins (bundled)
         .add_plugins(DJEnginePlugin::default())
+        .insert_resource(AutoLoadMidi { path: "music/overworld_theme.mid".into() })
         // Game-specific scripting extensions
         .add_plugins(scripting::GameScriptingPlugin)
         // Game state
