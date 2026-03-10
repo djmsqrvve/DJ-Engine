@@ -31,6 +31,25 @@ pub struct SceneManager {
     pub next_background: Option<String>,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transition_state_default() {
+        assert_eq!(TransitionState::default(), TransitionState::Idle);
+    }
+
+    #[test]
+    fn test_scene_manager_default() {
+        let m = SceneManager::default();
+        assert_eq!(m.state, TransitionState::Idle);
+        assert_eq!(m.alpha, 0.0);
+        assert_eq!(m.speed, 0.0);
+        assert!(m.next_background.is_none());
+    }
+}
+
 /// Message to trigger a scene change.
 #[derive(Message)]
 pub struct ChangeSceneEvent {

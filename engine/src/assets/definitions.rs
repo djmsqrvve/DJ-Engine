@@ -118,3 +118,81 @@ impl HamsterPartLibrary {
         self.parts.is_empty()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_color_entry_to_rgba() {
+        let c = ColorEntry { index: 0, r: 255, g: 128, b: 0 };
+        assert_eq!(c.to_rgba(), [255, 128, 0, 255]);
+    }
+
+    #[test]
+    fn test_color_entry_to_rgba_black() {
+        let c = ColorEntry { index: 0, r: 0, g: 0, b: 0 };
+        assert_eq!(c.to_rgba(), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn test_color_entry_alpha_always_255() {
+        let c = ColorEntry { index: 5, r: 10, g: 20, b: 30 };
+        assert_eq!(c.to_rgba()[3], 255);
+    }
+
+    #[test]
+    fn test_palette_definition_serde() {
+        let palette = PaletteDefinition {
+            palette_name: "test_palette".into(),
+            colors: vec![
+                ColorEntry { index: 0, r: 255, g: 0, b: 0 },
+                ColorEntry { index: 1, r: 0, g: 255, b: 0 },
+            ],
+        };
+        let json = serde_json::to_string(&palette).unwrap();
+        let decoded: PaletteDefinition = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.palette_name, "test_palette");
+        assert_eq!(decoded.colors.len(), 2);
+        assert_eq!(decoded.colors[0].r, 255);
+    }
+
+    #[test]
+    fn test_part_entry_serde() {
+        let entry = PartEntry {
+            part_name: "body".into(),
+            directory: "hamster/body".into(),
+            metadata_file: "body.json".into(),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let decoded: PartEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.part_name, "body");
+        assert_eq!(decoded.directory, "hamster/body");
+    }
+
+    #[test]
+    fn test_part_library_empty() {
+        let lib = HamsterPartLibrary::new();
+        assert!(lib.is_empty());
+        assert_eq!(lib.len(), 0);
+    }
+
+    #[test]
+    fn test_part_library_insert_get() {
+        let mut lib = HamsterPartLibrary::new();
+        let def = HamsterPartDefinition {
+            part_name: "body".into(),
+            sprite_file: "body.png".into(),
+            sprite_size: IVec2::new(64, 64),
+            original_offset: IVec2::ZERO,
+            layer_index: 0,
+            pivot: Vec2::new(0.5, 0.5),
+            trim_rect: None,
+        };
+        lib.insert("body".into(), def, Handle::default());
+        assert_eq!(lib.len(), 1);
+        assert!(!lib.is_empty());
+        assert!(lib.get("body").is_some());
+        assert!(lib.get("head").is_none());
+    }
+}

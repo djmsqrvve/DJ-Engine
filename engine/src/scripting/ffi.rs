@@ -109,3 +109,62 @@ pub fn register_generic_state_api(lua: &Lua, state: SharedGenericState) -> LuaRe
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mlua::Lua;
+
+    #[test]
+    fn test_register_core_api_creates_globals() {
+        let lua = Lua::new();
+        register_core_api(&lua).unwrap();
+        let globals = lua.globals();
+        assert!(globals.get::<mlua::Function>("log").is_ok());
+        assert!(globals.get::<mlua::Function>("warn").is_ok());
+        assert!(globals.get::<mlua::Function>("error").is_ok());
+    }
+
+    #[test]
+    fn test_generic_state_float_roundtrip() {
+        let lua = Lua::new();
+        let state = create_shared_state();
+        register_generic_state_api(&lua, state.clone()).unwrap();
+        lua.load("set_float('health', 42.5)").exec().unwrap();
+        let val: f32 = lua.load("return get_float('health')").eval().unwrap();
+        assert!((val - 42.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_generic_state_string_roundtrip() {
+        let lua = Lua::new();
+        let state = create_shared_state();
+        register_generic_state_api(&lua, state.clone()).unwrap();
+        lua.load("set_string('name', 'hamster')").exec().unwrap();
+        let val: String = lua.load("return get_string('name')").eval().unwrap();
+        assert_eq!(val, "hamster");
+    }
+
+    #[test]
+    fn test_generic_state_bool_roundtrip() {
+        let lua = Lua::new();
+        let state = create_shared_state();
+        register_generic_state_api(&lua, state.clone()).unwrap();
+        lua.load("set_bool('alive', true)").exec().unwrap();
+        let val: bool = lua.load("return get_bool('alive')").eval().unwrap();
+        assert!(val);
+    }
+
+    #[test]
+    fn test_generic_state_defaults() {
+        let lua = Lua::new();
+        let state = create_shared_state();
+        register_generic_state_api(&lua, state).unwrap();
+        let f: f32 = lua.load("return get_float('missing')").eval().unwrap();
+        assert_eq!(f, 0.0);
+        let s: String = lua.load("return get_string('missing')").eval().unwrap();
+        assert_eq!(s, "");
+        let b: bool = lua.load("return get_bool('missing')").eval().unwrap();
+        assert!(!b);
+    }
+}

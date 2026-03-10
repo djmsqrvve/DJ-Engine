@@ -24,6 +24,45 @@ pub enum DJEngineError {
 /// Result type alias for DJ Engine operations.
 pub type DJResult<T> = std::result::Result<T, DJEngineError>;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_display() {
+        assert_eq!(
+            DJEngineError::AssetLoadError("foo.png".into()).to_string(),
+            "Asset loading failed: foo.png"
+        );
+        assert_eq!(
+            DJEngineError::LuaError("syntax".into()).to_string(),
+            "Lua error: syntax"
+        );
+        assert_eq!(
+            DJEngineError::ShaderError("vert.wgsl".into()).to_string(),
+            "Shader compilation failed: vert.wgsl"
+        );
+        assert_eq!(
+            DJEngineError::AnimationError("missing frame".into()).to_string(),
+            "Animation error: missing frame"
+        );
+    }
+
+    #[test]
+    fn test_engine_config_defaults() {
+        let cfg = EngineConfig::default();
+        assert_eq!(cfg.internal_width, 320);
+        assert_eq!(cfg.internal_height, 240);
+    }
+
+    #[test]
+    fn test_diagnostic_config_defaults() {
+        let cfg = DiagnosticConfig::default();
+        assert!(cfg.enabled);
+        assert_eq!(cfg.font_size, 16.0);
+    }
+}
+
 /// Configuration for engine diagnostics.
 #[derive(Resource, Debug, Clone, Reflect)]
 #[reflect(Resource)]

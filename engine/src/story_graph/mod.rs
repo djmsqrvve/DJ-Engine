@@ -496,3 +496,62 @@ fn process_node(
         StoryNode::Start { .. } => NodeAction::Advance,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_story_graph_add_and_start() {
+        let mut graph = StoryGraph::new();
+        let id = graph.add(StoryNode::Start { next: None });
+        graph.add(StoryNode::End);
+        graph.set_start(id);
+        assert_eq!(graph.nodes.len(), 2);
+        assert_eq!(graph.start_node, Some(0));
+    }
+
+    #[test]
+    fn test_story_graph_sequential_ids() {
+        let mut graph = StoryGraph::new();
+        let a = graph.add(StoryNode::End);
+        let b = graph.add(StoryNode::End);
+        let c = graph.add(StoryNode::End);
+        assert_eq!(a, 0);
+        assert_eq!(b, 1);
+        assert_eq!(c, 2);
+    }
+
+    #[test]
+    fn test_story_flags_set_get() {
+        let mut flags = StoryFlags::default();
+        flags.set("met_hamster", true);
+        assert!(flags.get("met_hamster"));
+        assert!(!flags.get("unset_flag"));
+    }
+
+    #[test]
+    fn test_story_flags_overwrite() {
+        let mut flags = StoryFlags::default();
+        flags.set("x", true);
+        flags.set("x", false);
+        assert!(!flags.get("x"));
+    }
+
+    #[test]
+    fn test_execution_status_default() {
+        assert_eq!(ExecutionStatus::default(), ExecutionStatus::Idle);
+    }
+
+    #[test]
+    fn test_executor_start() {
+        let mut graph = StoryGraph::new();
+        let start_id = graph.add(StoryNode::Start { next: None });
+        graph.set_start(start_id);
+
+        let mut executor = GraphExecutor::default();
+        executor.start(graph);
+        assert_eq!(executor.status, ExecutionStatus::Running);
+        assert_eq!(executor.current_node, Some(start_id));
+    }
+}

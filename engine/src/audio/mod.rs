@@ -65,6 +65,50 @@ pub struct SfxSource;
 /// Plugin providing audio functionality.
 pub struct DJAudioPlugin;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_audio_state_new_defaults() {
+        let state = AudioState::new();
+        assert_eq!(state.master_volume, 0.0);
+        assert_eq!(state.bgm_volume, 0.8);
+        assert_eq!(state.sfx_volume, 1.0);
+        assert!(state.current_bgm.is_none());
+    }
+
+    #[test]
+    fn test_bgm_output_volume() {
+        let mut state = AudioState::new();
+        state.master_volume = 0.5;
+        state.bgm_volume = 0.8;
+        assert!((state.bgm_output_volume() - 0.4).abs() < f32::EPSILON);
+
+        state.master_volume = 0.0;
+        assert_eq!(state.bgm_output_volume(), 0.0);
+
+        state.master_volume = 1.0;
+        state.bgm_volume = 1.0;
+        assert_eq!(state.bgm_output_volume(), 1.0);
+    }
+
+    #[test]
+    fn test_sfx_output_volume() {
+        let mut state = AudioState::new();
+        state.master_volume = 0.5;
+        state.sfx_volume = 1.0;
+        assert!((state.sfx_output_volume() - 0.5).abs() < f32::EPSILON);
+
+        state.master_volume = 1.0;
+        state.sfx_volume = 0.5;
+        assert!((state.sfx_output_volume() - 0.5).abs() < f32::EPSILON);
+
+        state.master_volume = 0.0;
+        assert_eq!(state.sfx_output_volume(), 0.0);
+    }
+}
+
 impl Plugin for DJAudioPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(AudioState::new())

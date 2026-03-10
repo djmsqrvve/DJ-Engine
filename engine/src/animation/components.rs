@@ -90,3 +90,56 @@ impl IdleMotion {
         Self::new(2.0, 0.5)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_breathing_new() {
+        let b = BreathingAnimation::new(0.05, 1.5);
+        assert_eq!(b.amplitude, 0.05);
+        assert_eq!(b.frequency, 1.5);
+        assert_eq!(b.phase, 0.0);
+    }
+
+    #[test]
+    fn test_breathing_hamster_default() {
+        let b = BreathingAnimation::hamster_default();
+        assert_eq!(b.amplitude, 0.05);
+        assert_eq!(b.frequency, 1.5);
+    }
+
+    #[test]
+    fn test_blinking_new() {
+        let b = BlinkingAnimation::new(0.15, 2.0, 5.0);
+        assert_eq!(b.blink_duration, 0.15);
+        assert_eq!(b.interval_min, 2.0);
+        assert_eq!(b.interval_max, 5.0);
+        assert_eq!(b.timer, 2.0);
+        assert!(!b.is_blinking);
+    }
+
+    #[test]
+    fn test_blinking_hamster_default() {
+        let b = BlinkingAnimation::hamster_default();
+        assert_eq!(b.blink_duration, 0.15);
+        assert_eq!(b.interval_min, 2.0);
+        assert_eq!(b.interval_max, 5.0);
+    }
+
+    #[test]
+    fn test_idle_motion_new() {
+        let m = IdleMotion::new(2.0, 0.5);
+        assert_eq!(m.noise_scale, 2.0);
+        assert_eq!(m.speed, 0.5);
+        assert_eq!(m.time, 0.0);
+    }
+
+    #[test]
+    fn test_idle_motion_hamster_default() {
+        let m = IdleMotion::hamster_default();
+        assert_eq!(m.noise_scale, 2.0);
+        assert_eq!(m.speed, 0.5);
+    }
+}
