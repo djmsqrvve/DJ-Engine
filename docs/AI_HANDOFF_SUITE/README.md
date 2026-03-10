@@ -1,9 +1,9 @@
 # DJ Engine AI Handoff Suite
 
-Last updated: 2026-03-09
+Last updated: 2026-03-10
 Canonical repo: `/home/dj/dev/engines/DJ-Engine`
 Branch at audit time: `main`
-HEAD at audit time: `5f0107d`
+HEAD at audit time: `5e36a1d`
 Remote state at audit time: local `main` and `origin/main` only
 
 This folder is the current handoff set for future AI agents working in this
@@ -21,10 +21,11 @@ Use this suite in the following order:
 6. `05_DATA_SCRIPTING_AND_STORY.md`
 7. `06_REMOTE_DEV_AND_CI.md`
 8. `07_AGENT_WORKFLOW.md`
-9. `08_SESSION_HANDOFF_2026_03_09.md`  ← **START HERE if resuming from 2026-03-09**
-10. `PLAN.md`
-11. `PROMPT.md`
-12. `AUDIT_REQUEST.md`
+9. `08_SESSION_HANDOFF_2026_03_09.md`
+10. `09_SESSION_HANDOFF_2026_03_10.md`  ← **START HERE if resuming from 2026-03-10**
+11. `PLAN.md`
+12. `PROMPT.md`
+13. `AUDIT_REQUEST.md`
 
 Source-of-truth rules:
 
