@@ -29,9 +29,9 @@ sed -n '1,220p' rust-toolchain.toml
 Use the lightest command that still proves the change:
 
 1. `cargo fmt --all --check`
-2. `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace`
-3. `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run`
-4. `RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all`
+2. `CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo check --workspace`
+3. `CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo test --workspace`
+4. `CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all`
 5. `./dj e --test-mode`
 6. `timeout 20s ./dj d`
 
@@ -57,11 +57,21 @@ smoke will answer the question faster.
 
 ## Safe Default Places To Inspect Before Changing Behavior
 
+After module decomposition (March 2026), the `mod.rs` files for editor,
+story_graph, and midi are thin orchestrators. Inspect the focused submodules:
+
 - `engine/src/lib.rs`
 - `engine/src/core/mod.rs`
 - `engine/src/types.rs`
-- `engine/src/editor/mod.rs`
-- `engine/src/story_graph/mod.rs`
+- `engine/src/editor/panels.rs` — UI panel drawing
+- `engine/src/editor/views.rs` — grid and story graph visualization
+- `engine/src/editor/scene_io.rs` — save/load I/O, world-scene conversion
+- `engine/src/editor/plugin.rs` — EditorPlugin lifecycle
+- `engine/src/story_graph/types.rs` — types, resources, events, flags
+- `engine/src/story_graph/executor.rs` — graph execution, node processing
+- `engine/src/midi/wav.rs` — WAV synthesis, MIDI file loading
+- `engine/src/midi/sequencer.rs` — sequencer, command handling
+- `engine/src/assets/loaders.rs` — HamsterPartLoader, PaletteLoader
 - `engine/src/scripting/mod.rs`
 - `games/dev/doomexe/src/main.rs`
 - `games/dev/doomexe/src/state.rs`

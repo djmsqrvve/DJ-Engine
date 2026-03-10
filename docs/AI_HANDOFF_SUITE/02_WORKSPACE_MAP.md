@@ -79,12 +79,20 @@ Important entrypoint:
   - Minimal graphics sanity check binary.
 - `games/dev/doomexe/src/main.rs`
   - Game binary entrypoint.
-- `engine/src/editor/mod.rs`
-  - Egui editor plugin and test-mode automation.
+- `engine/src/editor/` — decomposed into submodules (March 2026):
+  - `mod.rs` — thin orchestrator (62 lines), re-exports submodules
+  - `panels.rs` — 5 UI panel draw functions (390 lines)
+  - `views.rs` — `draw_grid`, `draw_story_graph` (304 lines)
+  - `scene_io.rs` — save/load I/O, `world_to_scene`, `load_scene_into_editor` + tests
+  - `types.rs` — `EditorState`, `EditorView`, `BrowserTab`, resources, color constants
+  - `plugin.rs` — `EditorPlugin` + lifecycle systems
+  - `validation.rs` — `ValidationState`, `draw_validation_panel`
 - `engine/src/data/`
   - Serializable project, scene, database, story, and prefab layer.
-- `engine/src/story_graph/mod.rs`
-  - Runtime story execution layer.
+- `engine/src/story_graph/` — decomposed into submodules (March 2026):
+  - `mod.rs` — `StoryGraphPlugin` + re-exports (33 lines)
+  - `types.rs` — all types/resources/events/impls + unit tests (300 lines)
+  - `executor.rs` — `execute_graph` system + helpers (223 lines)
 - `engine/src/scripting/`
   - Engine-level Lua runtime and API registration.
 

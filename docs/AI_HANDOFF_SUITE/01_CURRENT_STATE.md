@@ -31,9 +31,9 @@ These are the current high-signal validation commands used locally and in docs:
 
 ```bash
 cargo fmt --all --check
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
+CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo check --workspace
+CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo test --workspace
+CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
 ```
 
 Useful runtime smokes:
@@ -60,8 +60,8 @@ timeout 20s ./dj d
   `master_volume` to `0.0`.
 - The rendering module is still lightweight: it sets up the main camera, but
   the offscreen render target, upscaling, and CRT pipeline are still TODOs.
-- The asset module currently exposes asset definitions and a library resource,
-  but its custom loaders are still TODOs.
+- The asset module provides asset definitions, a library resource, and
+  `HamsterPartLoader` and `PaletteLoader` implemented as Bevy `AssetLoader`s.
 - The story graph runtime bridge is partial: some data-layer story variants map
   cleanly into runtime nodes, while unimplemented variants currently fall back to
   `StoryNode::End`.

@@ -21,9 +21,10 @@ Use this suite in the following order:
 6. `05_DATA_SCRIPTING_AND_STORY.md`
 7. `06_REMOTE_DEV_AND_CI.md`
 8. `07_AGENT_WORKFLOW.md`
-9. `PLAN.md`
-10. `PROMPT.md`
-11. `AUDIT_REQUEST.md`
+9. `08_SESSION_HANDOFF_2026_03_09.md`  ← **START HERE if resuming from 2026-03-09**
+10. `PLAN.md`
+11. `PROMPT.md`
+12. `AUDIT_REQUEST.md`
 
 Source-of-truth rules:
 
