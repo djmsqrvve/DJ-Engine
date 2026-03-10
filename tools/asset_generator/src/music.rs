@@ -193,7 +193,11 @@ mod tests {
     fn test_overworld_theme_track_count() {
         let bytes = generate_overworld_theme();
         let smf = Smf::parse(&bytes).expect("failed to parse generated MIDI");
-        assert_eq!(smf.tracks.len(), 3, "expected 3 tracks (bass, chords, melody)");
+        assert_eq!(
+            smf.tracks.len(),
+            3,
+            "expected 3 tracks (bass, chords, melody)"
+        );
     }
 
     #[test]

@@ -3,8 +3,10 @@ use dj_engine::animation::components::{BlinkingAnimation, BreathingAnimation};
 use dj_engine::data::{StoryGraphData, StoryNodeData};
 use dj_engine::midi::MidiManager;
 use dj_engine::prelude::*;
-use dj_engine::scripting::ffi::{create_shared_state, register_core_api, register_generic_state_api};
 use dj_engine::scripting::context::LuaContext;
+use dj_engine::scripting::ffi::{
+    create_shared_state, register_core_api, register_generic_state_api,
+};
 
 #[test]
 fn test_engine_initialization() {
@@ -193,8 +195,15 @@ fn test_blinking_system_triggers_on_expired_timer() {
 
     app.update();
 
-    let blink = app.world().entity(entity).get::<BlinkingAnimation>().unwrap();
-    assert!(blink.is_blinking, "blink should have started when timer expired");
+    let blink = app
+        .world()
+        .entity(entity)
+        .get::<BlinkingAnimation>()
+        .unwrap();
+    assert!(
+        blink.is_blinking,
+        "blink should have started when timer expired"
+    );
 }
 
 #[test]
