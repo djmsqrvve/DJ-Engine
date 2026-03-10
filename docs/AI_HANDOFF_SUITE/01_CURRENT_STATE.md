@@ -88,5 +88,3 @@ The current known acceptable warning buckets are:
 - `clippy::type_complexity`
 - `clippy::upper_case_acronyms`
 - `clippy::module_inception`
-- one `field_reassign_with_default` warning in editor code
-- one `collapsible_else_if` warning in story graph code
