@@ -265,7 +265,7 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
                 ui.separator();
                 ui.label("Properties");
 
-                use crate::data::story::StoryNodeVariant;
+                use crate::data::story::nodes::StoryNodeVariant;
                 match &mut node.data {
                     StoryNodeVariant::Start(_) => {
                         ui.label("Start Node (Entry Point)");

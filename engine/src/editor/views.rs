@@ -1,6 +1,7 @@
 use super::types::{ActiveStoryGraph, EditorUiState, COLOR_BG, COLOR_PRIMARY};
-use crate::data::components::Vec3Data;
-use crate::data::story::{StoryNodeData, StoryNodeType};
+use crate::data::components::common::Vec3Data;
+use crate::data::story::nodes::StoryNodeData;
+use crate::data::story::types::StoryNodeType;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32};
 

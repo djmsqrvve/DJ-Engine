@@ -1,7 +1,7 @@
 use super::types::{ActiveStoryGraph, ProjectMetadata};
-use crate::data::components::{
-    ColorData, EntityComponents, SpriteComponent, TransformComponent, Vec3Data,
-};
+use crate::data::components::common::{ColorData, Vec3Data};
+use crate::data::components::entity::EntityComponents;
+use crate::data::components::rendering::{SpriteComponent, TransformComponent};
 use crate::data::scene::{Entity as SceneEntity, Scene};
 use crate::data::{loader, project::Project};
 use bevy::prelude::*;

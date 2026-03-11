@@ -1,5 +1,6 @@
 use crate::data::scene::{Entity, EntityType, Scene};
-use crate::data::story::{SceneValidationError, StoryGraphData};
+use crate::data::story::graph::StoryGraphData;
+use crate::data::story::validation::SceneValidationError;
 use bevy::prelude::*;
 use bevy_egui::egui;
 

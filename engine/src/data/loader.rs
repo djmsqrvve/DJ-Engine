@@ -11,7 +11,7 @@ use super::assets::AssetIndex;
 use super::database::Database;
 use super::project::Project;
 use super::scene::Scene;
-use super::story::StoryGraphData;
+use super::story::graph::StoryGraphData;
 
 /// Error type for data loading operations.
 #[derive(Debug, Error)]

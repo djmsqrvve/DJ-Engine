@@ -1,4 +1,4 @@
-use crate::data::story::StoryGraphData;
+use crate::data::story::graph::StoryGraphData;
 use bevy::prelude::*;
 use bevy_egui::egui::Color32;
 use bevy_inspector_egui::bevy_inspector;

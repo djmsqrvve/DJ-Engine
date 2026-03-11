@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use dj_engine::animation::components::{BlinkingAnimation, BreathingAnimation};
-use dj_engine::data::story::StoryNodeVariant;
-use dj_engine::data::story::{ConditionOperator, ConditionalNodeData, StoryCondition};
+use dj_engine::data::story::nodes::{ConditionalNodeData, StoryNodeVariant};
+use dj_engine::data::story::types::{ConditionOperator, StoryCondition};
 use dj_engine::data::Vec3Data;
 use dj_engine::data::{
     AudioSourceComponent, CollisionComponent, Entity, EntityType, InteractivityComponent, Scene,

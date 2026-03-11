@@ -1,5 +1,7 @@
 use crate::audio::AudioCommand;
-use crate::data::story::{ConditionOperator, StoryGraphData, StoryNodeVariant};
+use crate::data::story::graph::StoryGraphData;
+use crate::data::story::nodes::StoryNodeVariant;
+use crate::data::story::types::ConditionOperator;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
