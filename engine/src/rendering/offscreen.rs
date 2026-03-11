@@ -9,9 +9,7 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::camera::{ImageRenderTarget, RenderTarget};
 use bevy::image::ImageSampler;
 use bevy::prelude::*;
-use bevy::render::render_resource::{
-    Extent3d, TextureDimension, TextureFormat, TextureUsages,
-};
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 use bevy::sprite_render::MeshMaterial2d;
 
 use super::camera::{MainCamera, GAME_HEIGHT, GAME_WIDTH};
@@ -77,9 +75,8 @@ pub fn setup_offscreen_pipeline(
         TextureFormat::Bgra8UnormSrgb,
         RenderAssetUsages::default(),
     );
-    image.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING
-        | TextureUsages::COPY_DST
-        | TextureUsages::RENDER_ATTACHMENT;
+    image.texture_descriptor.usage =
+        TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
     image.sampler = ImageSampler::nearest();
 
     let image_handle = images.add(image);

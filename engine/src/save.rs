@@ -114,10 +114,7 @@ fn handle_save_commands(mut commands: MessageReader<SaveCommand>) {
     }
 }
 
-fn handle_load_commands(
-    mut commands: MessageReader<LoadCommand>,
-    mut loaded: ResMut<LoadedSave>,
-) {
+fn handle_load_commands(mut commands: MessageReader<LoadCommand>, mut loaded: ResMut<LoadedSave>) {
     for cmd in commands.read() {
         match load_game(cmd.slot) {
             Ok(data) => {
@@ -188,10 +185,7 @@ mod tests {
         assert_eq!(loaded.variables["health"], serde_json::json!(75));
         assert_eq!(loaded.current_node, Some(42));
         assert_eq!(loaded.game_state, "Overworld");
-        assert_eq!(
-            loaded.scene_background.as_deref(),
-            Some("bg/forest.png")
-        );
+        assert_eq!(loaded.scene_background.as_deref(), Some("bg/forest.png"));
     }
 
     #[test]

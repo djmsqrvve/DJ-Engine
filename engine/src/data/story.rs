@@ -328,11 +328,26 @@ pub enum StoryNodeVariant {
 impl StoryNodeVariant {
     pub fn set_next_node_id(&mut self, id: String) -> bool {
         match self {
-            Self::Start(d) => { d.next_node_id = Some(id); true }
-            Self::Dialogue(d) => { d.next_node_id = Some(id); true }
-            Self::Action(a) => { a.next_node_id = Some(id); true }
-            Self::Camera(c) => { c.next_node_id = Some(id); true }
-            Self::TimeControl(t) => { t.next_node_id = Some(id); true }
+            Self::Start(d) => {
+                d.next_node_id = Some(id);
+                true
+            }
+            Self::Dialogue(d) => {
+                d.next_node_id = Some(id);
+                true
+            }
+            Self::Action(a) => {
+                a.next_node_id = Some(id);
+                true
+            }
+            Self::Camera(c) => {
+                c.next_node_id = Some(id);
+                true
+            }
+            Self::TimeControl(t) => {
+                t.next_node_id = Some(id);
+                true
+            }
             Self::Choice(_) | Self::Conditional(_) | Self::End(_) => false,
         }
     }
@@ -719,7 +734,11 @@ mod tests {
         graph.root_node_id = "start".into();
         graph.add_node(StoryNodeData::start("start", Some("end")));
         graph.add_node(StoryNodeData::end("end"));
-        graph.add_node(StoryNodeData::dialogue("orphan", "Ghost", "Nobody reaches me"));
+        graph.add_node(StoryNodeData::dialogue(
+            "orphan",
+            "Ghost",
+            "Nobody reaches me",
+        ));
 
         let errors = graph.validate();
         assert!(errors

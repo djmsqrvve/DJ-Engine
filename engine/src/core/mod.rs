@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use crate::animation::DJAnimationPlugin;
 use crate::assets::DJAssetPlugin;
 use crate::audio::DJAudioPlugin;
+use crate::collision::CollisionPlugin;
 use crate::diagnostics::DiagnosticsPlugin;
 use crate::input::DJInputPlugin;
 use crate::rendering::RenderingPlugin;
@@ -52,6 +53,7 @@ impl Plugin for DJEnginePlugin {
         app.add_plugins(DJAnimationPlugin);
         app.add_plugins(DJAssetPlugin);
         app.add_plugins(DJAudioPlugin);
+        app.add_plugins(CollisionPlugin);
         app.add_plugins(DJInputPlugin);
         app.add_plugins(DJScenePlugin);
         app.add_plugins(StoryGraphPlugin);

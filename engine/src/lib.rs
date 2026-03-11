@@ -17,6 +17,7 @@
 pub mod animation;
 pub mod assets;
 pub mod audio;
+pub mod collision;
 pub mod core;
 pub mod data;
 pub mod diagnostics;
@@ -40,11 +41,17 @@ pub mod prelude {
     pub use crate::animation::DJAnimationPlugin;
     pub use crate::assets::DJAssetPlugin;
     pub use crate::audio::{AudioCommand, AudioState, BgmSource, DJAudioPlugin, SfxSource};
-    pub use crate::midi::AutoLoadMidi;
+    pub use crate::collision::{
+        CollisionPlugin, CollisionSet, MovementIntent, RuntimeCollider, RuntimeColliderShape,
+        TriggerContactEvent, TriggerContacts,
+    };
     pub use crate::diagnostics::DiagnosticsPlugin;
     pub use crate::input::{ActionState, DJInputPlugin, InputAction, InputConfig};
+    pub use crate::midi::AutoLoadMidi;
     pub use crate::rendering::RenderingPlugin;
-    pub use crate::save::{LoadCommand, LoadedSave, SaveCommand, SaveData, SavePlugin, has_save, load_game, save_game};
+    pub use crate::save::{
+        has_save, load_game, save_game, LoadCommand, LoadedSave, SaveCommand, SaveData, SavePlugin,
+    };
     pub use crate::scene::*;
     pub use crate::scripting::*;
     pub use crate::story_graph::*;
@@ -62,7 +69,9 @@ pub mod prelude {
     };
 
     // Re-export commonly used rendering items
-    pub use crate::rendering::{CrtConfig, DisplayCamera, MainCamera, OffscreenTarget, GAME_HEIGHT, GAME_WIDTH};
+    pub use crate::rendering::{
+        CrtConfig, DisplayCamera, MainCamera, OffscreenTarget, GAME_HEIGHT, GAME_WIDTH,
+    };
 }
 
 /// Returns the current engine version from Cargo.toml

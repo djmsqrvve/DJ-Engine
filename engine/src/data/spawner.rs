@@ -112,6 +112,7 @@ fn spawn_entity(commands: &mut Commands, entity: &SceneEntity, asset_server: &As
     };
 
     let mut entity_commands = commands.spawn((
+        Name::new(entity.name.clone()),
         transform,
         GlobalTransform::default(),
         Visibility::default(),
@@ -177,9 +178,17 @@ fn spawn_entity(commands: &mut Commands, entity: &SceneEntity, asset_server: &As
         _ => {}
     }
 
-    // TODO: Add collision components (requires physics plugin)
-    // TODO: Add audio source components
-    // TODO: Add interactivity components
+    if let Some(collision) = &components.collision {
+        entity_commands.insert(collision.clone());
+    }
+
+    if let Some(audio_source) = &components.audio_source {
+        entity_commands.insert(audio_source.clone());
+    }
+
+    if let Some(interactivity) = &components.interactivity {
+        entity_commands.insert(interactivity.clone());
+    }
 
     debug!(
         "Spawned entity '{}' ({:?})",
@@ -210,12 +219,62 @@ impl Plugin for SceneDataPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::components::Vec3Data;
+    use crate::collision::RuntimeCollider;
+    use crate::data::components::{
+        AudioSourceComponent, CollisionComponent, InteractivityComponent, TriggerType, Vec3Data,
+    };
+    use crate::data::scene::Entity as SceneEntityData;
+    use bevy::asset::AssetPlugin;
 
     #[test]
     fn test_vec3_conversion() {
         let data = Vec3Data::new(1.0, 2.0, 3.0);
         let vec3: Vec3 = data.into();
         assert_eq!(vec3, Vec3::new(1.0, 2.0, 3.0));
+    }
+
+    #[test]
+    fn test_spawn_entity_inserts_authored_runtime_components() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(AssetPlugin::default());
+        app.add_plugins(crate::collision::CollisionPlugin);
+        app.add_plugins(SceneDataPlugin);
+
+        let mut scene = Scene::new("scene", "Scene");
+        let mut entity = SceneEntityData::new("door", "Door");
+        entity.entity_type = EntityType::Trigger;
+        entity.components.collision = Some(CollisionComponent {
+            is_trigger: true,
+            ..Default::default()
+        });
+        entity.components.audio_source = Some(AudioSourceComponent {
+            clip_id: "sfx/door.ogg".into(),
+            ..Default::default()
+        });
+        entity.components.interactivity = Some(InteractivityComponent {
+            trigger_type: TriggerType::Door,
+            trigger_id: "door_1".into(),
+            ..Default::default()
+        });
+        scene.entities.push(entity);
+
+        app.world_mut().insert_resource(LoadedScene::new(scene));
+        app.update();
+        app.update();
+
+        let world = app.world_mut();
+        let mut spawned = world.query::<(
+            &CollisionComponent,
+            &RuntimeCollider,
+            &AudioSourceComponent,
+            &InteractivityComponent,
+            &Name,
+        )>();
+        let (collision, _runtime, audio, interaction, name) = spawned.iter(world).next().unwrap();
+        assert!(collision.is_trigger);
+        assert_eq!(audio.clip_id, "sfx/door.ogg");
+        assert_eq!(interaction.trigger_id, "door_1");
+        assert_eq!(name.as_str(), "Door");
     }
 }

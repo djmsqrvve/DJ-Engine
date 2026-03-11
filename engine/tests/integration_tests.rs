@@ -3,7 +3,10 @@ use dj_engine::animation::components::{BlinkingAnimation, BreathingAnimation};
 use dj_engine::data::story::StoryNodeVariant;
 use dj_engine::data::story::{ConditionOperator, ConditionalNodeData, StoryCondition};
 use dj_engine::data::Vec3Data;
-use dj_engine::data::{StoryGraphData, StoryNodeData};
+use dj_engine::data::{
+    AudioSourceComponent, CollisionComponent, Entity, EntityType, InteractivityComponent, Scene,
+    StoryGraphData, StoryNodeData,
+};
 use dj_engine::midi::MidiManager;
 use dj_engine::prelude::*;
 use dj_engine::scripting::context::LuaContext;
@@ -323,4 +326,81 @@ fn test_conditional_node_branches_on_variable() {
         StoryNode::Dialogue { text, .. } => assert_eq!(text, "Low HP!"),
         other => panic!("Expected Dialogue node, got {:?}", other),
     }
+}
+
+#[test]
+fn test_collision_plugin_blocks_kinematic_body() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(CollisionPlugin);
+
+    let mover = app
+        .world_mut()
+        .spawn((
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            CollisionComponent {
+                body_type: dj_engine::data::BodyType::Kinematic,
+                box_size: Some(Vec3Data::new(20.0, 20.0, 0.0)),
+                ..Default::default()
+            },
+            MovementIntent(Vec2::new(20.0, 0.0)),
+        ))
+        .id();
+    app.world_mut().spawn((
+        Transform::from_xyz(30.0, 0.0, 0.0),
+        CollisionComponent {
+            body_type: dj_engine::data::BodyType::Static,
+            box_size: Some(Vec3Data::new(20.0, 20.0, 0.0)),
+            ..Default::default()
+        },
+    ));
+
+    app.update();
+    app.update();
+
+    let transform = app.world().entity(mover).get::<Transform>().unwrap();
+    assert!((transform.translation.x - 10.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_scene_spawner_creates_runtime_collision_for_triggers() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(AssetPlugin::default());
+    app.add_plugins(CollisionPlugin);
+    app.add_plugins(SceneDataPlugin);
+
+    let mut scene = Scene::new("test", "Test Scene");
+    let mut entity = Entity::new("goal", "Goal");
+    entity.entity_type = EntityType::Trigger;
+    entity.components.collision = Some(CollisionComponent {
+        is_trigger: true,
+        ..Default::default()
+    });
+    entity.components.interactivity = Some(InteractivityComponent {
+        trigger_id: "goal".into(),
+        ..Default::default()
+    });
+    entity.components.audio_source = Some(AudioSourceComponent {
+        clip_id: "sfx/goal.ogg".into(),
+        ..Default::default()
+    });
+    scene.entities.push(entity);
+
+    app.world_mut().insert_resource(LoadedScene::new(scene));
+    app.update();
+    app.update();
+
+    let world = app.world_mut();
+    let mut query = world.query::<(
+        &CollisionComponent,
+        &RuntimeCollider,
+        &InteractivityComponent,
+        &AudioSourceComponent,
+    )>();
+    let (collision, runtime, interaction, audio) = query.iter(world).next().unwrap();
+    assert!(collision.is_trigger);
+    assert!(runtime.is_trigger);
+    assert_eq!(interaction.trigger_id, "goal");
+    assert_eq!(audio.clip_id, "sfx/goal.ogg");
 }

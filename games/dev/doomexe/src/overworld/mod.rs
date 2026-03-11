@@ -1,6 +1,10 @@
 use crate::state::GameState;
 use bevy::prelude::*;
-use dj_engine::prelude::{SaveData, StoryFlags, StoryVariables};
+use dj_engine::data::{
+    BodyType, CollisionComponent, InteractivityComponent, TriggerType, Vec3Data,
+};
+use dj_engine::prelude::{CollisionSet, MovementIntent, SaveData, StoryFlags, StoryVariables};
+use dj_engine::rendering::MainCamera;
 
 mod camera;
 pub mod interaction;
@@ -14,9 +18,9 @@ impl Plugin for OverworldPlugin {
             .add_systems(
                 Update,
                 (
-                    player::player_movement,
-                    interaction::interaction_check,
-                    camera::camera_follow_system,
+                    player::player_movement.before(CollisionSet::MoveBodies),
+                    camera::camera_follow_system.after(CollisionSet::MoveBodies),
+                    interaction::interaction_check.after(CollisionSet::DetectTriggers),
                 )
                     .run_if(in_state(GameState::Overworld)),
             )
@@ -28,11 +32,10 @@ impl Plugin for OverworldPlugin {
 pub struct OverworldEntity; // Marker for cleanup
 
 #[derive(Component)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct NPC {
     pub id: String,
 }
-
-use dj_engine::rendering::MainCamera;
 
 fn setup_overworld(
     mut commands: Commands,
@@ -48,52 +51,93 @@ fn setup_overworld(
 
     // Player (Blue Square)
     commands.spawn((
+        Name::new("Player"),
         Sprite {
             color: Color::srgb(0.2, 0.2, 0.8),
             custom_size: Some(Vec2::new(32.0, 32.0)),
             ..default()
         },
-        Transform::from_xyz(0.0, 0.0, 10.0),
+        Transform::from_xyz(-180.0, 0.0, 10.0),
         player::Player { speed: 150.0 },
-        OverworldEntity,
-    ));
-
-    // Hamster NPC (Brown Square)
-    commands.spawn((
-        Sprite {
-            color: Color::srgb(0.5, 0.3, 0.1),
-            custom_size: Some(Vec2::new(32.0, 32.0)),
-            ..default()
-        },
-        Transform::from_xyz(100.0, 50.0, 10.0),
-        NPC {
-            id: "hamster_narrator".to_string(),
+        MovementIntent::default(),
+        CollisionComponent {
+            body_type: BodyType::Kinematic,
+            box_size: Some(Vec3Data::new(28.0, 28.0, 0.0)),
+            ..Default::default()
         },
         OverworldEntity,
     ));
 
-    // Glitch NPC (Purple Square)
+    spawn_npc(
+        &mut commands,
+        "Hamster Narrator",
+        "hamster_narrator",
+        Color::srgb(0.5, 0.3, 0.1),
+        Vec3::new(-120.0, 60.0, 10.0),
+    );
+    spawn_npc(
+        &mut commands,
+        "Glitch Puddle",
+        "glitch_puddle",
+        Color::srgb(0.8, 0.2, 0.8),
+        Vec3::new(150.0, -80.0, 10.0),
+    );
+
+    // Central blocker used to prove collision resolution in the overworld.
     commands.spawn((
+        Name::new("Corrupted Wall"),
         Sprite {
-            color: Color::srgb(0.8, 0.2, 0.8),
-            custom_size: Some(Vec2::new(32.0, 32.0)),
+            color: Color::srgb(0.3, 0.32, 0.35),
+            custom_size: Some(Vec2::new(32.0, 220.0)),
             ..default()
         },
-        Transform::from_xyz(-100.0, -50.0, 10.0),
-        NPC {
-            id: "glitch_puddle".to_string(),
+        Transform::from_xyz(0.0, 0.0, 9.0),
+        CollisionComponent {
+            body_type: BodyType::Static,
+            box_size: Some(Vec3Data::new(32.0, 220.0, 0.0)),
+            ..Default::default()
         },
         OverworldEntity,
     ));
 
     // Simple Floor (Dark Gray)
     commands.spawn((
+        Name::new("Floor"),
         Sprite {
             color: Color::srgb(0.1, 0.1, 0.1),
             custom_size: Some(Vec2::new(800.0, 600.0)),
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, 0.0),
+        OverworldEntity,
+    ));
+}
+
+fn spawn_npc(commands: &mut Commands, name: &str, id: &str, color: Color, position: Vec3) {
+    commands.spawn((
+        Name::new(name.to_string()),
+        Sprite {
+            color,
+            custom_size: Some(Vec2::new(32.0, 32.0)),
+            ..default()
+        },
+        Transform::from_translation(position),
+        NPC { id: id.to_string() },
+        CollisionComponent {
+            body_type: BodyType::Static,
+            box_size: Some(Vec3Data::new(44.0, 44.0, 0.0)),
+            is_trigger: true,
+            ..Default::default()
+        },
+        InteractivityComponent {
+            trigger_type: TriggerType::Npc,
+            trigger_id: id.to_string(),
+            events: dj_engine::data::InteractivityEvents {
+                on_interact: Some("start_dialogue".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         OverworldEntity,
     ));
 }
