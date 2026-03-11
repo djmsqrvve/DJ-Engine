@@ -1,7 +1,9 @@
 # dj_engine Complete Package - INDEX & NAVIGATION GUIDE
 
-**Version:** 1.0 (2026-01-21)  
-**Status:** Production Ready - All Documents Ready for Implementation  
+> **Staleness Warning (2026-03-10):** This guide was written January 2026 before the Bevy 0.18 migration and Makefile infrastructure standardization. The 20-week timeline and some file references are outdated. For current onboarding, use the [AI Handoff Suite](AI_HANDOFF_SUITE/README.md) and [ROADMAP.md](ROADMAP.md).
+
+**Version:** 1.0 (2026-01-21)
+**Status:** Production Ready - All Documents Ready for Implementation
 **Total Content:** ~9,500 lines of documentation + architecture specs
 
 ---

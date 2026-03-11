@@ -1,5 +1,7 @@
 # DJ Engine Broad Audit Handoff
 
+> **Historical.** This audit is complete. The issues described below have been resolved.
+
 Date: 2026-03-08  
 Branch: `chore/cleanup-checkpoint-2026-03-08`  
 Commit: `96ab402`
@@ -13,7 +15,7 @@ Run a broad, repo-wide technical audit to identify and fix compile errors, API r
 - `cargo test --workspace --no-run` currently fails with:
   - `engine/tests/editor_integrity.rs:14` -> `HierarchyPlugin` unresolved (`E0425`).
 - Tracked TODO/FIXME/HACK/XXX markers in core code paths: 13 (`engine/src`, `games/dev/doomexe/src`, `tools/asset_generator/src`).
-- This repo does not use a root `Makefile`; use `./dj` helper and direct cargo commands.
+- This repo uses a root `Makefile`; use `make` targets and direct cargo commands.
 
 ## Verified Commands
 Use this target dir consistently for speed and cache isolation:
@@ -30,9 +32,9 @@ cargo fmt --all
 
 Runtime entry points:
 ```bash
-./dj minimal
-./dj doomexe --verbose
-./dj editor
+make minimal
+RUST_LOG=debug make doom
+make editor
 ```
 
 ## Priority Audit Plan
@@ -54,7 +56,7 @@ Runtime entry points:
      - defer low-value style nits only if justified.
 
 4. **Runtime smoke validation**
-   - Verify minimal/editor/game startup (`./dj minimal`, `./dj editor`, `./dj doomexe --verbose`).
+   - Verify minimal/editor/game startup (`make minimal`, `make editor`, `RUST_LOG=debug make doom`).
    - Capture any panic/backtrace and patch obvious startup regressions.
 
 5. **Code health backlog pass**

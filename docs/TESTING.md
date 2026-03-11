@@ -6,7 +6,7 @@ This document explains how to write and run tests for DJ Engine.
 
 ### All Tests
 ```bash
-./dj test
+make test
 # or
 cargo test --workspace
 ```

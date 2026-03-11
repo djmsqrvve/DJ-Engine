@@ -5,7 +5,7 @@
 ```text
 Cargo.toml
 rust-toolchain.toml
-dj
+Makefile
 .devcontainer/
 .github/workflows/
 engine/
@@ -19,10 +19,10 @@ docs/
 - `Cargo.toml`
   - Workspace manifest, member list, shared dependencies, and build profiles.
 - `rust-toolchain.toml`
-  - Pins Rust `1.93.1` with `clippy` and `rustfmt`.
-- `dj`
-  - Helper script for the common game, editor, test, lint, format, build, and
-    asset generator commands.
+  - Pins Rust `1.94.0` with `clippy` and `rustfmt`.
+- `Makefile`
+  - Current command interface for common game, editor, test, lint, format,
+    build, and asset generator workflows.
 - `.devcontainer/`
   - Codespaces and devcontainer definition, lifecycle scripts, and runtime
     warmup helper.
@@ -109,4 +109,3 @@ Important nuance:
 - The asset generator expects `games/dev/doomexe/assets/sprites/hamster_parts`
   if hamster sprite source files exist, but that tree is not currently committed
   in the repo snapshot this suite describes.
-

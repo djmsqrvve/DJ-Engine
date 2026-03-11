@@ -1,5 +1,7 @@
 # Accuracy Audit
 
+> **Historical (2026-03-09).** This audit was performed at commit `5f0107d` on branch `main`. The repo has advanced significantly since then. Treat as historical context.
+
 Audit date: 2026-03-09
 Canonical repo: `/home/dj/dev/engines/DJ-Engine`
 

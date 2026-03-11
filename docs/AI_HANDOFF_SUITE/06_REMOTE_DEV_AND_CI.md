@@ -3,7 +3,7 @@
 ## Rust Toolchain
 
 - Pinned in `rust-toolchain.toml`
-- Channel: `1.93.1`
+- Channel: `1.94.0`
 - Profile: `minimal`
 - Components: `clippy`, `rustfmt`
 
@@ -64,8 +64,8 @@ reachable sooner.
 Prints the GUI port and the recommended runtime smoke commands:
 
 ```bash
-./dj e --test-mode
-timeout 20s ./dj d
+make editor
+timeout 20s make doom
 bash .devcontainer/warm-runtime.sh
 ```
 
@@ -94,11 +94,11 @@ The current workflow file is `.github/workflows/ci.yml`.
 It runs on `ubuntu-24.04` and performs:
 
 1. apt install of the native Bevy/winit/audio build dependencies
-2. install of Rust `1.93.1`
+2. install of Rust `1.94.0`
 3. `cargo fetch --locked`
 4. `cargo fmt --all --check`
 5. `cargo check --workspace`
-6. `cargo test --workspace --no-run`
+6. `cargo test --workspace`
 7. `cargo clippy --workspace --all-targets -- -W clippy::all`
 
 CI uses:
@@ -115,9 +115,9 @@ Inside Codespaces or equivalent Linux remote environments:
 ```bash
 cargo fmt --all --check
 RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace
-RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace --no-run
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace
 RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
-./dj e --test-mode
-timeout 20s ./dj d
+make editor
+timeout 20s make doom
 ```
 

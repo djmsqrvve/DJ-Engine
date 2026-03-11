@@ -1,5 +1,7 @@
 # DJ Engine Bevy 0.18 Migration Handoff
 
+> **Historical.** This migration is complete. The engine now runs on Bevy 0.18 with Rust 1.94.0.
+
 Date: 2026-03-08
 Branch: `chore/cleanup-checkpoint-2026-03-08`
 

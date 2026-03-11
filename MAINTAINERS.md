@@ -8,8 +8,8 @@ Welcome! This guide covers everything you need to know about maintaining DJ Engi
 
 | Task | Command |
 |------|---------|
-| Run tests | `./dj test` |
-| Run editor | `./dj e` |
+| Run tests | `make test` |
+| Run editor | `make editor` |
 | Build release | `cargo build --release` |
 | Check code | `cargo check --workspace` |
 | Format code | `cargo fmt` |

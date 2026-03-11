@@ -4,10 +4,16 @@ Status as of 2026-03-10: 121 tests passing, Phase 1-4 complete.
 
 ## Phase 1: Quick Wins (1 session)
 
-### 1a. Stale Docs Fix
-- Replace `/tmp/dj_engine_bevy18` with `~/.cargo-targets/dj_engine_bevy18` across 6 doc files
-- Replace Bevy 0.14/0.15/0.16 references with 0.18
-- Files: `GETTING_STARTED.md`, `AI_Coding_Assistant_Config.md`, `INDEX_Navigation_Guide.md`, `MASTER-DOCUMENTATION-INDEX.md`, handoff suite docs
+### 1a. Stale Docs Fix DONE (2026-03-10)
+- Replaced `/tmp/dj_engine_bevy18` with `~/.cargo-targets/dj_engine_bevy18`
+- Replaced major Bevy 0.14/0.15/0.16 references with 0.18
+- Added staleness banners to current navigation docs
+- Added historical headers to older planning and handoff docs
+- Fixed stale claims in AI Handoff Suite (asset loaders, CI `--no-run`, retired `./dj`)
+- Rewrote `docs-summary-reference.md` and `MASTER-DOCUMENTATION-INDEX.md` around current docs plus `archive/`
+- Normalized AI Handoff Suite current-state/workspace-map/session-handoff notes
+- Moved `enginefeaturedraft.md`, `enginefeaturedraftjson.md` to `archive/`
+- Rewrote `archive/README.md` as proper archive index
 
 ### 1b. Story Graph Validation
 - Add unreachable node detection (BFS from root) in `engine/src/data/story.rs:531`

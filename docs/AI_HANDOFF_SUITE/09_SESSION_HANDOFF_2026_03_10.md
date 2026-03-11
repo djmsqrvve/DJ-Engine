@@ -1,5 +1,7 @@
 # Session Handoff — 2026-03-10
 
+> **Historical snapshot (2026-03-10).** This records the repo state at the end of that session. Some low-priority docs drift mentioned below was cleaned up later.
+
 This document records the exact state of the repository after the work session ending
 2026-03-10. It is written for the next agent to continue without context loss.
 
@@ -80,12 +82,12 @@ Recommend committing: `git add dj && git commit -m "fix: restore execute permiss
 
 Both binaries launched successfully on Ubuntu with NVIDIA RTX 2080 Ti (Vulkan):
 
-**Editor** (`./dj e --test-mode`):
+**Editor** (`make editor`):
 - All plugins initialized
 - Automated UI Test Passed
 - Expected `Path not found` for MIDI in editor context (engine binary, not game binary)
 
-**Doomexe** (`./dj d`):
+**Doomexe** (`make doom`):
 - All plugins initialized
 - Lua scripting executed (hamster_test.lua)
 - `MIDI playback started (async)!` — confirms new loader works
@@ -148,9 +150,10 @@ Do NOT use `/tmp/` for CARGO_TARGET_DIR — tmpfs is full.
 ### LOW — Tech Debt & Docs
 
 **7. Stale Docs**
-- `docs/AI_HANDOFF_SUITE/06_REMOTE_DEV_AND_CI.md` lines 108, 117-119: still references
-  `~/.cargo-targets/dj_engine_bevy18`
-- `AGENTS.md`: still says Bevy 0.15 (actual is 0.18)
+- Remaining docs drift at this handoff point was concentrated in older
+  roadmap/spec documents and a few retired `./dj` helper references.
+- Later cleanup standardized current docs on `make`, `rust-toolchain.toml`,
+  `.github/workflows/ci.yml`, and the AI Handoff Suite.
 
 **8. Story Graph Validation**
 - `engine/src/data/story.rs` line 531: unreachable node detection not implemented
@@ -206,7 +209,7 @@ engine/src/
 ## Environment Notes
 
 - Machine: Linux 6.19.0-9-generic, NVIDIA RTX 2080 Ti, 1.8 TB NVMe
-- Rust: 1.93.1 (pinned via rust-toolchain.toml)
+- Rust: 1.94.0 (pinned via rust-toolchain.toml)
 - Bevy: 0.18
 - mlua: 0.10 with vendored feature
 - Build cache: `/home/dj/.cargo-targets/dj_engine_bevy18`

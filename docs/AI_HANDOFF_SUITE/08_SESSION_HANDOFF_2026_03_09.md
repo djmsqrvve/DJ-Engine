@@ -1,5 +1,7 @@
 # Session Handoff — 2026-03-09
 
+> **Superseded by [09_SESSION_HANDOFF_2026_03_10.md](09_SESSION_HANDOFF_2026_03_10.md).** Retained for historical context.
+
 This document records the exact state of the repository after the work session ending
 2026-03-09. It is written for the next agent (or the same agent resuming tomorrow) to
 continue without context loss.
@@ -380,7 +382,7 @@ All 91 tests pass as of end of session.
 ## Environment Notes
 
 - **Machine:** Linux 6.19.0-9-generic, 1.8 TB NVMe root drive
-- **Rust toolchain:** 1.93.1 (pinned via `rust-toolchain.toml`)
+- **Rust toolchain:** 1.94.0 (pinned via `rust-toolchain.toml`)
 - **Bevy:** 0.18 (not 0.15 as some older docs claim)
 - **Build cache:** `/home/dj/.cargo-targets/dj_engine_bevy18` — persistent, ~several GB
 - **tmpfs `/tmp`:** FULL — do not use for CARGO_TARGET_DIR

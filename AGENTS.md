@@ -76,23 +76,30 @@ dj_engine/
 
 ## Build & Development Commands
 
-### Primary Commands (via `./dj` helper script)
+### Primary Commands (via Makefile)
 ```bash
-# Run the game (doomexe)
-./dj d                    # or: ./dj doomexe
-./dj d --verbose         # Enable debug logging
+# Development
+make dev               # Launch the editor (default)
+make dev-fast          # Fastest startup (skip checks)
+make dev-safe          # Clean and start fresh
+make dev-release       # Run optimized release build
+make editor            # Launch the editor
+make minimal           # Run minimal rendering binary
+make asset-gen         # Run the asset generator
 
-# Launch the editor
-./dj e                    # or: ./dj editor
+# Testing & Quality
+make test              # Run all workspace tests
+make quality-check     # Full pipeline (fmt + clippy + test)
+make guardrail         # Quick safety checks
+make guardrail-strict  # Full safety checks
+make lint              # Run clippy
+make lint-fix          # Auto-fix clippy issues
+make format            # Check formatting
+make format-fix        # Fix formatting
 
-# Run tests
-./dj t                    # or: ./dj test
-
-# Run asset generator
-./dj g                    # or: ./dj gen
-
-# Run minimal test
-./dj m                    # or: ./dj minimal
+# Build
+make build             # Debug build
+make build-release     # Release build (optimized)
 ```
 
 ### Direct Cargo Commands
@@ -264,12 +271,12 @@ cargo test test_name -- --exact
    - Create new module or add to existing module
    - Add plugin in `main.rs`
    - Use Lua scripting for content-heavy logic
-   - Test by running `./dj d`
+   - Test by running `make doom`
 
 3. **Assets**: 
    - Place game assets in `games/dev/doomexe/assets/`
    - For engine assets, consider `engine/assets/` (currently minimal)
-   - Run `./dj g` to process assets if needed
+   - Run `make asset-gen` to process assets if needed
 
 ### Making Changes
 
@@ -278,7 +285,7 @@ cargo test test_name -- --exact
 # Make changes
 cargo check --workspace
 cargo test --workspace  # If tests exist
-./dj d  # Test the game
+make doom  # Test the game
 ```
 
 **Large Changes** (new systems, refactoring):
@@ -291,8 +298,8 @@ cargo check  # Frequent validation
 cargo fmt --all  # Keep formatting consistent
 
 # Test thoroughly
-./dj t  # Run all tests
-./dj d  # Manual game testing
+make test  # Run all tests
+make doom  # Manual game testing
 
 # Commit with clear message
 git commit -m "feat: add new animation system"
@@ -310,7 +317,7 @@ Enable with `DJEnginePlugin::default()` (enabled by default):
 ### Verbose Logging
 ```bash
 # Via helper script
-./dj d --verbose
+RUST_LOG=debug make doom
 
 # Direct environment variable
 RUST_LOG=debug cargo run -p doomexe
@@ -387,7 +394,7 @@ Currently targeting desktop platforms:
 ## Getting Help
 
 1. **Check existing documentation** in `docs/` directory
-2. **Run examples**: `./dj minimal` for engine features
+2. **Run examples**: `make minimal` for engine features
 3. **Check run.log**: Recent build/run output  
 4. **Review architecture**: `engine/src/core/mod.rs` for system overview
 5. **Search codebase**: Use grep for specific component/function names
@@ -396,15 +403,15 @@ Currently targeting desktop platforms:
 
 ```bash
 # Daily development
-./dj d          # Run game  
-./dj t          # Run tests
+make doom       # Run game
+make test       # Run tests
 cargo check     # Validate code
 
 # Asset work
-./dj g          # Generate assets
+make asset-gen  # Generate assets
 
 # Debugging
-./dj d --verbose    # Verbose logging
+RUST_LOG=debug make doom    # Verbose logging
 RUST_LOG=debug cargo run -p doomexe  # Fine-grained control
 
 # Release

@@ -32,15 +32,15 @@ After the container is ready, validate the workspace with:
 ```bash
 cargo fmt --all --check
 RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace
-RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace --no-run
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace
 RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
 ```
 
 To view the editor or game remotely, open the forwarded `desktop` port on `6080` in your browser and connect with password `vscode`. Then launch:
 
 ```bash
-./dj e --test-mode
-timeout 20s ./dj d
+make editor
+timeout 20s make doom
 ```
 
 If you want the heavier runtime binary warmup after the Codespace is ready, run:
@@ -87,15 +87,15 @@ Then run the same validation commands shown above.
 ## Common Commands
 
 ```bash
-./dj e           # Launch the editor
-./dj d           # Run DoomExe
-./dj d --verbose # Run DoomExe with debug logging
-./dj t           # Run workspace tests
-./dj c           # cargo check --workspace
-./dj fmt         # cargo fmt --all
-./dj lint        # cargo clippy --workspace -- -W clippy::all
-./dj g           # Run the asset generator
-./dj b           # Build release binaries
+make editor              # Launch the editor
+make doom                # Run DoomExe
+RUST_LOG=debug make doom # Run DoomExe with debug logging
+make test                # Run workspace tests
+make build               # cargo check --workspace
+make format-fix          # cargo fmt --all
+make lint                # cargo clippy --workspace -- -W clippy::all
+make asset-gen           # Run the asset generator
+make build-release       # Build release binaries
 ```
 
 ## Project Structure Overview

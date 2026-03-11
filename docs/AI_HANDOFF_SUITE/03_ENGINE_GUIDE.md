@@ -52,7 +52,7 @@ The engine plugin bundle currently adds:
 
 - Defines palette and hamster-part data structures.
 - Initializes `HamsterPartLibrary`.
-- Custom asset loader registration is still TODO-backed.
+- Custom asset loaders implemented: `HamsterPartLoader` and `PaletteLoader`.
 
 ### `audio`
 

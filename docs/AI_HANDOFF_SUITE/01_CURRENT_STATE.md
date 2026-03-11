@@ -1,5 +1,7 @@
 # Current State
 
+> **Historical snapshot (2026-03-09).** Repo state, commit IDs, and drift notes below describe the handoff moment, not the current worktree.
+
 Date: 2026-03-09
 
 ## Git Snapshot
@@ -18,7 +20,7 @@ Date: 2026-03-09
   - `tools/asset_generator`
 - The default workspace member is `games/dev/doomexe`.
 - The actual workspace Bevy version is `0.18`.
-- The pinned Rust toolchain is `1.93.1` with `clippy` and `rustfmt`.
+- The pinned Rust toolchain is `1.94.0` with `clippy` and `rustfmt`.
 - The main binaries in normal use are:
   - `doomexe` for the game
   - `dj_engine` for the editor
@@ -39,8 +41,8 @@ CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo clippy --workspa
 Useful runtime smokes:
 
 ```bash
-./dj e --test-mode
-timeout 20s ./dj d
+make editor
+timeout 20s make doom
 ```
 
 ## Current Remote-Dev Contract
@@ -70,9 +72,10 @@ timeout 20s ./dj d
 
 ## Known Drift And Caveats
 
-- The repo-level `AGENTS.md` overview still says Bevy `0.15`. That is stale.
 - Some older docs under `docs/` are roadmap/spec documents rather than accurate
-  descriptions of the current working repo.
+  descriptions of the current working repo. Prefer the AI Handoff Suite,
+  `README.md`, and `ROADMAP.md` for current onboarding.
+- The legacy `./dj` helper has been retired in favor of the root `Makefile`.
 - `games/dev/doomexe/src/assets/mod.rs` is currently just a placeholder plugin.
 - The diagnostics inspector plugin is intentionally disabled due to window-kind
   issues in some Linux/WSL software-rendered environments.

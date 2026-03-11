@@ -32,8 +32,8 @@ Use the lightest command that still proves the change:
 2. `CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo check --workspace`
 3. `CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo test --workspace`
 4. `CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all`
-5. `./dj e --test-mode`
-6. `timeout 20s ./dj d`
+5. `make editor`
+6. `timeout 20s make doom`
 
 Do not skip straight to speculative refactors when a smaller compile or runtime
 smoke will answer the question faster.
@@ -89,6 +89,9 @@ story_graph, and midi are thin orchestrators. Inspect the focused submodules:
 
 - Fetch before making assumptions about remote state.
 - Check `git status` before and after edits.
+- Check `git branch -vv` when branch intent or divergence matters.
+- Update `docs/AI_HANDOFF_SUITE/10_BRANCH_LOG.md` when a branch is created,
+  repurposed, parked, or resumed.
 - Keep commits focused and descriptive.
 - Do not overwrite user-authored handoff notes unless explicitly asked.
 - If older prose conflicts with current refs or source, trust current refs and

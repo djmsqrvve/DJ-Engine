@@ -1,5 +1,7 @@
 # External Audit Request
 
+> **Historical.** Written for commit `5f0107d`. The repo has advanced; HEAD references below are stale.
+
 You are the final external auditing AI for DJ Engine. Decide whether this
 handoff suite is adequate for a new agent and final IDE closeout.
 

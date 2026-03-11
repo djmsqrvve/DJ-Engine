@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.93.1-orange?style=flat-square" alt="Rust 1.93.1"></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.94.0-orange?style=flat-square" alt="Rust 1.94.0"></a>
   <a href="https://bevyengine.org/"><img src="https://img.shields.io/badge/Bevy-0.18-green?style=flat-square" alt="Bevy 0.18"></a>
   <a href="https://github.com/djmsqrvve/dj_engine/actions/workflows/ci.yml"><img src="https://github.com/djmsqrvve/dj_engine/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
@@ -31,65 +31,73 @@
 git clone https://github.com/djmsqrvve/dj_engine.git
 cd dj_engine
 
-./dj d
-./dj e
-./dj t
+make dev
+make editor
+make test
 ```
 
 The workspace toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml), so `rustup` will automatically select the validated Rust version for local development, Codespaces, and CI.
 
 ## Codespaces
 
-GitHub Codespaces is supported through [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json). The devcontainer now includes a lightweight remote desktop for GUI apps, an SSH server so `gh codespace ssh` can work against ready environments, and the Bevy/Linux native build plus Mesa runtime dependencies during image build. Provisioning warms the compile-validation layer through `onCreateCommand` and `updateContentCommand`, while a separate script handles the heavier runtime binary warmup.
+GitHub Codespaces is fully supported. The devcontainer includes a lightweight remote desktop (VNC), SSH server, and all Bevy/Linux build dependencies. Dependencies are pre-fetched and checked during provisioning via `make cache-warm-fast`.
 
-To run the editor or game inside Codespaces:
-
-```bash
-./dj e --test-mode
-timeout 20s ./dj d
-```
-
-Open the forwarded `desktop` port on `6080` in your browser and connect with password `vscode` to view GUI windows.
-
-If you want to prebuild runtime binaries after the Codespace is reachable, run:
+To get started in a Codespace:
 
 ```bash
-bash .devcontainer/warm-runtime.sh
+make codespace        # Verify environment is ready
+make editor           # Launch the editor
+make doom             # Run DoomExe
 ```
 
-Codespaces support is still compile-first, with GUI runtime intended for smoke runs and manual checks. The primary validation flow is:
+Open the forwarded `Desktop` port (`6080`) in your browser and connect with password `vscode` to view GUI windows.
+
+For a full runtime warmup (pre-compiles all binaries):
 
 ```bash
-cargo fmt --all --check
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo check --workspace
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo test --workspace --no-run
-RUSTC_WRAPPER= CARGO_TARGET_DIR=/tmp/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
+make cache-warm
 ```
 
-For prebuilds, repository admins still need to enable a Codespaces prebuild configuration in GitHub repository settings and point it at [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json).
+A prebuilt Docker image with pre-compiled dependencies is also available:
 
-## Helper Commands
+```bash
+make codespace-image-build    # Build locally
+make codespace-image-push     # Push to GHCR
+```
 
-All common tasks run through the `./dj` helper script:
+For prebuilds, repository admins need to enable a Codespaces prebuild configuration in GitHub repository settings pointing at [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json).
+
+## Commands
+
+All common tasks run through `make`:
 
 ```bash
 # Development
-./dj e                # Launch the editor
-./dj d                # Run DoomExe
-./dj d --verbose      # Run DoomExe with debug logging
-./dj m                # Run the minimal engine test binary
+make dev              # Launch the editor (default)
+make dev-fast         # Fastest startup (skip checks)
+make dev-release      # Optimized release build
+make doom             # Run DoomExe test game
+make minimal          # Run minimal rendering binary
+make asset-gen        # Run the asset generator
 
-# Validation
-./dj t                # Run workspace tests
-./dj c                # cargo check --workspace
-./dj fmt              # cargo fmt --all
-./dj lint             # cargo clippy --workspace -- -W clippy::all
+# Codespaces
+make codespace        # Verify Codespace environment
+make cache-warm-fast  # Quick compile cache
+make cache-warm       # Full build + test compile
 
-# Build and tools
-./dj g                # Run the asset generator
-./dj b                # Build release binaries
-./dj doc              # Generate workspace docs
-./dj clean            # Remove build artifacts
+# Quality
+make test             # Run workspace tests
+make quality-check    # Full pipeline (fmt + clippy + test)
+make guardrail        # Quick safety checks
+make guardrail-strict # Full safety checks
+make lint             # Run clippy
+make format           # Check formatting
+make format-fix       # Fix formatting
+
+# Build
+make build            # Debug build
+make build-release    # Release build (optimized)
+make clean            # Remove build artifacts
 ```
 
 ## Project Structure
@@ -100,7 +108,7 @@ dj_engine/
 ├── games/dev/doomexe/      # Primary game project
 ├── tools/asset_generator/  # Asset processing utilities
 ├── docs/                   # Project and engine documentation
-└── dj                      # Workspace helper script
+└── Makefile                # Unified command interface
 ```
 
 ## Documentation

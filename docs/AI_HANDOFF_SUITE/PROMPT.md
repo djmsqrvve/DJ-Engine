@@ -1,5 +1,7 @@
 # Next-Agent Prompt
 
+> **Historical.** Written for commit `5f0107d`. For current onboarding, start with [01_CURRENT_STATE.md](01_CURRENT_STATE.md) and [09_SESSION_HANDOFF_2026_03_10.md](09_SESSION_HANDOFF_2026_03_10.md).
+
 You are taking over DJ Engine from a prior agent. Use current repo truth, not
 historical roadmap assumptions.
 

@@ -1,7 +1,9 @@
 # DJ Engine: Complete Detailed Technical Documentation
 
-**Date**: January 20, 2026  
-**Version**: 1.0  
+> **Historical (January 2026).** Written for pre-Bevy 0.18 architecture. The engine has since migrated to Bevy 0.18 with a standardized Makefile build system. Legacy filenames mentioned below now live in `archive/` or have been replaced by current onboarding docs. Do not trust code snippets or architecture details without checking current source.
+
+**Date**: January 20, 2026
+**Version**: 1.0
 **Status**: Complete Specification  
 **Scope**: Phases 0–5 (16-week development roadmap)
 
@@ -113,18 +115,21 @@ tools/
 
 docs/
 ├── README.md                            # Documentation index
-├── ARCHITECTURE.md                      # System design overview
-├── RENDERING_PIPELINE.md                # Low-level rendering details
-├── SPRITE_SYSTEM.md                     # Sprite assembly & animation
-├── LUA_FFI.md                           # Lua ↔ Rust boundary specification
-├── ASSET_PIPELINE.md                    # Aseprite → runtime workflow
-├── ANIMATION_GUIDE.md                   # Animation framework details
-├── DEVELOPER_GUIDE.md                   # Onboarding for engineers
-├── ARTIST_GUIDE.md                      # Aseprite setup for artists
-├── DESIGNER_GUIDE.md                    # Lua scripting for designers
-├── ASEPRITE_WORKFLOW.md                 # Step-by-step export process
-├── TROUBLESHOOTING.md                   # Common issues & solutions
-└── CHANGELOG.md                         # Version history & release notes
+├── AI_HANDOFF_SUITE/README.md           # Current onboarding index
+├── ARCHITECTURE.md                      # Current high-level architecture overview
+├── GETTING_STARTED.md                   # Current setup and remote-dev guide
+├── ROADMAP.md                           # Current prioritized work list
+├── TESTING.md                           # Current testing guide
+├── complete-detailed-docs.md            # Historical implementation plan
+└── DETAILED_TASK_DOCS.md                # Historical task breakdown
+
+archive/
+├── ANIMATION_GUIDE.md                   # Historical animation reference
+├── ASSET_PIPELINE.md                    # Historical asset-pipeline design
+├── CHANGELOG.md                         # Historical changelog
+├── LUA_FFI.md                           # Historical Lua API design
+├── SPRITE_ARCHITECTURE.md               # Historical rendering spec
+└── SPRITE_SYSTEM.md                     # Historical sprite system spec
 
 .github/
 └── workflows/
@@ -610,31 +615,31 @@ Welcome to the DJ Engine documentation hub. This directory contains comprehensiv
 
 Start here if you're implementing the engine or extending its functionality.
 
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System design, module structure, component hierarchy
-- **[DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md)** - Getting started, build process, code conventions
-- **[RENDERING_PIPELINE.md](./RENDERING_PIPELINE.md)** - Graphics rendering, shaders, camera system
-- **[SPRITE_SYSTEM.md](./SPRITE_SYSTEM.md)** - Sprite assembly, hierarchy, animation framework
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Current high-level system design overview
+- **[AI_HANDOFF_SUITE/README.md](./AI_HANDOFF_SUITE/README.md)** - Current onboarding and source-of-truth docs
+- **[archive/SPRITE_ARCHITECTURE.md](../archive/SPRITE_ARCHITECTURE.md)** - Historical rendering and camera spec
+- **[archive/SPRITE_SYSTEM.md](../archive/SPRITE_SYSTEM.md)** - Historical sprite assembly and animation spec
 
 ## For Game Designers
 
 Scripts and narrative designers, start here.
 
-- **[DESIGNER_GUIDE.md](./DESIGNER_GUIDE.md)** - Lua scripting API, example scripts, best practices
-- **[LUA_FFI.md](./LUA_FFI.md)** - Complete Lua function reference
+- **[AI_HANDOFF_SUITE/README.md](./AI_HANDOFF_SUITE/README.md)** - Current scripting-related onboarding path
+- **[archive/LUA_FFI.md](../archive/LUA_FFI.md)** - Historical Lua function reference
 
 ## For Artists
 
 Aseprite users creating assets.
 
-- **[ARTIST_GUIDE.md](./ARTIST_GUIDE.md)** - Asset requirements, style guide, naming conventions
-- **[ASEPRITE_WORKFLOW.md](./ASEPRITE_WORKFLOW.md)** - Export process, step-by-step walkthrough
-- **[ASSET_PIPELINE.md](./ASSET_PIPELINE.md)** - How Aseprite exports become game-ready sprites
+- **[GETTING_STARTED.md](./GETTING_STARTED.md)** - Current setup and validation flow
+- **[archive/ASSET_PIPELINE.md](../archive/ASSET_PIPELINE.md)** - Historical asset-pipeline design
+- **[archive/SPRITE_SYSTEM.md](../archive/SPRITE_SYSTEM.md)** - Historical sprite-asset conventions
 
 ## Specialized Topics
 
-- **[ANIMATION_GUIDE.md](./ANIMATION_GUIDE.md)** - Animation system deep dive, easing functions, procedural animation
-- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** - Common issues and solutions
-- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and breaking changes
+- **[archive/ANIMATION_GUIDE.md](../archive/ANIMATION_GUIDE.md)** - Historical animation system deep dive
+- **[TESTING.md](./TESTING.md)** - Current validation and testing guide
+- **[archive/CHANGELOG.md](../archive/CHANGELOG.md)** - Historical changelog
 ```
 
 ---

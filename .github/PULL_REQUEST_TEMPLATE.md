@@ -12,7 +12,7 @@ Fixes #(issue number)
 
 ## Checklist
 - [ ] Code compiles without errors (`cargo check --workspace`)
-- [ ] All tests pass (`./dj test`)
+- [ ] All tests pass (`make test`)
 - [ ] Documentation updated if needed
 - [ ] No new warnings introduced
 

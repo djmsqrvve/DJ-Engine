@@ -23,9 +23,10 @@ Use this suite in the following order:
 8. `07_AGENT_WORKFLOW.md`
 9. `08_SESSION_HANDOFF_2026_03_09.md`
 10. `09_SESSION_HANDOFF_2026_03_10.md`  ← **START HERE if resuming from 2026-03-10**
-11. `PLAN.md`
-12. `PROMPT.md`
-13. `AUDIT_REQUEST.md`
+11. `10_BRANCH_LOG.md`
+12. `PLAN.md`
+13. `PROMPT.md`
+14. `AUDIT_REQUEST.md`
 
 Source-of-truth rules:
 
@@ -46,5 +47,6 @@ What this suite is for:
   TODO-backed.
 - Explaining how the editor, game, data layer, scripting layer, Codespaces, and
   CI fit together today.
+- Tracking active branches, their purpose, and the next planned work.
 - Supporting one last external AI audit before context reset via
   `AUDIT_REQUEST.md`.

@@ -1,5 +1,7 @@
 # DJ Engine Codespaces Cleanup + Compile Handoff
 
+> **Historical.** This cleanup is complete. Codespace infrastructure is now standardized with `make codespace` and `make cache-warm`.
+
 Date: 2026-03-09
 Branch: `main`
 Commit: `955a2e4`

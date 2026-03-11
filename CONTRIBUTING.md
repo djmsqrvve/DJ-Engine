@@ -9,14 +9,14 @@ Thank you for your interest in contributing! This guide will help you get starte
 git clone https://github.com/djmsqrvve/dj_engine.git
 cd dj_engine
 
-# Build the project
-cargo build --workspace
+# Build and run
+make dev
 
 # Run tests
-./dj test
+make test
 
 # Run the editor
-./dj e
+make editor
 ```
 
 ## Development Workflow
@@ -24,7 +24,7 @@ cargo build --workspace
 1. **Fork & Clone** - Fork the repo and clone your fork
 2. **Branch** - Create a feature branch: `git checkout -b feature/my-feature`
 3. **Code** - Make your changes following the coding standards
-4. **Test** - Ensure all tests pass: `./dj test`
+4. **Test** - Ensure all tests pass: `make test`
 5. **Commit** - Write clear commit messages (see below)
 6. **Push** - Push to your fork
 7. **PR** - Open a Pull Request
@@ -46,8 +46,9 @@ Examples:
 
 ## Code Style
 
-- Use `cargo fmt` before committing
-- Run `cargo clippy` and address warnings
+- Run `make format-fix` before committing
+- Run `make lint` and address warnings
+- Run `make guardrail` before opening a PR
 - Follow existing patterns in the codebase
 - Add tests for new functionality
 

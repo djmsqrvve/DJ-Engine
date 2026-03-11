@@ -1,7 +1,9 @@
 # DJ Engine: Complete Task Documentation Library
 
-**Date**: January 20, 2026  
-**Purpose**: Detailed task specifications for every action item in the phased plan  
+> **Historical (January 2026).** Written for pre-Bevy 0.18 architecture. Legacy filenames mentioned below now live in `archive/` or have been replaced by current onboarding docs. Task specifications may not reflect current implementation. Check source code for current state.
+
+**Date**: January 20, 2026
+**Purpose**: Detailed task specifications for every action item in the phased plan
 **Scope**: Phases 0–5 complete breakdown  
 **Status**: Ready to execute
 
@@ -651,17 +653,16 @@ Organize all design documentation in a central location.
 ### Directory Structure
 
 ```bash
-mkdir -p docs
+mkdir -p docs archive
 touch docs/README.md
 touch docs/ARCHITECTURE.md
-touch docs/RENDERING_PIPELINE.md
-touch docs/SPRITE_SYSTEM.md
-touch docs/LUA_FFI.md
-touch docs/ASSET_PIPELINE.md
-touch docs/MILESTONE_1.md
-touch docs/DEVELOPER_GUIDE.md
-touch docs/ARTIST_GUIDE.md
-touch docs/DESIGNER_GUIDE.md
+touch docs/GETTING_STARTED.md
+touch docs/ROADMAP.md
+touch docs/TESTING.md
+touch docs/AI_HANDOFF_SUITE/README.md
+touch archive/SPRITE_SYSTEM.md
+touch archive/LUA_FFI.md
+touch archive/ASSET_PIPELINE.md
 ```
 
 ### File: docs/README.md
@@ -676,49 +677,48 @@ implementation guides, and API references.
 
 ### For Everyone
 - [Project Overview](../README.md)
-- [Phased Development Plan](../COMPLETE_PHASED_PLAN.md)
+- [Current Roadmap](ROADMAP.md)
 
 ### For Developers
 - [Architecture Overview](ARCHITECTURE.md)
-- [Rendering Pipeline](RENDERING_PIPELINE.md)
-- [Sprite System](SPRITE_SYSTEM.md)
-- [Lua FFI Reference](LUA_FFI.md)
-- [Developer Guide](DEVELOPER_GUIDE.md)
-- [Coding Standards](CODING_STANDARDS.md)
+- [Current Onboarding](AI_HANDOFF_SUITE/README.md)
+- [Historical Sprite System](../archive/SPRITE_SYSTEM.md)
+- [Historical Lua FFI Reference](../archive/LUA_FFI.md)
+- [Testing Guide](TESTING.md)
 
 ### For Artists
-- [Asset Pipeline](ASSET_PIPELINE.md)
-- [Artist Guide](ARTIST_GUIDE.md)
-- [Aseprite Workflow](ASEPRITE_WORKFLOW.md)
+- [Getting Started](GETTING_STARTED.md)
+- [Historical Asset Pipeline](../archive/ASSET_PIPELINE.md)
+- [Historical Sprite System](../archive/SPRITE_SYSTEM.md)
 
 ### For Designers
-- [Lua Scripting API](LUA_FFI.md)
-- [Designer Guide](DESIGNER_GUIDE.md)
+- [Historical Lua Scripting API](../archive/LUA_FFI.md)
+- [Current Onboarding](AI_HANDOFF_SUITE/README.md)
 
 ### Reference
-- [Milestone 1 Spec](MILESTONE_1.md)
-- [Task Documentation](../TASK_DOCUMENTATION.md)
+- [Documentation Summary](docs-summary-reference.md)
+- [Roadmap](ROADMAP.md)
 
 ## Document Status
 
 | Document | Status | Owner | Last Updated |
 |----------|--------|-------|--------------|
-| ARCHITECTURE.md | 📋 Planning | @lead | 2026-01-20 |
-| SPRITE_SYSTEM.md | 📋 Planning | @graphics | 2026-01-20 |
-| LUA_FFI.md | 📋 Planning | @scripting | 2026-01-20 |
-| ASSET_PIPELINE.md | 📋 Planning | @tools | 2026-01-20 |
+| ARCHITECTURE.md | Current | @lead | 2026-03-10 |
+| archive/SPRITE_SYSTEM.md | Historical | @graphics | 2026-01-20 |
+| archive/LUA_FFI.md | Historical | @scripting | 2026-01-20 |
+| archive/ASSET_PIPELINE.md | Historical | @tools | 2026-01-20 |
 
 ## Document Categories
 
 ### Design (Read First)
 - ARCHITECTURE.md - System design and module boundaries
-- SPRITE_SYSTEM.md - Sprite assembly and animation
-- LUA_FFI.md - Lua integration points
+- archive/SPRITE_SYSTEM.md - Historical sprite assembly and animation
+- archive/LUA_FFI.md - Historical Lua integration points
 
 ### Implementation (Then Read)
-- RENDERING_PIPELINE.md - Low-level rendering details
-- ASSET_PIPELINE.md - Build process
-- DEVELOPER_GUIDE.md - Coding workflow
+- GETTING_STARTED.md - Current setup and remote-dev workflow
+- TESTING.md - Current validation workflow
+- AI_HANDOFF_SUITE/README.md - Current onboarding path
 
 ### Reference (While Coding)
 - Coding Standards
@@ -1397,4 +1397,3 @@ mod tests {
 **Document Status**: ✅ Ready for Implementation
 
 **Next**: Distribute to team and begin Phase 0 tasks.
-
