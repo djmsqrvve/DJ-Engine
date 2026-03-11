@@ -23,6 +23,7 @@ pub mod data;
 pub mod diagnostics;
 pub mod input;
 pub mod midi;
+pub mod project_mount;
 pub mod rendering;
 pub mod save;
 pub mod scene;
@@ -31,6 +32,7 @@ pub mod story_graph;
 pub mod types;
 
 pub mod editor;
+pub mod runtime_preview;
 
 /// Prelude module for convenient imports
 pub mod prelude {
@@ -48,7 +50,12 @@ pub mod prelude {
     pub use crate::diagnostics::DiagnosticsPlugin;
     pub use crate::input::{ActionState, DJInputPlugin, InputAction, InputConfig};
     pub use crate::midi::AutoLoadMidi;
+    pub use crate::project_mount::MountedProject;
     pub use crate::rendering::RenderingPlugin;
+    pub use crate::runtime_preview::{
+        bootstrap_mounted_project, parse_runtime_preview_cli_args, PreviewPlayer,
+        PreviewPlayerController, PreviewState, RuntimePreviewCliOptions, RuntimePreviewPlugin,
+    };
     pub use crate::save::{
         has_save, load_game, save_game, LoadCommand, LoadedSave, SaveCommand, SaveData, SavePlugin,
     };

@@ -40,6 +40,7 @@ pub(super) fn execute_graph(
             match event {
                 StoryInputEvent::Advance => {
                     executor.status = ExecutionStatus::Running;
+                    advance_node(&mut executor);
                 }
                 StoryInputEvent::SelectChoice(index) => {
                     handle_choice_selection(&mut executor, *index);
@@ -291,5 +292,56 @@ fn process_node(
         }
         StoryNode::End => NodeAction::End,
         StoryNode::Start { .. } => NodeAction::Advance,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::story_graph::{GraphExecutor, StoryGraph, StoryInputEvent, StoryNode};
+    use bevy::ecs::message::Messages;
+
+    #[test]
+    fn test_advance_input_moves_past_dialogue_node() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(crate::story_graph::StoryGraphPlugin);
+        app.add_message::<AudioCommand>();
+        app.add_message::<ChangeSceneEvent>();
+
+        let mut graph = StoryGraph::new();
+        let start = graph.add(StoryNode::Start { next: Some(1) });
+        graph.add(StoryNode::Dialogue {
+            speaker: "Guide".into(),
+            text: "Welcome".into(),
+            portrait: None,
+            next: Some(2),
+        });
+        graph.add(StoryNode::End);
+        graph.set_start(start);
+
+        app.world_mut().resource_mut::<GraphExecutor>().start(graph);
+
+        app.update();
+        assert_eq!(
+            app.world().resource::<GraphExecutor>().status,
+            ExecutionStatus::WaitingForInput
+        );
+
+        app.world_mut()
+            .resource_mut::<Messages<StoryInputEvent>>()
+            .write(StoryInputEvent::Advance);
+        app.update();
+
+        assert_eq!(
+            app.world().resource::<GraphExecutor>().status,
+            ExecutionStatus::Idle
+        );
+
+        let flow_events = app.world().resource::<Messages<StoryFlowEvent>>();
+        let mut cursor = flow_events.get_cursor();
+        assert!(cursor
+            .read(&flow_events)
+            .any(|event| matches!(event, StoryFlowEvent::GraphComplete)));
     }
 }

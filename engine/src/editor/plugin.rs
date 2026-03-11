@@ -1,14 +1,12 @@
-use super::types::{
-    BrowserTab, EditorState, EditorUiState, EditorView, LoadedProject, COLOR_BG, COLOR_PRIMARY,
-};
-use crate::data::loader::DataError;
+use super::types::{BrowserTab, EditorState, EditorUiState, EditorView, COLOR_BG, COLOR_PRIMARY};
 use crate::diagnostics::console::ConsoleLogStore;
+use crate::project_mount::{normalize_project_path, MountedProject};
 use bevy::prelude::*;
 use bevy_egui::{
     egui::{self, CornerRadius, Stroke},
     EguiContexts, EguiPlugin, EguiPrimaryContextPass,
 };
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::types::ActiveStoryGraph;
 
@@ -34,14 +32,14 @@ impl Plugin for EditorPlugin {
         }
 
         let cli = parse_editor_cli_args(std::env::args());
-        let mut loaded_project = LoadedProject::default();
+        let mut mounted_project = MountedProject::default();
 
         if let Some(path) = cli.project_path.as_deref() {
             match normalize_project_path(path) {
                 Ok((root_path, manifest_path)) => {
                     info!("CLI: Mounted project manifest {:?}", manifest_path);
-                    loaded_project.root_path = Some(root_path);
-                    loaded_project.manifest_path = Some(manifest_path);
+                    mounted_project.root_path = Some(root_path);
+                    mounted_project.manifest_path = Some(manifest_path);
                 }
                 Err(error) => {
                     warn!(
@@ -53,7 +51,7 @@ impl Plugin for EditorPlugin {
         }
 
         app.init_state::<EditorState>()
-            .insert_resource(loaded_project)
+            .insert_resource(mounted_project)
             .insert_resource(EditorUiState {
                 current_view: cli.initial_view,
                 ..default()
@@ -139,25 +137,6 @@ fn parse_editor_cli_args(args: impl IntoIterator<Item = String>) -> EditorCliOpt
     options
 }
 
-fn normalize_project_path(path: &Path) -> Result<(PathBuf, PathBuf), DataError> {
-    if path.file_name().and_then(|name| name.to_str()) == Some("project.json") {
-        let Some(root_path) = path.parent() else {
-            return Err(DataError::InvalidProject(
-                "project.json must live inside a project directory".into(),
-            ));
-        };
-        return Ok((root_path.to_path_buf(), path.to_path_buf()));
-    }
-
-    if path.extension().is_some() {
-        return Err(DataError::InvalidProject(
-            "Project path must be a directory or a project.json manifest".into(),
-        ));
-    }
-
-    Ok((path.to_path_buf(), path.join("project.json")))
-}
-
 fn automated_ui_test_system(
     mut commands: Commands,
     time: Res<Time>,
@@ -211,14 +190,14 @@ fn automated_ui_test_system(
 }
 
 fn launch_project_system(
-    loaded_project: Res<LoadedProject>,
+    mounted_project: Res<MountedProject>,
     mut script_events: MessageWriter<crate::scripting::ScriptCommand>,
 ) {
-    let Some(project) = &loaded_project.project else {
+    let Some(project) = &mounted_project.project else {
         warn!("No project loaded; continuing play mode without entry script.");
         return;
     };
-    let Some(root_path) = &loaded_project.root_path else {
+    let Some(root_path) = &mounted_project.root_path else {
         warn!("Project root missing; continuing play mode without entry script.");
         return;
     };
@@ -271,26 +250,5 @@ mod tests {
         ]);
 
         assert_eq!(cli.project_path, Some(PathBuf::from("projects/explicit")));
-    }
-
-    #[test]
-    fn test_normalize_project_path_accepts_directory() {
-        let (root, manifest) = normalize_project_path(Path::new("projects/sample")).unwrap();
-        assert_eq!(root, PathBuf::from("projects/sample"));
-        assert_eq!(manifest, PathBuf::from("projects/sample/project.json"));
-    }
-
-    #[test]
-    fn test_normalize_project_path_accepts_project_manifest() {
-        let (root, manifest) =
-            normalize_project_path(Path::new("projects/sample/project.json")).unwrap();
-        assert_eq!(root, PathBuf::from("projects/sample"));
-        assert_eq!(manifest, PathBuf::from("projects/sample/project.json"));
-    }
-
-    #[test]
-    fn test_normalize_project_path_rejects_non_manifest_file() {
-        let result = normalize_project_path(Path::new("projects/sample/notes.json"));
-        assert!(matches!(result, Err(DataError::InvalidProject(_))));
     }
 }

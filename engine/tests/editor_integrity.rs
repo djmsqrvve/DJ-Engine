@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use dj_engine::data::Project;
 use dj_engine::editor::{
-    BrowserTab, EditorPlugin, EditorState, EditorUiState, EditorView, LoadedProject,
+    BrowserTab, EditorPlugin, EditorState, EditorUiState, EditorView, MountedProject,
 };
 
 #[test]
@@ -25,7 +25,7 @@ fn test_editor_initialization_and_state() {
     // since we can't spin up a full UI context in a headless CI environment easily.
 
     app.init_state::<EditorState>()
-        .init_resource::<LoadedProject>()
+        .init_resource::<MountedProject>()
         .init_resource::<EditorUiState>();
 
     // 2. Verify Initial State
@@ -37,7 +37,7 @@ fn test_editor_initialization_and_state() {
     // 3. Simulate User Actions
 
     // "Load Project"
-    let mut project = app.world_mut().resource_mut::<LoadedProject>();
+    let mut project = app.world_mut().resource_mut::<MountedProject>();
     project.root_path = Some("test/path".into());
     project.manifest_path = Some("test/path/project.json".into());
     project.project = Some(Project::new("Test Project"));
@@ -56,7 +56,7 @@ fn test_editor_initialization_and_state() {
     assert_eq!(ui_state_after.selected_palette_item, Some("Actor".into()));
     assert_eq!(ui_state_after.current_view, EditorView::StoryGraph);
 
-    let project_after = app.world().resource::<LoadedProject>();
+    let project_after = app.world().resource::<MountedProject>();
     assert_eq!(project_after.project.as_ref().unwrap().name, "Test Project");
     assert_eq!(
         project_after.manifest_path.as_deref(),

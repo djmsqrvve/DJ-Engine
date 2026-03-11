@@ -1,10 +1,13 @@
-use super::types::{ActiveStoryGraph, LoadedProject};
+use super::types::ActiveStoryGraph;
 use crate::data::components::common::{ColorData, Vec3Data};
 use crate::data::components::entity::EntityComponents;
 use crate::data::components::rendering::{SpriteComponent, TransformComponent};
-use crate::data::project::{Project, SceneRef, StoryGraphRef};
 use crate::data::scene::{Entity as SceneEntity, Scene};
 use crate::data::{loader, DataError};
+use crate::project_mount::{
+    ensure_default_project_refs, load_mounted_project_manifest, resolve_startup_scene_ref,
+    resolve_startup_story_graph_ref, MountedProject,
+};
 use bevy::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,20 +20,21 @@ pub(crate) fn load_initial_project_system(world: &mut World) {
 
 pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
     let (root_path, manifest_path) = {
-        let loaded_project = world.resource::<LoadedProject>();
-        let Some(root_path) = loaded_project.root_path.clone() else {
+        let mounted_project = world.resource::<MountedProject>();
+        let Some(root_path) = mounted_project.root_path.clone() else {
             return Ok(());
         };
-        let Some(manifest_path) = loaded_project.manifest_path.clone() else {
+        let Some(manifest_path) = mounted_project.manifest_path.clone() else {
             return Ok(());
         };
         (root_path, manifest_path)
     };
 
-    world.resource_mut::<LoadedProject>().project = None;
+    world.resource_mut::<MountedProject>().project = None;
 
-    let project = match loader::load_project(&manifest_path) {
-        Ok(project) => project,
+    let project = match load_mounted_project_manifest(&mut world.resource_mut::<MountedProject>()) {
+        Ok(Some(project)) => project,
+        Ok(None) => return Ok(()),
         Err(error) => {
             load_scene_into_editor(world, Scene::new("editor_empty", "Empty Scene"));
             world.insert_resource(ActiveStoryGraph::default());
@@ -42,10 +46,10 @@ pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
     let story_graph_ref = resolve_startup_story_graph_ref(&project).cloned();
 
     {
-        let mut loaded_project = world.resource_mut::<LoadedProject>();
-        loaded_project.root_path = Some(root_path.clone());
-        loaded_project.manifest_path = Some(manifest_path);
-        loaded_project.project = Some(project.clone());
+        let mut mounted_project = world.resource_mut::<MountedProject>();
+        mounted_project.root_path = Some(root_path.clone());
+        mounted_project.manifest_path = Some(manifest_path);
+        mounted_project.project = Some(project.clone());
     }
 
     if let Some(scene_ref) = scene_ref {
@@ -92,88 +96,10 @@ pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
     Ok(())
 }
 
-pub(crate) fn resolve_startup_scene_ref(project: &Project) -> Option<&SceneRef> {
-    project
-        .settings
-        .startup
-        .default_scene_id
-        .as_deref()
-        .and_then(|scene_id| project.find_scene(scene_id))
-        .or_else(|| project.scenes.first())
-}
-
-pub(crate) fn resolve_startup_story_graph_ref(project: &Project) -> Option<&StoryGraphRef> {
-    project
-        .settings
-        .startup
-        .default_story_graph_id
-        .as_deref()
-        .and_then(|graph_id| project.find_story_graph(graph_id))
-        .or_else(|| project.story_graphs.first())
-}
-
-pub(crate) fn ensure_default_project_refs(project: &mut Project) {
-    if project
-        .settings
-        .startup
-        .default_scene_id
-        .as_deref()
-        .and_then(|scene_id| project.find_scene(scene_id))
-        .is_none()
-    {
-        let default_id = "current_scene".to_string();
-        let default_path =
-            project_relative_path(&project.settings.paths.scenes, "current_scene.json");
-
-        if let Some(scene_ref) = project
-            .scenes
-            .iter_mut()
-            .find(|scene| scene.id == default_id)
-        {
-            scene_ref.path = default_path.clone();
-        } else {
-            project.add_scene(default_id.clone(), default_path);
-        }
-
-        project.settings.startup.default_scene_id = Some(default_id);
-    }
-
-    if project
-        .settings
-        .startup
-        .default_story_graph_id
-        .as_deref()
-        .and_then(|graph_id| project.find_story_graph(graph_id))
-        .is_none()
-    {
-        let default_id = "main".to_string();
-        let default_path = project_relative_path(&project.settings.paths.story_graphs, "main.json");
-
-        if let Some(graph_ref) = project
-            .story_graphs
-            .iter_mut()
-            .find(|graph| graph.id == default_id)
-        {
-            graph_ref.path = default_path.clone();
-        } else {
-            project.add_story_graph(default_id.clone(), default_path);
-        }
-
-        project.settings.startup.default_story_graph_id = Some(default_id);
-    }
-}
-
-pub(crate) fn resolve_asset_root(loaded_project: &LoadedProject) -> Option<PathBuf> {
-    let root_path = loaded_project.root_path.as_ref()?;
-    let project = loaded_project.project.as_ref()?;
+pub(crate) fn resolve_asset_root(mounted_project: &MountedProject) -> Option<PathBuf> {
+    let root_path = mounted_project.root_path.as_ref()?;
+    let project = mounted_project.project.as_ref()?;
     Some(root_path.join(&project.settings.paths.assets))
-}
-
-fn project_relative_path(base: &str, file_name: &str) -> String {
-    PathBuf::from(base)
-        .join(file_name)
-        .to_string_lossy()
-        .into_owned()
 }
 
 fn ensure_parent_dir(path: &Path) -> Result<(), DataError> {
@@ -185,16 +111,16 @@ fn ensure_parent_dir(path: &Path) -> Result<(), DataError> {
 
 pub(crate) fn save_project_impl(world: &mut World) {
     let (root_path, manifest_path, mut project) = {
-        let loaded_project = world.resource::<LoadedProject>();
-        let Some(root_path) = loaded_project.root_path.clone() else {
+        let mounted_project = world.resource::<MountedProject>();
+        let Some(root_path) = mounted_project.root_path.clone() else {
             warn!("Cannot save: No project root set.");
             return;
         };
-        let Some(manifest_path) = loaded_project.manifest_path.clone() else {
+        let Some(manifest_path) = mounted_project.manifest_path.clone() else {
             warn!("Cannot save: No project manifest set.");
             return;
         };
-        let Some(project) = loaded_project.project.clone() else {
+        let Some(project) = mounted_project.project.clone() else {
             warn!("Cannot save: No project loaded.");
             return;
         };
@@ -255,7 +181,7 @@ pub(crate) fn save_project_impl(world: &mut World) {
         return;
     }
 
-    world.resource_mut::<LoadedProject>().project = Some(project);
+    world.resource_mut::<MountedProject>().project = Some(project);
     info!("Successfully saved project to {:?}", manifest_path);
 }
 
@@ -353,6 +279,7 @@ pub(crate) fn load_scene_into_editor(world: &mut World, scene: Scene) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::project::Project;
     use crate::data::project::ProjectSettings;
     use crate::data::story::graph::StoryGraphData;
 
@@ -499,14 +426,14 @@ mod tests {
         let mut project = Project::new("Test");
         project.settings.paths.assets = "content/assets".into();
 
-        let loaded_project = LoadedProject {
+        let mounted_project = MountedProject {
             root_path: Some(PathBuf::from("/tmp/project")),
             manifest_path: Some(PathBuf::from("/tmp/project/project.json")),
             project: Some(project),
         };
 
         assert_eq!(
-            resolve_asset_root(&loaded_project),
+            resolve_asset_root(&mounted_project),
             Some(PathBuf::from("/tmp/project/content/assets"))
         );
     }
@@ -537,7 +464,7 @@ mod tests {
         loader::save_story_graph(&graph, &root_path.join("story_graphs/opening.json")).unwrap();
 
         let mut world = World::new();
-        world.insert_resource(LoadedProject {
+        world.insert_resource(MountedProject {
             root_path: Some(root_path.clone()),
             manifest_path: Some(manifest_path),
             project: None,
@@ -546,7 +473,7 @@ mod tests {
 
         load_mounted_project(&mut world).unwrap();
 
-        let loaded_project = world.resource::<LoadedProject>();
+        let loaded_project = world.resource::<MountedProject>();
         assert_eq!(
             loaded_project.project.as_ref().unwrap().name,
             "Engine Project"

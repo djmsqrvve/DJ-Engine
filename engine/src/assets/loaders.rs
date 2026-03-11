@@ -59,8 +59,8 @@ impl AssetLoader for PaletteLoader {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::definitions::*;
+    use super::*;
 
     #[test]
     fn test_sprite_part_definition_loads_from_json_bytes() {

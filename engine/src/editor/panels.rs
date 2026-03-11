@@ -1,10 +1,11 @@
 use super::scene_io::{load_mounted_project, resolve_asset_root, save_project_impl};
 use super::types::{
-    ActiveStoryGraph, BrowserTab, EditorState, EditorUiState, EditorView, LoadedProject,
-    COLOR_PRIMARY, COLOR_SECONDARY,
+    ActiveStoryGraph, BrowserTab, EditorState, EditorUiState, EditorView, COLOR_PRIMARY,
+    COLOR_SECONDARY,
 };
 use super::views::{draw_grid, draw_story_graph};
 use crate::diagnostics::console::ConsoleLogStore;
+use crate::project_mount::MountedProject;
 use crate::story_graph::GraphExecutor;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32, RichText};
@@ -13,8 +14,8 @@ use std::fs;
 use std::path::Path;
 
 pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
-    let has_mounted_project = world.resource::<LoadedProject>().manifest_path.is_some();
-    let has_loaded_project = world.resource::<LoadedProject>().project.is_some();
+    let has_mounted_project = world.resource::<MountedProject>().manifest_path.is_some();
+    let has_loaded_project = world.resource::<MountedProject>().project.is_some();
 
     ui.horizontal(|ui| {
         // Logo with Cyberpunk colors
@@ -133,7 +134,7 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
         ui.separator();
 
         let project_name = world
-            .resource::<LoadedProject>()
+            .resource::<MountedProject>()
             .project
             .as_ref()
             .map(|project| project.name.clone())
@@ -197,8 +198,8 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
 
                 ui.separator();
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    let loaded_project = world.resource::<LoadedProject>().clone();
-                    if let Some(asset_root) = resolve_asset_root(&loaded_project) {
+                    let mounted_project = world.resource::<MountedProject>().clone();
+                    if let Some(asset_root) = resolve_asset_root(&mounted_project) {
                         let entries =
                             collect_asset_entries(&asset_root, &ui_state.asset_search_query);
                         if entries.is_empty() {

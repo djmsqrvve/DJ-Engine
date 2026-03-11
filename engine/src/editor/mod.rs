@@ -9,9 +9,10 @@ pub(crate) mod types;
 pub mod validation;
 pub(crate) mod views;
 
+pub use crate::project_mount::MountedProject;
 pub use plugin::EditorPlugin;
 pub use types::ActiveStoryGraph;
-pub use types::{BrowserTab, EditorState, EditorUiState, EditorView, LoadedProject};
+pub use types::{BrowserTab, EditorState, EditorUiState, EditorView};
 
 use bevy::prelude::*;
 use bevy_egui::{egui, PrimaryEguiContext};
