@@ -1,5 +1,6 @@
 use crate::state::GameState;
 use bevy::prelude::*;
+use dj_engine::prelude::{SaveData, StoryFlags, StoryVariables};
 
 mod camera;
 pub mod interaction;
@@ -9,7 +10,7 @@ pub struct OverworldPlugin;
 
 impl Plugin for OverworldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Overworld), setup_overworld)
+        app.add_systems(OnEnter(GameState::Overworld), (setup_overworld, auto_save))
             .add_systems(
                 Update,
                 (
@@ -100,5 +101,18 @@ fn setup_overworld(
 fn teardown_overworld(mut commands: Commands, query: Query<Entity, With<OverworldEntity>>) {
     for entity in &query {
         commands.entity(entity).despawn();
+    }
+}
+
+fn auto_save(flags: Res<StoryFlags>, variables: Res<StoryVariables>) {
+    let data = SaveData {
+        flags: flags.0.clone(),
+        variables: variables.0.clone(),
+        current_node: None,
+        game_state: "Overworld".into(),
+        scene_background: None,
+    };
+    if let Err(e) = dj_engine::save::save_game(0, &data) {
+        error!("Auto-save failed: {e}");
     }
 }

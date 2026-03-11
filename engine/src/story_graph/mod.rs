@@ -7,8 +7,8 @@ mod executor;
 pub mod types;
 
 pub use types::{
-    ExecutionStatus, GraphChoice, GraphExecutor, NodeId, StoryEvent, StoryFlags, StoryFlowEvent,
-    StoryGraph, StoryInputEvent, StoryNode,
+    CameraCommand, ExecutionStatus, GraphChoice, GraphExecutor, NodeId, StoryEvent, StoryFlags,
+    StoryFlowEvent, StoryGraph, StoryInputEvent, StoryNode, StoryVariables, TimeControlCommand,
 };
 
 use bevy::prelude::*;
@@ -25,9 +25,16 @@ impl Plugin for StoryGraphPlugin {
             .register_type::<GraphExecutor>()
             .init_resource::<GraphExecutor>()
             .init_resource::<StoryFlags>()
+            .init_resource::<StoryVariables>()
+            .register_type::<StoryVariables>()
             .add_message::<StoryEvent>()
             .add_message::<StoryFlowEvent>()
             .add_message::<StoryInputEvent>()
-            .add_systems(Update, executor::execute_graph);
+            .add_message::<CameraCommand>()
+            .add_message::<TimeControlCommand>()
+            .add_systems(
+                Update,
+                (executor::execute_graph, executor::handle_time_control),
+            );
     }
 }

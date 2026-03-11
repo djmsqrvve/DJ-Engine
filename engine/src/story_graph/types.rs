@@ -1,5 +1,5 @@
 use crate::audio::AudioCommand;
-use crate::data::story::{StoryGraphData, StoryNodeVariant};
+use crate::data::story::{ConditionOperator, StoryGraphData, StoryNodeVariant};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -51,6 +51,31 @@ pub enum StoryNode {
     Event {
         event_id: String,
         payload: String,
+        next: Option<NodeId>,
+    },
+    /// Conditional branch based on a variable condition.
+    Conditional {
+        variable: String,
+        operator: ConditionOperator,
+        #[reflect(ignore)]
+        value: serde_json::Value,
+        if_true: Option<NodeId>,
+        if_false: Option<NodeId>,
+    },
+    /// Control the camera position, zoom, and angle.
+    Camera {
+        preset_id: Option<String>,
+        position: Vec3,
+        zoom: f32,
+        angle: f32,
+        duration: f32,
+        easing: String,
+        next: Option<NodeId>,
+    },
+    /// Control time scale or pause gameplay.
+    TimeControl {
+        pause_gameplay: bool,
+        time_scale: f32,
         next: Option<NodeId>,
     },
     /// Start execution of the graph.
@@ -112,6 +137,60 @@ impl StoryFlags {
     }
 }
 
+#[derive(Resource, Default, Debug, Clone, Reflect)]
+#[reflect(Resource)]
+pub struct StoryVariables(#[reflect(ignore)] pub HashMap<String, serde_json::Value>);
+
+impl StoryVariables {
+    pub fn set(&mut self, key: &str, value: serde_json::Value) {
+        self.0.insert(key.to_string(), value);
+    }
+
+    pub fn get(&self, key: &str) -> Option<&serde_json::Value> {
+        self.0.get(key)
+    }
+
+    pub fn evaluate(
+        &self,
+        variable: &str,
+        operator: ConditionOperator,
+        expected: &serde_json::Value,
+    ) -> bool {
+        let Some(actual) = self.0.get(variable) else {
+            return false;
+        };
+
+        match (actual, expected) {
+            (serde_json::Value::Bool(a), serde_json::Value::Bool(b)) => match operator {
+                ConditionOperator::Equals => a == b,
+                ConditionOperator::NotEquals => a != b,
+                _ => false,
+            },
+            (serde_json::Value::Number(a), serde_json::Value::Number(b)) => {
+                let (Some(a), Some(b)) = (a.as_f64(), b.as_f64()) else {
+                    return false;
+                };
+                match operator {
+                    ConditionOperator::Equals => (a - b).abs() < f64::EPSILON,
+                    ConditionOperator::NotEquals => (a - b).abs() >= f64::EPSILON,
+                    ConditionOperator::LessThan => a < b,
+                    ConditionOperator::LessThanOrEquals => a <= b,
+                    ConditionOperator::GreaterThan => a > b,
+                    ConditionOperator::GreaterThanOrEquals => a >= b,
+                    ConditionOperator::Contains => false,
+                }
+            }
+            (serde_json::Value::String(a), serde_json::Value::String(b)) => match operator {
+                ConditionOperator::Equals => a == b,
+                ConditionOperator::NotEquals => a != b,
+                ConditionOperator::Contains => a.contains(b.as_str()),
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
 pub enum ExecutionStatus {
     #[default]
@@ -129,6 +208,8 @@ pub struct GraphExecutor {
     pub current_node: Option<NodeId>,
     pub status: ExecutionStatus,
     pub wait_timer: Timer,
+    #[reflect(ignore)]
+    pub initial_variables: HashMap<String, serde_json::Value>,
 }
 
 impl GraphExecutor {
@@ -198,7 +279,27 @@ impl GraphExecutor {
                         StoryNode::End
                     }
                 }
-                _ => StoryNode::End,
+                StoryNodeVariant::Conditional(c) => StoryNode::Conditional {
+                    variable: c.condition.variable.clone(),
+                    operator: c.condition.operator,
+                    value: c.condition.value.clone(),
+                    if_true: id_map.get(&c.true_target_node_id).cloned(),
+                    if_false: id_map.get(&c.false_target_node_id).cloned(),
+                },
+                StoryNodeVariant::Camera(c) => StoryNode::Camera {
+                    preset_id: c.preset_id.clone(),
+                    position: Vec3::new(c.position.x, c.position.y, c.position.z),
+                    zoom: c.zoom,
+                    angle: c.angle,
+                    duration: c.duration,
+                    easing: c.easing.clone(),
+                    next: resolve(&c.next_node_id),
+                },
+                StoryNodeVariant::TimeControl(t) => StoryNode::TimeControl {
+                    pause_gameplay: t.pause_gameplay,
+                    time_scale: t.time_scale,
+                    next: resolve(&t.next_node_id),
+                },
             };
 
             graph.nodes.insert(runtime_id, node);
@@ -208,6 +309,7 @@ impl GraphExecutor {
             graph.set_start(*start_id);
         }
 
+        self.initial_variables = data.variables.clone();
         self.start(graph);
     }
 }
@@ -240,9 +342,26 @@ pub struct StoryEvent {
     pub payload: String,
 }
 
+#[derive(Message, Debug, Clone)]
+pub struct CameraCommand {
+    pub preset_id: Option<String>,
+    pub position: Vec3,
+    pub zoom: f32,
+    pub angle: f32,
+    pub duration: f32,
+    pub easing: String,
+}
+
+#[derive(Message, Debug, Clone)]
+pub struct TimeControlCommand {
+    pub pause_gameplay: bool,
+    pub time_scale: f32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::Vec3Data;
 
     #[test]
     fn test_story_graph_add_and_start() {
@@ -296,5 +415,189 @@ mod tests {
         executor.start(graph);
         assert_eq!(executor.status, ExecutionStatus::Running);
         assert_eq!(executor.current_node, Some(start_id));
+    }
+
+    #[test]
+    fn test_story_variables_set_get() {
+        let mut vars = StoryVariables::default();
+        vars.set("health", serde_json::json!(50));
+        assert_eq!(vars.get("health"), Some(&serde_json::json!(50)));
+        assert_eq!(vars.get("missing"), None);
+    }
+
+    #[test]
+    fn test_story_variables_evaluate_bool() {
+        let mut vars = StoryVariables::default();
+        vars.set("flag", serde_json::json!(true));
+        assert!(vars.evaluate("flag", ConditionOperator::Equals, &serde_json::json!(true)));
+        assert!(!vars.evaluate("flag", ConditionOperator::Equals, &serde_json::json!(false)));
+        assert!(vars.evaluate(
+            "flag",
+            ConditionOperator::NotEquals,
+            &serde_json::json!(false)
+        ));
+    }
+
+    #[test]
+    fn test_story_variables_evaluate_number() {
+        let mut vars = StoryVariables::default();
+        vars.set("health", serde_json::json!(50.0));
+        assert!(vars.evaluate(
+            "health",
+            ConditionOperator::LessThan,
+            &serde_json::json!(75.0)
+        ));
+        assert!(!vars.evaluate(
+            "health",
+            ConditionOperator::LessThan,
+            &serde_json::json!(25.0)
+        ));
+        assert!(vars.evaluate(
+            "health",
+            ConditionOperator::GreaterThan,
+            &serde_json::json!(25.0)
+        ));
+        assert!(vars.evaluate(
+            "health",
+            ConditionOperator::Equals,
+            &serde_json::json!(50.0)
+        ));
+        assert!(vars.evaluate(
+            "health",
+            ConditionOperator::GreaterThanOrEquals,
+            &serde_json::json!(50.0)
+        ));
+        assert!(vars.evaluate(
+            "health",
+            ConditionOperator::LessThanOrEquals,
+            &serde_json::json!(50.0)
+        ));
+    }
+
+    #[test]
+    fn test_story_variables_evaluate_string() {
+        let mut vars = StoryVariables::default();
+        vars.set("name", serde_json::json!("hamster"));
+        assert!(vars.evaluate(
+            "name",
+            ConditionOperator::Equals,
+            &serde_json::json!("hamster")
+        ));
+        assert!(vars.evaluate(
+            "name",
+            ConditionOperator::Contains,
+            &serde_json::json!("ham")
+        ));
+        assert!(!vars.evaluate(
+            "name",
+            ConditionOperator::Contains,
+            &serde_json::json!("cat")
+        ));
+    }
+
+    #[test]
+    fn test_story_variables_evaluate_missing() {
+        let vars = StoryVariables::default();
+        assert!(!vars.evaluate(
+            "missing",
+            ConditionOperator::Equals,
+            &serde_json::json!(true)
+        ));
+    }
+
+    #[test]
+    fn test_load_from_data_conditional() {
+        use crate::data::story::*;
+
+        let mut data = StoryGraphData::new("test", "Test");
+        data.add_node(StoryNodeData::start("start", Some("cond")));
+        data.add_node(StoryNodeData {
+            id: "cond".into(),
+            position: Vec3Data::default(),
+            data: StoryNodeVariant::Conditional(ConditionalNodeData {
+                condition: StoryCondition {
+                    variable: "health".into(),
+                    operator: ConditionOperator::LessThan,
+                    value: serde_json::json!(50),
+                },
+                true_target_node_id: "yes".into(),
+                false_target_node_id: "no".into(),
+            }),
+            required_entities: vec![],
+            required_items: vec![],
+        });
+        data.add_node(StoryNodeData::end("yes"));
+        data.add_node(StoryNodeData::end("no"));
+        data.root_node_id = "start".into();
+
+        let mut executor = GraphExecutor::default();
+        executor.load_from_data(&data);
+
+        let graph = executor.active_graph.as_ref().unwrap();
+        let cond_node = &graph.nodes[&1];
+        assert!(matches!(cond_node, StoryNode::Conditional { .. }));
+    }
+
+    #[test]
+    fn test_load_from_data_camera() {
+        use crate::data::story::*;
+
+        let mut data = StoryGraphData::new("test", "Test");
+        data.add_node(StoryNodeData::start("start", Some("cam")));
+        data.add_node(StoryNodeData {
+            id: "cam".into(),
+            position: Vec3Data::default(),
+            data: StoryNodeVariant::Camera(CameraNodeData {
+                zoom: 2.0,
+                duration: 0.5,
+                ..Default::default()
+            }),
+            required_entities: vec![],
+            required_items: vec![],
+        });
+        data.add_node(StoryNodeData::end("end"));
+        data.root_node_id = "start".into();
+
+        let mut executor = GraphExecutor::default();
+        executor.load_from_data(&data);
+
+        let graph = executor.active_graph.as_ref().unwrap();
+        let cam_node = &graph.nodes[&1];
+        assert!(
+            matches!(cam_node, StoryNode::Camera { zoom, .. } if (*zoom - 2.0).abs() < f32::EPSILON)
+        );
+    }
+
+    #[test]
+    fn test_load_from_data_time_control() {
+        use crate::data::story::*;
+
+        let mut data = StoryGraphData::new("test", "Test");
+        data.add_node(StoryNodeData::start("start", Some("tc")));
+        data.add_node(StoryNodeData {
+            id: "tc".into(),
+            position: Vec3Data::default(),
+            data: StoryNodeVariant::TimeControl(TimeControlNodeData {
+                pause_gameplay: true,
+                time_scale: 0.5,
+                next_node_id: None,
+            }),
+            required_entities: vec![],
+            required_items: vec![],
+        });
+        data.root_node_id = "start".into();
+
+        let mut executor = GraphExecutor::default();
+        executor.load_from_data(&data);
+
+        let graph = executor.active_graph.as_ref().unwrap();
+        let tc_node = &graph.nodes[&1];
+        assert!(matches!(
+            tc_node,
+            StoryNode::TimeControl {
+                pause_gameplay: true,
+                ..
+            }
+        ));
     }
 }

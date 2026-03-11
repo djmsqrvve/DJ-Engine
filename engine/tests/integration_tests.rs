@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 use dj_engine::animation::components::{BlinkingAnimation, BreathingAnimation};
+use dj_engine::data::story::StoryNodeVariant;
+use dj_engine::data::story::{ConditionOperator, ConditionalNodeData, StoryCondition};
+use dj_engine::data::Vec3Data;
 use dj_engine::data::{StoryGraphData, StoryNodeData};
 use dj_engine::midi::MidiManager;
 use dj_engine::prelude::*;
@@ -266,4 +269,58 @@ fn test_script_load_from_file() {
     assert!((data.floats["health"] - 99.0).abs() < f32::EPSILON);
     assert_eq!(data.strings["name"], "tester");
     assert!(data.bools["alive"]);
+}
+
+#[test]
+fn test_conditional_node_branches_on_variable() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(AssetPlugin::default());
+    app.add_plugins(bevy::input::InputPlugin);
+    app.init_asset::<AudioSource>();
+    app.add_plugins(DJEnginePlugin::default().without_diagnostics());
+
+    // Build graph: Start -> Conditional(health < 50) -> true: "Low HP" / false: "Fine"
+    let mut data = StoryGraphData::new("test_cond", "Conditional Test");
+    data.add_node(StoryNodeData::start("start", Some("cond")));
+    data.add_node(dj_engine::data::StoryNodeData {
+        id: "cond".into(),
+        position: Vec3Data::default(),
+        data: StoryNodeVariant::Conditional(ConditionalNodeData {
+            condition: StoryCondition {
+                variable: "health".into(),
+                operator: ConditionOperator::LessThan,
+                value: serde_json::json!(50.0),
+            },
+            true_target_node_id: "low_hp".into(),
+            false_target_node_id: "fine".into(),
+        }),
+        required_entities: vec![],
+        required_items: vec![],
+    });
+    data.add_node(StoryNodeData::dialogue("low_hp", "System", "Low HP!"));
+    data.add_node(StoryNodeData::dialogue("fine", "System", "You're fine."));
+    data.root_node_id = "start".into();
+    data.variables
+        .insert("health".into(), serde_json::json!(25.0));
+
+    {
+        let mut executor = app.world_mut().resource_mut::<GraphExecutor>();
+        executor.load_from_data(&data);
+    }
+
+    // Run two updates: first seeds variables and processes Start+Conditional, second settles
+    app.update();
+    app.update();
+
+    let executor = app.world().resource::<GraphExecutor>();
+    assert_eq!(executor.status, ExecutionStatus::WaitingForInput);
+
+    // Verify we landed on the true branch (low_hp dialogue)
+    let graph = executor.active_graph.as_ref().unwrap();
+    let current = &graph.nodes[&executor.current_node.unwrap()];
+    match current {
+        StoryNode::Dialogue { text, .. } => assert_eq!(text, "Low HP!"),
+        other => panic!("Expected Dialogue node, got {:?}", other),
+    }
 }

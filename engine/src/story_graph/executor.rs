@@ -1,6 +1,6 @@
 use super::types::{
-    ExecutionStatus, GraphExecutor, NodeId, StoryEvent, StoryFlags, StoryFlowEvent,
-    StoryInputEvent, StoryNode,
+    CameraCommand, ExecutionStatus, GraphExecutor, NodeId, StoryEvent, StoryFlags, StoryFlowEvent,
+    StoryInputEvent, StoryNode, StoryVariables, TimeControlCommand,
 };
 use crate::audio::AudioCommand;
 use crate::scene::ChangeSceneEvent;
@@ -17,13 +17,23 @@ enum NodeAction {
 pub(super) fn execute_graph(
     mut executor: ResMut<GraphExecutor>,
     mut flags: ResMut<StoryFlags>,
+    mut variables: ResMut<StoryVariables>,
     mut audio_events: MessageWriter<AudioCommand>,
     mut scene_events: MessageWriter<ChangeSceneEvent>,
     mut flow_events: MessageWriter<StoryFlowEvent>,
     mut story_events: MessageWriter<StoryEvent>,
+    mut camera_commands: MessageWriter<CameraCommand>,
+    mut time_commands: MessageWriter<TimeControlCommand>,
     mut input_events: MessageReader<StoryInputEvent>,
     time: Res<Time>,
 ) {
+    // 0. Seed initial variables from loaded graph data
+    if !executor.initial_variables.is_empty() {
+        for (k, v) in executor.initial_variables.drain() {
+            variables.set(&k, v);
+        }
+    }
+
     // 1. Handle Input (if waiting)
     if executor.status == ExecutionStatus::WaitingForInput {
         for event in input_events.read() {
@@ -59,10 +69,13 @@ pub(super) fn execute_graph(
                     let action = process_node(
                         node,
                         &mut flags,
+                        &variables,
                         &mut flow_events,
                         &mut audio_events,
                         &mut scene_events,
                         &mut story_events,
+                        &mut camera_commands,
+                        &mut time_commands,
                     );
 
                     match action {
@@ -108,6 +121,8 @@ fn advance_node(executor: &mut GraphExecutor) {
                     StoryNode::Wait { next, .. } => *next,
                     StoryNode::SetFlag { next, .. } => *next,
                     StoryNode::Event { next, .. } => *next,
+                    StoryNode::Camera { next, .. } => *next,
+                    StoryNode::TimeControl { next, .. } => *next,
                     StoryNode::Start { next, .. } => *next,
                     _ => None,
                 }
@@ -143,13 +158,25 @@ fn handle_choice_selection(executor: &mut GraphExecutor, index: usize) {
     executor.status = ExecutionStatus::Running;
 }
 
+pub(super) fn handle_time_control(mut commands: MessageReader<TimeControlCommand>) {
+    for cmd in commands.read() {
+        warn!(
+            "TimeControlCommand received but not yet implemented: pause={}, scale={}",
+            cmd.pause_gameplay, cmd.time_scale
+        );
+    }
+}
+
 fn process_node(
     node: &StoryNode,
     flags: &mut StoryFlags,
+    variables: &StoryVariables,
     flow: &mut MessageWriter<StoryFlowEvent>,
     audio: &mut MessageWriter<AudioCommand>,
     scene: &mut MessageWriter<ChangeSceneEvent>,
     story: &mut MessageWriter<StoryEvent>,
+    camera: &mut MessageWriter<CameraCommand>,
+    time_ctrl: &mut MessageWriter<TimeControlCommand>,
 ) -> NodeAction {
     match node {
         StoryNode::Dialogue {
@@ -214,6 +241,51 @@ fn process_node(
             story.write(StoryEvent {
                 id: event_id.clone(),
                 payload: payload.clone(),
+            });
+            NodeAction::Advance
+        }
+        StoryNode::Conditional {
+            variable,
+            operator,
+            value,
+            if_true,
+            if_false,
+        } => {
+            let result = variables.evaluate(variable, *operator, value);
+            let target = if result { if_true } else { if_false };
+            if let Some(id) = target {
+                NodeAction::Jump(*id)
+            } else {
+                NodeAction::Advance
+            }
+        }
+        StoryNode::Camera {
+            preset_id,
+            position,
+            zoom,
+            angle,
+            duration,
+            easing,
+            ..
+        } => {
+            camera.write(CameraCommand {
+                preset_id: preset_id.clone(),
+                position: *position,
+                zoom: *zoom,
+                angle: *angle,
+                duration: *duration,
+                easing: easing.clone(),
+            });
+            NodeAction::Advance
+        }
+        StoryNode::TimeControl {
+            pause_gameplay,
+            time_scale,
+            ..
+        } => {
+            time_ctrl.write(TimeControlCommand {
+                pause_gameplay: *pause_gameplay,
+                time_scale: *time_scale,
             });
             NodeAction::Advance
         }

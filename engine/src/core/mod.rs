@@ -57,6 +57,7 @@ impl Plugin for DJEnginePlugin {
         app.add_plugins(StoryGraphPlugin);
         app.add_plugins(DJScriptingPlugin);
         app.add_plugins(crate::midi::MidiPlugin);
+        app.add_plugins(crate::save::SavePlugin);
         app.add_plugins(crate::data::DataPlugin);
 
         // Conditionally add diagnostics

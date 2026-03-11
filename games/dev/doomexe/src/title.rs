@@ -1,6 +1,8 @@
 use crate::state::GameState;
+use crate::story::StoryState;
 use bevy::prelude::*;
 use dj_engine::input::{ActionState, InputAction};
+use dj_engine::prelude::{has_save, LoadedSave, StoryFlags, StoryVariables};
 
 #[derive(Component)]
 struct TitleMenu;
@@ -96,13 +98,18 @@ fn spawn_menu_option(
 }
 
 fn title_input(
-    mut _commands: Commands,
     mut next_state: ResMut<NextState<GameState>>,
     mut state: ResMut<TitleState>,
     actions: Res<ActionState>,
     mut app_exit: MessageWriter<AppExit>,
     mut query: Query<(&MenuOption, &mut TextColor)>,
+    mut story_state: ResMut<StoryState>,
+    mut flags: ResMut<StoryFlags>,
+    mut variables: ResMut<StoryVariables>,
+    mut loaded_save: ResMut<LoadedSave>,
 ) {
+    let save_exists = has_save(0);
+
     // Handle Navigation
     if actions.just_pressed(InputAction::Up) {
         if state.selected_index > 0 {
@@ -118,7 +125,9 @@ fn title_input(
     // Update Visuals
     for (option, mut color) in query.iter_mut() {
         if option.index == state.selected_index {
-            color.0 = Color::srgb(1.0, 1.0, 0.0); // Yellow selected
+            color.0 = Color::srgb(1.0, 1.0, 0.0);
+        } else if matches!(option.action, MenuAction::Continue) && !save_exists {
+            color.0 = Color::srgb(0.4, 0.4, 0.4);
         } else {
             color.0 = Color::WHITE;
         }
@@ -126,7 +135,6 @@ fn title_input(
 
     // Handle Selection
     if actions.just_pressed(InputAction::Confirm) {
-        // Find selected action
         let action = query
             .iter()
             .find(|(opt, _)| opt.index == state.selected_index)
@@ -136,12 +144,35 @@ fn title_input(
             match act {
                 MenuAction::NewGame => {
                     info!("Starting New Game");
+                    *story_state = StoryState::default();
+                    *flags = StoryFlags::default();
+                    *variables = StoryVariables::default();
+                    loaded_save.0 = None;
                     next_state.set(GameState::NarratorDialogue);
-                    // TODO: Reset StoryState here?
                 }
                 MenuAction::Continue => {
-                    info!("Continue Game (TODO: Load save)");
-                    next_state.set(GameState::Overworld);
+                    if !save_exists {
+                        warn!("No save file found");
+                        return;
+                    }
+                    match dj_engine::save::load_game(0) {
+                        Ok(data) => {
+                            info!("Loading saved game");
+                            flags.0 = data.flags.clone();
+                            variables.0 = data.variables.clone();
+                            loaded_save.0 = Some(data.clone());
+                            let target = match data.game_state.as_str() {
+                                "Overworld" => GameState::Overworld,
+                                "NarratorDialogue" => GameState::NarratorDialogue,
+                                "Battle" => GameState::Battle,
+                                _ => GameState::Overworld,
+                            };
+                            next_state.set(target);
+                        }
+                        Err(e) => {
+                            error!("Failed to load save: {e}");
+                        }
+                    }
                 }
                 MenuAction::Quit => {
                     app_exit.write(AppExit::Success);
