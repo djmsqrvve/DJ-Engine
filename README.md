@@ -32,6 +32,7 @@ git clone https://github.com/djmsqrvve/dj_engine.git
 cd dj_engine
 
 make dev           # Launch the engine editor
+make preview PROJECT=/path/to/project   # Launch manifest-driven runtime preview
 make game          # Optional: run the sample DoomExe game
 make test
 ```
@@ -44,6 +45,7 @@ GitHub Codespaces is supported through the checked-in devcontainer config at [`.
 
 ```bash
 make dev              # Launch the engine editor
+make preview PROJECT=/path/to/project   # Launch runtime preview for a mounted project
 make game             # Optional: run the sample DoomExe game
 ```
 
@@ -58,6 +60,7 @@ All common tasks run through `make`:
 make dev              # Launch the engine editor
 make engine           # Alias for make editor
 make editor           # Launch the engine editor
+make preview PROJECT=/path/to/project  # Launch runtime preview for a project manifest
 make game             # Run the sample DoomExe game
 make doom             # Alias for make game
 make minimal          # Run minimal rendering binary
