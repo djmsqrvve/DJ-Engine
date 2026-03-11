@@ -109,20 +109,23 @@ fn ensure_parent_dir(path: &Path) -> Result<(), DataError> {
     Ok(())
 }
 
-pub(crate) fn save_project_impl(world: &mut World) {
+pub(crate) fn save_project_impl(world: &mut World) -> Result<(), DataError> {
     let (root_path, manifest_path, mut project) = {
         let mounted_project = world.resource::<MountedProject>();
         let Some(root_path) = mounted_project.root_path.clone() else {
-            warn!("Cannot save: No project root set.");
-            return;
+            return Err(DataError::InvalidProject(
+                "Cannot save project without a mounted project root.".into(),
+            ));
         };
         let Some(manifest_path) = mounted_project.manifest_path.clone() else {
-            warn!("Cannot save: No project manifest set.");
-            return;
+            return Err(DataError::InvalidProject(
+                "Cannot save project without a project manifest.".into(),
+            ));
         };
         let Some(project) = mounted_project.project.clone() else {
-            warn!("Cannot save: No project loaded.");
-            return;
+            return Err(DataError::InvalidProject(
+                "Cannot save project without a loaded manifest.".into(),
+            ));
         };
         (root_path, manifest_path, project)
     };
@@ -138,51 +141,25 @@ pub(crate) fn save_project_impl(world: &mut World) {
         .cloned()
         .expect("default story graph ref should exist after ensure_default_project_refs");
 
-    if let Err(error) = loader::save_project_structure(&project, &root_path) {
-        error!("Failed to save project structure: {}", error);
-        return;
-    }
+    loader::save_project_structure(&project, &root_path)?;
 
     let scene_path = root_path.join(&scene_ref.path);
-    if let Err(error) = ensure_parent_dir(&scene_path) {
-        error!(
-            "Failed to create scene directory {:?}: {}",
-            scene_path, error
-        );
-        return;
-    }
+    ensure_parent_dir(&scene_path)?;
 
     let scene = world_to_scene(world);
-    if let Err(error) = loader::save_scene(&scene, &scene_path) {
-        error!("Failed to save scene {:?}: {}", scene_path, error);
-        return;
-    }
+    loader::save_scene(&scene, &scene_path)?;
 
     let graph_path = root_path.join(&story_graph_ref.path);
-    if let Err(error) = ensure_parent_dir(&graph_path) {
-        error!(
-            "Failed to create story graph directory {:?}: {}",
-            graph_path, error
-        );
-        return;
-    }
+    ensure_parent_dir(&graph_path)?;
 
     let graph = world.resource::<ActiveStoryGraph>().0.clone();
-    if let Err(error) = loader::save_story_graph(&graph, &graph_path) {
-        error!("Failed to save story graph {:?}: {}", graph_path, error);
-        return;
-    }
+    loader::save_story_graph(&graph, &graph_path)?;
 
-    if let Err(error) = loader::save_project(&project, &manifest_path) {
-        error!(
-            "Failed to save project manifest {:?}: {}",
-            manifest_path, error
-        );
-        return;
-    }
+    loader::save_project(&project, &manifest_path)?;
 
     world.resource_mut::<MountedProject>().project = Some(project);
     info!("Successfully saved project to {:?}", manifest_path);
+    Ok(())
 }
 
 pub(crate) fn world_to_scene(world: &mut World) -> Scene {

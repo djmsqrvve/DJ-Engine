@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use dj_engine::data::Project;
 use dj_engine::editor::{
     BrowserTab, EditorPlugin, EditorState, EditorUiState, EditorView, MountedProject,
+    RuntimePreviewLaunchPhase, RuntimePreviewLaunchState,
 };
 
 #[test]
@@ -26,13 +27,21 @@ fn test_editor_initialization_and_state() {
 
     app.init_state::<EditorState>()
         .init_resource::<MountedProject>()
-        .init_resource::<EditorUiState>();
+        .init_resource::<EditorUiState>()
+        .init_resource::<RuntimePreviewLaunchState>();
 
     // 2. Verify Initial State
     let ui_state = app.world().resource::<EditorUiState>();
     assert_eq!(ui_state.current_view, EditorView::Level);
     assert_eq!(ui_state.browser_tab, BrowserTab::Hierarchy);
     assert_eq!(ui_state.selected_palette_item, None);
+
+    let launch_state = app.world().resource::<RuntimePreviewLaunchState>();
+    assert_eq!(launch_state.phase, RuntimePreviewLaunchPhase::Idle);
+    assert_eq!(launch_state.manifest_path, None);
+    assert_eq!(launch_state.status_message, None);
+    assert_eq!(launch_state.last_exit, None);
+    assert!(!launch_state.is_running());
 
     // 3. Simulate User Actions
 

@@ -2,6 +2,11 @@ use crate::data::story::graph::StoryGraphData;
 use bevy::prelude::*;
 use bevy_egui::egui::Color32;
 use bevy_inspector_egui::bevy_inspector;
+use std::{
+    path::PathBuf,
+    process::Child,
+    sync::{Arc, Mutex},
+};
 
 pub(crate) const COLOR_PRIMARY: Color32 = Color32::from_rgb(0, 255, 204); // Cyberpunk Mint
 pub(crate) const COLOR_SECONDARY: Color32 = Color32::from_rgb(255, 175, 200); // Pale Rose
@@ -11,7 +16,37 @@ pub(crate) const COLOR_BG: Color32 = Color32::from_rgb(15, 15, 20);
 pub enum EditorState {
     #[default]
     Editor,
-    Playing,
+    GraphPreview,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum RuntimePreviewLaunchPhase {
+    #[default]
+    Idle,
+    Launching,
+    Running,
+    Stopping,
+    Failed,
+}
+
+#[derive(Resource, Default)]
+pub struct RuntimePreviewLaunchState {
+    pub phase: RuntimePreviewLaunchPhase,
+    pub manifest_path: Option<PathBuf>,
+    pub status_message: Option<String>,
+    pub last_exit: Option<String>,
+    pub process: Option<Arc<Mutex<Child>>>,
+}
+
+impl RuntimePreviewLaunchState {
+    pub fn is_running(&self) -> bool {
+        matches!(
+            self.phase,
+            RuntimePreviewLaunchPhase::Launching
+                | RuntimePreviewLaunchPhase::Running
+                | RuntimePreviewLaunchPhase::Stopping
+        ) && self.process.is_some()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

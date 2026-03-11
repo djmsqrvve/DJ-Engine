@@ -1,10 +1,11 @@
 use super::scene_io::{load_mounted_project, resolve_asset_root, save_project_impl};
 use super::types::{
-    ActiveStoryGraph, BrowserTab, EditorState, EditorUiState, EditorView, COLOR_PRIMARY,
-    COLOR_SECONDARY,
+    ActiveStoryGraph, BrowserTab, EditorState, EditorUiState, EditorView,
+    RuntimePreviewLaunchPhase, RuntimePreviewLaunchState, COLOR_PRIMARY, COLOR_SECONDARY,
 };
 use super::views::{draw_grid, draw_story_graph};
 use crate::diagnostics::console::ConsoleLogStore;
+use crate::editor::plugin::{launch_runtime_preview_from_editor, stop_runtime_preview_from_editor};
 use crate::project_mount::MountedProject;
 use crate::story_graph::GraphExecutor;
 use bevy::prelude::*;
@@ -13,12 +14,39 @@ use bevy_inspector_egui::bevy_inspector;
 use std::fs;
 use std::path::Path;
 
+fn log_console(world: &mut World, message: impl Into<String>) {
+    if let Some(mut store) = world.get_resource_mut::<ConsoleLogStore>() {
+        store.log(message.into());
+    }
+}
+
+fn save_project_with_feedback(world: &mut World) -> bool {
+    match save_project_impl(world) {
+        Ok(()) => {
+            let message = "Project saved successfully.".to_string();
+            log_console(world, &message);
+            info!("{message}");
+            true
+        }
+        Err(error) => {
+            let message = format!("Failed to save project: {error}");
+            log_console(world, &message);
+            error!("{message}");
+            false
+        }
+    }
+}
+
 pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
     let has_mounted_project = world.resource::<MountedProject>().manifest_path.is_some();
     let has_loaded_project = world.resource::<MountedProject>().project.is_some();
+    let current_state = world.resource::<State<EditorState>>().get().clone();
+    let runtime_preview = world.resource::<RuntimePreviewLaunchState>();
+    let preview_is_running = runtime_preview.is_running();
+    let preview_status = runtime_preview.status_message.clone();
+    let preview_phase = runtime_preview.phase.clone();
 
     ui.horizontal(|ui| {
-        // Logo with Cyberpunk colors
         ui.spacing_mut().item_spacing.x = 2.0;
         ui.label(
             RichText::new("DJ")
@@ -38,10 +66,9 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
         ui.separator();
         ui.add_space(10.0);
 
-        // FILE MENU
         ui.menu_button("File", |ui| {
             if ui.button("💾 Save Project").clicked() {
-                save_project_impl(world);
+                save_project_with_feedback(world);
                 ui.close();
             }
             if ui
@@ -75,59 +102,94 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
         ui.separator();
         ui.add_space(10.0);
 
-        // View Switcher Tabs
-        let mut ui_state = world.resource_mut::<EditorUiState>();
-        ui.selectable_value(
-            &mut ui_state.current_view,
-            EditorView::Level,
-            RichText::new("🌍 Level Editor").strong(),
-        );
-        ui.selectable_value(
-            &mut ui_state.current_view,
-            EditorView::StoryGraph,
-            RichText::new("🕸 Story Graph").strong(),
-        );
+        {
+            let mut ui_state = world.resource_mut::<EditorUiState>();
+            ui.selectable_value(
+                &mut ui_state.current_view,
+                EditorView::Level,
+                RichText::new("🌍 Level Editor").strong(),
+            );
+            ui.selectable_value(
+                &mut ui_state.current_view,
+                EditorView::StoryGraph,
+                RichText::new("🕸 Story Graph").strong(),
+            );
+        }
+
+        if current_state == EditorState::GraphPreview
+            && world.resource::<EditorUiState>().current_view != EditorView::StoryGraph
+        {
+            world
+                .resource_mut::<NextState<EditorState>>()
+                .set(EditorState::Editor);
+            let message = "Graph preview stopped after leaving Story Graph view.".to_string();
+            log_console(world, &message);
+            info!("{message}");
+        }
 
         ui.add_space(10.0);
         ui.separator();
         ui.add_space(10.0);
 
-        // Play Controls
-        let current_state = world.resource::<State<EditorState>>().get().clone();
-        let is_playing = current_state == EditorState::Playing;
-
         if ui
             .add_enabled(
-                !is_playing,
-                egui::Button::new(RichText::new("▶ PLAY").color(COLOR_PRIMARY)),
+                has_loaded_project && !preview_is_running,
+                egui::Button::new(RichText::new("▶ RUN PROJECT").color(COLOR_PRIMARY)),
             )
             .clicked()
         {
-            // Launch logic
-            world.resource_scope::<ActiveStoryGraph, _>(|world, graph| {
-                // Clone data to avoid borrow issues when starting executor (which takes mut world usually, or system param)
-                // But here we need to insert data into executor.
-                if let Some(mut executor) = world.get_resource_mut::<GraphExecutor>() {
-                    executor.load_from_data(&graph.0);
-                    info!("Editor: Loaded Story Graph into Executor");
-                }
-            });
-            world
-                .resource_mut::<NextState<EditorState>>()
-                .set(EditorState::Playing);
-            info!("Editor: Play requested");
+            launch_runtime_preview_from_editor(world);
         }
         if ui
             .add_enabled(
-                is_playing,
-                egui::Button::new(RichText::new("⏹ STOP").color(COLOR_SECONDARY)),
+                preview_is_running,
+                egui::Button::new(RichText::new("⏹ STOP PREVIEW").color(COLOR_SECONDARY)),
             )
             .clicked()
         {
-            world
-                .resource_mut::<NextState<EditorState>>()
-                .set(EditorState::Editor);
-            info!("Editor: Stop requested");
+            stop_runtime_preview_from_editor(world);
+        }
+
+        if world.resource::<EditorUiState>().current_view == EditorView::StoryGraph {
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+
+            let graph_preview_active = current_state == EditorState::GraphPreview;
+            if ui
+                .add_enabled(
+                    !graph_preview_active,
+                    egui::Button::new(RichText::new("Preview Graph").color(COLOR_PRIMARY)),
+                )
+                .clicked()
+            {
+                world.resource_scope::<ActiveStoryGraph, _>(|world, graph| {
+                    if let Some(mut executor) = world.get_resource_mut::<GraphExecutor>() {
+                        executor.load_from_data(&graph.0);
+                        info!("Editor: Loaded Story Graph into GraphExecutor");
+                    }
+                });
+                world
+                    .resource_mut::<NextState<EditorState>>()
+                    .set(EditorState::GraphPreview);
+                let message = "Graph preview started.".to_string();
+                log_console(world, &message);
+                info!("{message}");
+            }
+            if ui
+                .add_enabled(
+                    graph_preview_active,
+                    egui::Button::new(RichText::new("Stop Graph Preview").color(COLOR_SECONDARY)),
+                )
+                .clicked()
+            {
+                world
+                    .resource_mut::<NextState<EditorState>>()
+                    .set(EditorState::Editor);
+                let message = "Graph preview stopped.".to_string();
+                log_console(world, &message);
+                info!("{message}");
+            }
         }
 
         ui.add_space(10.0);
@@ -149,6 +211,16 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
                 ui_state.console_open = !ui_state.console_open;
             }
             ui.separator();
+            if let Some(status) = &preview_status {
+                let status_color = match preview_phase {
+                    RuntimePreviewLaunchPhase::Running => COLOR_PRIMARY,
+                    RuntimePreviewLaunchPhase::Failed => Color32::RED,
+                    RuntimePreviewLaunchPhase::Stopping => COLOR_SECONDARY,
+                    _ => Color32::GRAY,
+                };
+                ui.label(RichText::new(status.clone()).italics().color(status_color));
+                ui.separator();
+            }
             ui.label(
                 RichText::new(format!("Active: {}", project_name))
                     .italics()
@@ -446,12 +518,10 @@ pub(crate) fn draw_central_panel(ui: &mut egui::Ui, world: &mut World) {
         EditorView::Level => {
             let state = world.resource::<State<EditorState>>().get();
             if *state == EditorState::Editor {
-                // Draw grid and handle interactions
                 draw_grid(ui, world);
             } else {
-                // Subtle overlay indicator
                 ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
-                    ui.label(RichText::new("● LIVE").color(Color32::RED).small());
+                    ui.label(RichText::new("● GRAPH PREVIEW").color(Color32::RED).small());
                 });
             }
         }

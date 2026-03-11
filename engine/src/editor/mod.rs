@@ -12,7 +12,10 @@ pub(crate) mod views;
 pub use crate::project_mount::MountedProject;
 pub use plugin::EditorPlugin;
 pub use types::ActiveStoryGraph;
-pub use types::{BrowserTab, EditorState, EditorUiState, EditorView};
+pub use types::{
+    BrowserTab, EditorState, EditorUiState, EditorView, RuntimePreviewLaunchPhase,
+    RuntimePreviewLaunchState,
+};
 
 use bevy::prelude::*;
 use bevy_egui::{egui, PrimaryEguiContext};
@@ -49,7 +52,7 @@ pub(crate) fn editor_ui_system(world: &mut World) {
         });
 
     let current_state = world.resource::<State<types::EditorState>>().get();
-    let central_frame = if *current_state == types::EditorState::Playing {
+    let central_frame = if *current_state == types::EditorState::GraphPreview {
         egui::Frame::NONE
     } else {
         egui::Frame::central_panel(&egui_ctx.style())

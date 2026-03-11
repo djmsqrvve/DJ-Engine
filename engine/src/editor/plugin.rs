@@ -1,4 +1,8 @@
-use super::types::{BrowserTab, EditorState, EditorUiState, EditorView, COLOR_BG, COLOR_PRIMARY};
+use super::scene_io::save_project_impl;
+use super::types::{
+    BrowserTab, EditorState, EditorUiState, EditorView, RuntimePreviewLaunchPhase,
+    RuntimePreviewLaunchState, COLOR_BG, COLOR_PRIMARY,
+};
 use crate::diagnostics::console::ConsoleLogStore;
 use crate::project_mount::{normalize_project_path, MountedProject};
 use bevy::prelude::*;
@@ -6,7 +10,10 @@ use bevy_egui::{
     egui::{self, CornerRadius, Stroke},
     EguiContexts, EguiPlugin, EguiPrimaryContextPass,
 };
-use std::path::PathBuf;
+use std::fmt;
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command};
+use std::sync::{Arc, Mutex};
 
 use super::types::ActiveStoryGraph;
 
@@ -21,6 +28,43 @@ struct EditorCliOptions {
     project_path: Option<PathBuf>,
     initial_view: EditorView,
     test_mode: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResolvedRuntimePreviewCommand {
+    program: PathBuf,
+    args: Vec<String>,
+    current_dir: Option<PathBuf>,
+}
+
+impl ResolvedRuntimePreviewCommand {
+    fn spawn(&self) -> std::io::Result<Child> {
+        let mut command = Command::new(&self.program);
+        command.args(&self.args);
+        if let Some(current_dir) = &self.current_dir {
+            command.current_dir(current_dir);
+        }
+        command.spawn()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum RuntimePreviewLaunchError {
+    CurrentExecutableUnavailable(String),
+    RuntimePreviewExecutableNotFound(PathBuf),
+}
+
+impl fmt::Display for RuntimePreviewLaunchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CurrentExecutableUnavailable(message) => write!(f, "{message}"),
+            Self::RuntimePreviewExecutableNotFound(path) => write!(
+                f,
+                "Runtime preview executable not found at {:?}, and dev fallback is unavailable.",
+                path
+            ),
+        }
+    }
 }
 
 pub struct EditorPlugin;
@@ -57,10 +101,11 @@ impl Plugin for EditorPlugin {
                 ..default()
             })
             .init_resource::<ActiveStoryGraph>()
+            .init_resource::<RuntimePreviewLaunchState>()
             .add_systems(Startup, super::scene_io::load_initial_project_system)
             .add_systems(EguiPrimaryContextPass, configure_visuals_system)
             .add_systems(EguiPrimaryContextPass, super::editor_ui_system)
-            .add_systems(OnEnter(EditorState::Playing), launch_project_system);
+            .add_systems(Update, poll_runtime_preview_process_system);
 
         if cli.test_mode {
             app.insert_resource(AutomatedTestActive {
@@ -81,7 +126,6 @@ fn configure_visuals_system(mut contexts: EguiContexts) {
     };
     let mut visuals = egui::Visuals::dark();
 
-    // Cyberpunk tweaks
     visuals.window_corner_radius = CornerRadius::same(2);
     visuals.widgets.noninteractive.bg_fill = COLOR_BG;
     visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(25, 25, 35);
@@ -163,7 +207,6 @@ fn automated_ui_test_system(
         }
         2 => {
             console.log("TEST: Simulating click/spawn at (100, 100)".into());
-            // Manually spawn entity as if clicked
             commands.spawn((
                 Name::new("Actor [100, 100]"),
                 Sprite {
@@ -189,41 +232,381 @@ fn automated_ui_test_system(
     }
 }
 
-fn launch_project_system(
-    mounted_project: Res<MountedProject>,
-    mut script_events: MessageWriter<crate::scripting::ScriptCommand>,
-) {
-    let Some(project) = &mounted_project.project else {
-        warn!("No project loaded; continuing play mode without entry script.");
-        return;
+fn runtime_preview_sibling_path(current_exe: &Path) -> PathBuf {
+    current_exe.with_file_name(format!("runtime_preview{}", std::env::consts::EXE_SUFFIX))
+}
+
+fn workspace_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("engine crate should live inside the workspace root")
+        .to_path_buf()
+}
+
+fn resolve_runtime_preview_command(
+    manifest_path: &Path,
+) -> Result<ResolvedRuntimePreviewCommand, RuntimePreviewLaunchError> {
+    let current_exe = std::env::current_exe().ok();
+    resolve_runtime_preview_command_from_mode(
+        current_exe.as_deref(),
+        manifest_path,
+        cfg!(debug_assertions),
+    )
+}
+
+fn resolve_runtime_preview_command_from_mode(
+    current_exe: Option<&Path>,
+    manifest_path: &Path,
+    allow_dev_fallback: bool,
+) -> Result<ResolvedRuntimePreviewCommand, RuntimePreviewLaunchError> {
+    if let Some(current_exe) = current_exe {
+        let sibling_path = runtime_preview_sibling_path(current_exe);
+        if sibling_path.is_file() {
+            return Ok(ResolvedRuntimePreviewCommand {
+                program: sibling_path,
+                args: vec![
+                    "--project".into(),
+                    manifest_path.as_os_str().to_string_lossy().into_owned(),
+                ],
+                current_dir: None,
+            });
+        }
+
+        if !allow_dev_fallback {
+            return Err(RuntimePreviewLaunchError::RuntimePreviewExecutableNotFound(
+                sibling_path,
+            ));
+        }
+    } else if !allow_dev_fallback {
+        return Err(RuntimePreviewLaunchError::CurrentExecutableUnavailable(
+            "Unable to locate the editor executable to resolve a sibling runtime preview binary."
+                .into(),
+        ));
+    }
+
+    Ok(ResolvedRuntimePreviewCommand {
+        program: PathBuf::from("cargo"),
+        args: vec![
+            "run".into(),
+            "-p".into(),
+            "dj_engine".into(),
+            "--bin".into(),
+            "runtime_preview".into(),
+            "--".into(),
+            "--project".into(),
+            manifest_path.as_os_str().to_string_lossy().into_owned(),
+        ],
+        current_dir: Some(workspace_root()),
+    })
+}
+
+fn log_preview_message(console: Option<&mut ConsoleLogStore>, message: &str) {
+    if let Some(console) = console {
+        console.log(message.to_string());
+    }
+}
+
+fn set_launch_state_message(
+    launch_state: &mut RuntimePreviewLaunchState,
+    phase: RuntimePreviewLaunchPhase,
+    message: String,
+) -> String {
+    launch_state.phase = phase;
+    launch_state.status_message = Some(message.clone());
+    message
+}
+
+pub(crate) fn launch_runtime_preview_from_editor(world: &mut World) {
+    let (manifest_path, has_loaded_project) = {
+        let mounted_project = world.resource::<MountedProject>();
+        (
+            mounted_project.manifest_path.clone(),
+            mounted_project.project.is_some(),
+        )
     };
-    let Some(root_path) = &mounted_project.root_path else {
-        warn!("Project root missing; continuing play mode without entry script.");
-        return;
-    };
-    let Some(entry_script) = project.settings.startup.entry_script.as_deref() else {
-        info!("No entry script configured; story graph preview will continue without scripting.");
+
+    let Some(manifest_path) = manifest_path else {
+        let message = "Preview failed: no mounted project manifest is available.".to_string();
+        {
+            let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+            launch_state.manifest_path = None;
+            launch_state.process = None;
+            launch_state.last_exit = None;
+            set_launch_state_message(
+                &mut launch_state,
+                RuntimePreviewLaunchPhase::Failed,
+                message.clone(),
+            );
+        }
+        log_preview_message(
+            world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+            &message,
+        );
+        error!("{message}");
         return;
     };
 
-    let script_path = root_path.join(entry_script);
-    if !script_path.exists() {
-        warn!(
-            "Configured entry script {:?} was not found; continuing without scripting.",
-            script_path
+    if !has_loaded_project {
+        let message = format!(
+            "Preview failed: project {:?} is mounted but not loaded.",
+            manifest_path
         );
+        {
+            let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+            launch_state.manifest_path = Some(manifest_path.clone());
+            launch_state.process = None;
+            launch_state.last_exit = None;
+            set_launch_state_message(
+                &mut launch_state,
+                RuntimePreviewLaunchPhase::Failed,
+                message.clone(),
+            );
+        }
+        log_preview_message(
+            world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+            &message,
+        );
+        error!("{message}");
         return;
     }
 
-    info!("Editor: Launching project entry script {:?}", script_path);
-    script_events.write(crate::scripting::ScriptCommand::Load {
-        path: script_path.to_string_lossy().into(),
-    });
+    if world.resource::<RuntimePreviewLaunchState>().is_running() {
+        let message = "Preview launch ignored: runtime preview is already running.".to_string();
+        log_preview_message(
+            world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+            &message,
+        );
+        warn!("{message}");
+        return;
+    }
+
+    if let Err(error) = save_project_impl(world) {
+        let message = format!("Preview failed: could not save project before launch: {error}");
+        {
+            let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+            launch_state.manifest_path = Some(manifest_path.clone());
+            launch_state.process = None;
+            set_launch_state_message(
+                &mut launch_state,
+                RuntimePreviewLaunchPhase::Failed,
+                message.clone(),
+            );
+        }
+        log_preview_message(
+            world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+            &message,
+        );
+        error!("{message}");
+        return;
+    }
+
+    {
+        let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+        launch_state.manifest_path = Some(manifest_path.clone());
+        launch_state.last_exit = None;
+        launch_state.process = None;
+        set_launch_state_message(
+            &mut launch_state,
+            RuntimePreviewLaunchPhase::Launching,
+            "Preview Launching".into(),
+        );
+    }
+
+    let command = match resolve_runtime_preview_command(&manifest_path) {
+        Ok(command) => command,
+        Err(error) => {
+            let message = format!("Preview failed: {error}");
+            {
+                let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+                launch_state.process = None;
+                set_launch_state_message(
+                    &mut launch_state,
+                    RuntimePreviewLaunchPhase::Failed,
+                    message.clone(),
+                );
+            }
+            log_preview_message(
+                world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+                &message,
+            );
+            error!("{message}");
+            return;
+        }
+    };
+
+    match command.spawn() {
+        Ok(child) => {
+            let message = format!("Preview Running ({})", manifest_path.display());
+            {
+                let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+                launch_state.phase = RuntimePreviewLaunchPhase::Running;
+                launch_state.status_message = Some(message.clone());
+                launch_state.last_exit = None;
+                launch_state.process = Some(Arc::new(Mutex::new(child)));
+            }
+            log_preview_message(
+                world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+                &message,
+            );
+            info!("{message}");
+        }
+        Err(error) => {
+            let message = format!("Preview failed: could not launch runtime preview: {error}");
+            {
+                let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+                launch_state.process = None;
+                set_launch_state_message(
+                    &mut launch_state,
+                    RuntimePreviewLaunchPhase::Failed,
+                    message.clone(),
+                );
+            }
+            log_preview_message(
+                world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+                &message,
+            );
+            error!("{message}");
+        }
+    }
+}
+
+pub(crate) fn stop_runtime_preview_from_editor(world: &mut World) {
+    let process = world
+        .resource::<RuntimePreviewLaunchState>()
+        .process
+        .clone();
+    let Some(process) = process else {
+        return;
+    };
+
+    let kill_result = match process.lock() {
+        Ok(mut child) => child.kill(),
+        Err(error) => {
+            let message = format!("Preview failed: runtime preview lock poisoned: {error}");
+            {
+                let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+                launch_state.process = None;
+                set_launch_state_message(
+                    &mut launch_state,
+                    RuntimePreviewLaunchPhase::Failed,
+                    message.clone(),
+                );
+            }
+            log_preview_message(
+                world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+                &message,
+            );
+            error!("{message}");
+            return;
+        }
+    };
+
+    match kill_result {
+        Ok(()) => {
+            let message = "Preview stopping...".to_string();
+            {
+                let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+                set_launch_state_message(
+                    &mut launch_state,
+                    RuntimePreviewLaunchPhase::Stopping,
+                    message.clone(),
+                );
+            }
+            log_preview_message(
+                world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+                &message,
+            );
+            info!("{message}");
+        }
+        Err(error) => {
+            let message = format!("Preview failed: could not stop runtime preview: {error}");
+            {
+                let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
+                launch_state.process = None;
+                set_launch_state_message(
+                    &mut launch_state,
+                    RuntimePreviewLaunchPhase::Failed,
+                    message.clone(),
+                );
+            }
+            log_preview_message(
+                world.get_resource_mut::<ConsoleLogStore>().as_deref_mut(),
+                &message,
+            );
+            error!("{message}");
+        }
+    }
+}
+
+fn format_exit_status(exit_status: std::process::ExitStatus) -> String {
+    match exit_status.code() {
+        Some(code) => format!("exit code {code}"),
+        None => "terminated by signal".into(),
+    }
+}
+
+fn poll_runtime_preview_process_system(
+    mut launch_state: ResMut<RuntimePreviewLaunchState>,
+    mut console: Option<ResMut<ConsoleLogStore>>,
+) {
+    let Some(process) = launch_state.process.clone() else {
+        return;
+    };
+
+    let wait_result = match process.lock() {
+        Ok(mut child) => child.try_wait(),
+        Err(error) => {
+            let message = format!("Preview failed: runtime preview lock poisoned: {error}");
+            launch_state.process = None;
+            launch_state.phase = RuntimePreviewLaunchPhase::Failed;
+            launch_state.status_message = Some(message.clone());
+            log_preview_message(console.as_deref_mut(), &message);
+            error!("{message}");
+            return;
+        }
+    };
+
+    match wait_result {
+        Ok(Some(exit_status)) => {
+            let exit_summary = format_exit_status(exit_status);
+            launch_state.process = None;
+            launch_state.last_exit = Some(exit_summary.clone());
+
+            let message = if exit_status.success()
+                || launch_state.phase == RuntimePreviewLaunchPhase::Stopping
+            {
+                launch_state.phase = RuntimePreviewLaunchPhase::Idle;
+                "Preview Exited".to_string()
+            } else {
+                launch_state.phase = RuntimePreviewLaunchPhase::Failed;
+                format!("Preview Failed ({exit_summary})")
+            };
+
+            launch_state.status_message = Some(message.clone());
+            log_preview_message(console.as_deref_mut(), &message);
+            info!("{message}");
+        }
+        Ok(None) => {
+            if launch_state.phase == RuntimePreviewLaunchPhase::Launching {
+                launch_state.phase = RuntimePreviewLaunchPhase::Running;
+                launch_state.status_message = Some("Preview Running".into());
+            }
+        }
+        Err(error) => {
+            let message = format!("Preview failed while polling runtime preview: {error}");
+            launch_state.process = None;
+            launch_state.phase = RuntimePreviewLaunchPhase::Failed;
+            launch_state.status_message = Some(message.clone());
+            log_preview_message(console.as_deref_mut(), &message);
+            error!("{message}");
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_parse_editor_cli_args_supports_positional_project_path() {
@@ -250,5 +633,74 @@ mod tests {
         ]);
 
         assert_eq!(cli.project_path, Some(PathBuf::from("projects/explicit")));
+    }
+
+    #[test]
+    fn test_resolve_runtime_preview_command_prefers_sibling_binary() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let current_exe = temp_dir
+            .path()
+            .join(format!("dj_engine{}", std::env::consts::EXE_SUFFIX));
+        let sibling = temp_dir
+            .path()
+            .join(format!("runtime_preview{}", std::env::consts::EXE_SUFFIX));
+        fs::write(&current_exe, []).unwrap();
+        fs::write(&sibling, []).unwrap();
+
+        let command = resolve_runtime_preview_command_from_mode(
+            Some(&current_exe),
+            Path::new("/tmp/project.json"),
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(command.program, sibling);
+        assert_eq!(command.args, vec!["--project", "/tmp/project.json"]);
+        assert_eq!(command.current_dir, None);
+    }
+
+    #[test]
+    fn test_resolve_runtime_preview_command_uses_dev_cargo_fallback() {
+        let command = resolve_runtime_preview_command_from_mode(
+            Some(Path::new("/tmp/dj_engine")),
+            Path::new("/tmp/project.json"),
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(command.program, PathBuf::from("cargo"));
+        assert_eq!(command.current_dir, Some(workspace_root()));
+        assert_eq!(
+            command.args,
+            vec![
+                "run",
+                "-p",
+                "dj_engine",
+                "--bin",
+                "runtime_preview",
+                "--",
+                "--project",
+                "/tmp/project.json"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_resolve_runtime_preview_command_returns_structured_error_without_fallback() {
+        let current_exe = Path::new("/tmp/dj_engine");
+        let error = resolve_runtime_preview_command_from_mode(
+            Some(current_exe),
+            Path::new("/tmp/project.json"),
+            false,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            RuntimePreviewLaunchError::RuntimePreviewExecutableNotFound(PathBuf::from(format!(
+                "/tmp/runtime_preview{}",
+                std::env::consts::EXE_SUFFIX
+            )))
+        );
     }
 }
