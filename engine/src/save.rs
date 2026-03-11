@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn test_save_data_roundtrip() {
         let mut data = SaveData::default();
-        data.flags.insert("met_hamster".into(), true);
+        data.flags.insert("intro_complete".into(), true);
         data.flags.insert("boss_defeated".into(), false);
         data.variables
             .insert("health".into(), serde_json::json!(75));
@@ -181,7 +181,7 @@ mod tests {
         let loaded: SaveData = serde_json::from_str(&json).unwrap();
 
         assert_eq!(loaded.flags.len(), 2);
-        assert_eq!(loaded.flags["met_hamster"], true);
+        assert_eq!(loaded.flags["intro_complete"], true);
         assert_eq!(loaded.variables["health"], serde_json::json!(75));
         assert_eq!(loaded.current_node, Some(42));
         assert_eq!(loaded.game_state, "Overworld");

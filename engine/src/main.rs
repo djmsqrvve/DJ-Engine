@@ -4,9 +4,6 @@ use dj_engine::editor::EditorPlugin;
 use dj_engine::prelude::*;
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let project_path = args.get(1).map(std::path::PathBuf::from);
-
     let mut app = App::new();
 
     app.add_plugins(
@@ -27,18 +24,6 @@ fn main() {
     .add_plugins(DJEnginePlugin::default())
     // Editor UI
     .add_plugins(EditorPlugin);
-
-    // If a project path was provided, mount it
-    if let Some(path) = project_path {
-        app.insert_resource(dj_engine::editor::ProjectMetadata {
-            name: path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into(),
-            path: Some(path),
-        });
-    }
 
     app.run();
 }

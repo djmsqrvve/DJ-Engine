@@ -31,41 +31,23 @@
 git clone https://github.com/djmsqrvve/dj_engine.git
 cd dj_engine
 
-make dev
-make editor
+make dev           # Launch the engine editor
+make game          # Optional: run the sample DoomExe game
 make test
 ```
 
-The workspace toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml), so `rustup` will automatically select the validated Rust version for local development, Codespaces, and CI.
+The workspace toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml), so `rustup` will automatically select the validated Rust version for local development and CI.
 
 ## Codespaces
 
-GitHub Codespaces is fully supported. The devcontainer includes a lightweight remote desktop (VNC), SSH server, and all Bevy/Linux build dependencies. Dependencies are pre-fetched and checked during provisioning via `make cache-warm-fast`.
-
-To get started in a Codespace:
+GitHub Codespaces is supported through the checked-in devcontainer config at [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json). Once the workspace is up, use the same engine-first commands as local development:
 
 ```bash
-make codespace        # Verify environment is ready
-make editor           # Launch the editor
-make doom             # Run DoomExe
+make dev              # Launch the engine editor
+make game             # Optional: run the sample DoomExe game
 ```
 
-Open the forwarded `Desktop` port (`6080`) in your browser and connect with password `vscode` to view GUI windows.
-
-For a full runtime warmup (pre-compiles all binaries):
-
-```bash
-make cache-warm
-```
-
-A prebuilt Docker image with pre-compiled dependencies is also available:
-
-```bash
-make codespace-image-build    # Build locally
-make codespace-image-push     # Push to GHCR
-```
-
-For prebuilds, repository admins need to enable a Codespaces prebuild configuration in GitHub repository settings pointing at [`.devcontainer/devcontainer.json`](.devcontainer/devcontainer.json).
+If you need a GUI desktop for Bevy windows, forward the desktop port configured by the devcontainer and open it in your browser.
 
 ## Commands
 
@@ -73,30 +55,23 @@ All common tasks run through `make`:
 
 ```bash
 # Development
-make dev              # Launch the editor (default)
-make dev-fast         # Fastest startup (skip checks)
-make dev-release      # Optimized release build
-make doom             # Run DoomExe test game
+make dev              # Launch the engine editor
+make engine           # Alias for make editor
+make editor           # Launch the engine editor
+make game             # Run the sample DoomExe game
+make doom             # Alias for make game
 make minimal          # Run minimal rendering binary
-make asset-gen        # Run the asset generator
-
-# Codespaces
-make codespace        # Verify Codespace environment
-make cache-warm-fast  # Quick compile cache
-make cache-warm       # Full build + test compile
 
 # Quality
 make test             # Run workspace tests
 make quality-check    # Full pipeline (fmt + clippy + test)
 make guardrail        # Quick safety checks
-make guardrail-strict # Full safety checks
 make lint             # Run clippy
-make format           # Check formatting
+make fmt              # Check formatting
 make format-fix       # Fix formatting
 
 # Build
 make build            # Debug build
-make build-release    # Release build (optimized)
 make clean            # Remove build artifacts
 ```
 
@@ -105,7 +80,7 @@ make clean            # Remove build artifacts
 ```text
 dj_engine/
 ├── engine/                 # Core engine library
-├── games/dev/doomexe/      # Primary game project
+├── games/dev/doomexe/      # Sample game project
 ├── tools/asset_generator/  # Asset processing utilities
 ├── docs/                   # Project and engine documentation
 └── Makefile                # Unified command interface

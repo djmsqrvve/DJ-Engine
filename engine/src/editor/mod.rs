@@ -11,7 +11,7 @@ pub(crate) mod views;
 
 pub use plugin::EditorPlugin;
 pub use types::ActiveStoryGraph;
-pub use types::{BrowserTab, EditorState, EditorUiState, EditorView, ProjectMetadata};
+pub use types::{BrowserTab, EditorState, EditorUiState, EditorView, LoadedProject};
 
 use bevy::prelude::*;
 use bevy_egui::{egui, PrimaryEguiContext};

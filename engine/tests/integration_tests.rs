@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 use dj_engine::animation::components::{BlinkingAnimation, BreathingAnimation};
+use dj_engine::data::spawner::{SpawnerMarker, SpawnerRuntimeState};
 use dj_engine::data::story::nodes::{ConditionalNodeData, StoryNodeVariant};
 use dj_engine::data::story::types::{ConditionOperator, StoryCondition};
 use dj_engine::data::Vec3Data;
 use dj_engine::data::{
     AudioSourceComponent, CollisionComponent, Entity, EntityType, InteractivityComponent, Scene,
-    StoryGraphData, StoryNodeData,
+    SpawnerComponent, SpawnerWave, StoryGraphData, StoryNodeData,
 };
 use dj_engine::midi::MidiManager;
 use dj_engine::prelude::*;
@@ -47,23 +48,23 @@ fn test_story_graph_branching() {
 
     let mut graph = StoryGraph::new();
 
-    // Node 0: Set flag 'met_hamster' to true
+    // Node 0: Set flag 'met_guide' to true
     let n0 = graph.add(StoryNode::SetFlag {
-        flag: "met_hamster".to_string(),
+        flag: "met_guide".to_string(),
         value: true,
         next: Some(1),
     });
 
-    // Node 1: Branch based on 'met_hamster'
+    // Node 1: Branch based on 'met_guide'
     let _n1 = graph.add(StoryNode::Branch {
-        flag: "met_hamster".to_string(),
+        flag: "met_guide".to_string(),
         if_true: Some(2),
         if_false: Some(3),
     });
 
     // Node 2: Dialogue for true branch
     let _n2 = graph.add(StoryNode::Dialogue {
-        speaker: "Hamster".to_string(),
+        speaker: "Guide".to_string(),
         text: "Hello again!".to_string(),
         portrait: None,
         next: Some(4),
@@ -71,7 +72,7 @@ fn test_story_graph_branching() {
 
     // Node 3: Dialogue for false branch
     let _n3 = graph.add(StoryNode::Dialogue {
-        speaker: "Hamster".to_string(),
+        speaker: "Guide".to_string(),
         text: "Who are you?".to_string(),
         portrait: None,
         next: Some(4),
@@ -92,7 +93,7 @@ fn test_story_graph_branching() {
     let executor = app.world().resource::<GraphExecutor>();
     let flags = app.world().resource::<StoryFlags>();
 
-    assert!(flags.get("met_hamster"));
+    assert!(flags.get("met_guide"));
     assert_eq!(executor.current_node, Some(2)); // Should have jumped to Node 2
     assert_eq!(executor.status, ExecutionStatus::WaitingForInput);
 }
@@ -109,7 +110,7 @@ fn test_graph_executor_load_from_data() {
     // Build a minimal Start -> Dialogue -> End graph via data layer
     let mut data = StoryGraphData::new("test_graph", "Test");
     data.add_node(StoryNodeData::start("n_start", Some("n_dialogue")));
-    data.add_node(StoryNodeData::dialogue("n_dialogue", "Hamster", "Hello!"));
+    data.add_node(StoryNodeData::dialogue("n_dialogue", "Guide", "Hello!"));
     data.add_node(StoryNodeData::end("n_end"));
     data.root_node_id = "n_start".into();
 
@@ -165,7 +166,7 @@ fn test_breathing_system_applies_scale_at_phase() {
         .spawn((
             BreathingAnimation {
                 phase: std::f32::consts::FRAC_PI_2,
-                ..BreathingAnimation::hamster_default()
+                ..BreathingAnimation::character_default()
             },
             Transform::from_xyz(0.0, 0.0, 0.0),
         ))
@@ -195,7 +196,7 @@ fn test_blinking_system_triggers_on_expired_timer() {
         .world_mut()
         .spawn(BlinkingAnimation {
             timer: 0.0,
-            ..BlinkingAnimation::hamster_default()
+            ..BlinkingAnimation::character_default()
         })
         .id();
 
@@ -231,7 +232,7 @@ fn test_lua_context_with_ffi_roundtrip() {
     lua.load(
         r#"
         set_float("score", 100.0)
-        set_string("player", "hamster")
+        set_string("player", "tester")
         set_bool("game_over", false)
     "#,
     )
@@ -240,7 +241,7 @@ fn test_lua_context_with_ffi_roundtrip() {
 
     let data = state.read().unwrap();
     assert!((data.floats["score"] - 100.0).abs() < f32::EPSILON);
-    assert_eq!(data.strings["player"], "hamster");
+    assert_eq!(data.strings["player"], "tester");
     assert!(!data.bools["game_over"]);
 }
 
@@ -403,4 +404,52 @@ fn test_scene_spawner_creates_runtime_collision_for_triggers() {
     assert!(runtime.is_trigger);
     assert_eq!(interaction.trigger_id, "goal");
     assert_eq!(audio.clip_id, "sfx/goal.ogg");
+}
+
+#[test]
+fn test_scene_spawner_initializes_runtime_state() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(AssetPlugin::default());
+    app.add_plugins(SceneDataPlugin);
+
+    let mut scene = Scene::new("test", "Spawner Scene");
+    let mut entity = Entity::new("wave_machine", "Wave Machine");
+    entity.entity_type = EntityType::Spawner;
+    entity.components.spawner = Some(SpawnerComponent {
+        wave_count: 2,
+        spawn_interval: 1.5,
+        start_delay: 0.75,
+        loop_waves: true,
+        waves: vec![
+            SpawnerWave {
+                enemy_template_id: "slime".into(),
+                count: 5,
+                interval: 0.25,
+            },
+            SpawnerWave {
+                enemy_template_id: "bat".into(),
+                count: 8,
+                interval: 0.5,
+            },
+        ],
+        path_id: Some("route_02".into()),
+    });
+    scene.entities.push(entity);
+
+    app.world_mut().insert_resource(LoadedScene::new(scene));
+    app.update();
+
+    let world = app.world_mut();
+    let mut query = world.query::<(&SpawnerMarker, &SpawnerRuntimeState, &Name)>();
+    let (marker, runtime, name) = query.iter(world).next().unwrap();
+    assert_eq!(marker.spawner_id, "wave_machine");
+    assert_eq!(name.as_str(), "Wave Machine");
+    assert_eq!(runtime.current_wave_index, Some(0));
+    assert_eq!(runtime.remaining_in_wave, 5);
+    assert!((runtime.time_until_start - 0.75).abs() < f32::EPSILON);
+    assert!((runtime.time_until_next_spawn - 1.5).abs() < f32::EPSILON);
+    assert!(runtime.loop_waves);
+    assert!(!runtime.completed);
+    assert_eq!(runtime.path_id.as_deref(), Some("route_02"));
 }

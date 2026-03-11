@@ -1,18 +1,21 @@
-use super::scene_io::{load_scene_into_editor, save_project_impl};
+use super::scene_io::{load_mounted_project, resolve_asset_root, save_project_impl};
 use super::types::{
-    ActiveStoryGraph, BrowserTab, EditorState, EditorUiState, EditorView, ProjectMetadata,
+    ActiveStoryGraph, BrowserTab, EditorState, EditorUiState, EditorView, LoadedProject,
     COLOR_PRIMARY, COLOR_SECONDARY,
 };
 use super::views::{draw_grid, draw_story_graph};
-use crate::data::loader;
 use crate::diagnostics::console::ConsoleLogStore;
 use crate::story_graph::GraphExecutor;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32, RichText};
 use bevy_inspector_egui::bevy_inspector;
-use std::path::PathBuf;
+use std::fs;
+use std::path::Path;
 
 pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
+    let has_mounted_project = world.resource::<LoadedProject>().manifest_path.is_some();
+    let has_loaded_project = world.resource::<LoadedProject>().project.is_some();
+
     ui.horizontal(|ui| {
         // Logo with Cyberpunk colors
         ui.spacing_mut().item_spacing.x = 2.0;
@@ -40,38 +43,30 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
                 save_project_impl(world);
                 ui.close();
             }
-            if ui.button("📂 Load Project").clicked() {
-                // For now, load default dev path
-                let mut project = world.resource_mut::<ProjectMetadata>();
-                project.name = "DoomExe".into();
-                let path = PathBuf::from("games/dev/doomexe");
-                project.path = Some(path.clone());
-
-                // Try load scene
-                let scene_path = path.join("scenes/current_scene.json");
-                if scene_path.exists() {
-                    match loader::load_scene(&scene_path) {
-                        Ok(scene) => load_scene_into_editor(world, scene),
-                        Err(e) => error!("Failed to load scene: {}", e),
-                    }
-                } else {
-                    warn!("No scene found at {:?}", scene_path);
+            if ui
+                .add_enabled(
+                    has_mounted_project,
+                    egui::Button::new("📂 Load Mounted Project"),
+                )
+                .clicked()
+            {
+                if let Err(error) = load_mounted_project(world) {
+                    error!("Failed to load mounted project: {}", error);
                 }
-
-                // Try load story graph
-                let graph_path = path.join("story_graphs/main.json");
-                if graph_path.exists() {
-                    match loader::load_story_graph(&graph_path) {
-                        Ok(graph) => {
-                            world.insert_resource(ActiveStoryGraph(graph));
-                            info!("Loaded story graph");
-                        }
-                        Err(e) => error!("Failed to load story graph: {}", e),
-                    }
-                }
-
-                info!("Editor: Loaded project path 'games/dev/doomexe'");
                 ui.close();
+            }
+            if ui
+                .add_enabled(has_mounted_project, egui::Button::new("🔄 Reload Project"))
+                .clicked()
+            {
+                if let Err(error) = load_mounted_project(world) {
+                    error!("Failed to reload mounted project: {}", error);
+                }
+                ui.close();
+            }
+            if !has_mounted_project {
+                ui.separator();
+                ui.label("Mount a project with --project <dir|project.json>.");
             }
         });
 
@@ -137,7 +132,12 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
         ui.add_space(10.0);
         ui.separator();
 
-        let project_name = world.resource::<ProjectMetadata>().name.clone();
+        let project_name = world
+            .resource::<LoadedProject>()
+            .project
+            .as_ref()
+            .map(|project| project.name.clone())
+            .unwrap_or_else(|| "No Project Mounted".to_string());
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let mut ui_state = world.resource_mut::<EditorUiState>();
@@ -151,7 +151,11 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
             ui.label(
                 RichText::new(format!("Active: {}", project_name))
                     .italics()
-                    .color(Color32::GRAY),
+                    .color(if has_loaded_project {
+                        Color32::GRAY
+                    } else {
+                        COLOR_SECONDARY
+                    }),
             );
         });
     });
@@ -193,10 +197,28 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
 
                 ui.separator();
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.label("📁 music");
-                    ui.label("📁 sprites");
-                    ui.label("📁 scripts");
-                    ui.label("  📄 hamster_test.lua");
+                    let loaded_project = world.resource::<LoadedProject>().clone();
+                    if let Some(asset_root) = resolve_asset_root(&loaded_project) {
+                        let entries =
+                            collect_asset_entries(&asset_root, &ui_state.asset_search_query);
+                        if entries.is_empty() {
+                            ui.label(
+                                RichText::new("No matching assets found.")
+                                    .italics()
+                                    .color(Color32::GRAY),
+                            );
+                        } else {
+                            for entry in entries {
+                                ui.label(entry);
+                            }
+                        }
+                    } else {
+                        ui.label(
+                            RichText::new("No mounted project assets available.")
+                                .italics()
+                                .color(Color32::GRAY),
+                        );
+                    }
                 });
             }
             BrowserTab::Palette => {
@@ -208,14 +230,18 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
                 let mut selected = ui_state.selected_palette_item.clone();
 
                 ui.add_space(5.0);
-                ui.selectable_value(&mut selected, Some("Grass".to_string()), "🌿 Grass Tile");
-                ui.selectable_value(&mut selected, Some("Wall".to_string()), "🧱 Stone Wall");
                 ui.selectable_value(
                     &mut selected,
-                    Some("Hamster".to_string()),
-                    "🐹 Hamster Unit",
+                    Some("Terrain".to_string()),
+                    "🌿 Terrain Tile",
                 );
-                ui.selectable_value(&mut selected, Some("Chest".to_string()), "📦 Loot Chest");
+                ui.selectable_value(
+                    &mut selected,
+                    Some("Blocker".to_string()),
+                    "🧱 Collision Block",
+                );
+                ui.selectable_value(&mut selected, Some("Actor".to_string()), "🙂 Actor Marker");
+                ui.selectable_value(&mut selected, Some("Prop".to_string()), "📦 Prop Marker");
 
                 ui.add_space(10.0);
                 if ui
@@ -364,6 +390,51 @@ pub(crate) fn draw_console_window(ctx: &egui::Context, world: &mut World) {
     // Update state if window closed
     if !open {
         world.resource_mut::<EditorUiState>().console_open = false;
+    }
+}
+
+fn collect_asset_entries(asset_root: &Path, search_query: &str) -> Vec<String> {
+    if !asset_root.exists() {
+        return Vec::new();
+    }
+
+    let mut entries = Vec::new();
+    let normalized_query = search_query.trim().to_lowercase();
+    collect_asset_entries_recursive(asset_root, asset_root, &normalized_query, &mut entries);
+    entries.sort();
+    entries
+}
+
+fn collect_asset_entries_recursive(
+    asset_root: &Path,
+    current_path: &Path,
+    search_query: &str,
+    entries: &mut Vec<String>,
+) {
+    let Ok(read_dir) = fs::read_dir(current_path) else {
+        return;
+    };
+
+    let mut children: Vec<_> = read_dir.filter_map(Result::ok).collect();
+    children.sort_by_key(|entry| entry.path());
+
+    for child in children {
+        let path = child.path();
+        let Ok(relative_path) = path.strip_prefix(asset_root) else {
+            continue;
+        };
+        let relative_string = relative_path.display().to_string();
+        let matches_query =
+            search_query.is_empty() || relative_string.to_lowercase().contains(search_query);
+
+        if matches_query {
+            let prefix = if path.is_dir() { "📁" } else { "📄" };
+            entries.push(format!("{prefix} {relative_string}"));
+        }
+
+        if path.is_dir() {
+            collect_asset_entries_recursive(asset_root, &path, search_query, entries);
+        }
     }
 }
 

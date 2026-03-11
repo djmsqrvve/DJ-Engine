@@ -25,8 +25,8 @@ impl BreathingAnimation {
         }
     }
 
-    /// Default breathing animation for hamster body.
-    pub fn hamster_default() -> Self {
+    /// Default breathing animation for a 2D character sprite.
+    pub fn character_default() -> Self {
         Self::new(0.05, 1.5) // 5% scale change at 1.5 Hz
     }
 }
@@ -58,8 +58,8 @@ impl BlinkingAnimation {
         }
     }
 
-    /// Default blinking for hamster.
-    pub fn hamster_default() -> Self {
+    /// Default blinking for a 2D character sprite.
+    pub fn character_default() -> Self {
         Self::new(0.15, 2.0, 5.0)
     }
 }
@@ -85,8 +85,8 @@ impl IdleMotion {
         }
     }
 
-    /// Default idle motion for hamster head.
-    pub fn hamster_default() -> Self {
+    /// Default idle motion for a 2D character sprite.
+    pub fn character_default() -> Self {
         Self::new(2.0, 0.5)
     }
 }
@@ -104,8 +104,8 @@ mod tests {
     }
 
     #[test]
-    fn test_breathing_hamster_default() {
-        let b = BreathingAnimation::hamster_default();
+    fn test_breathing_character_default() {
+        let b = BreathingAnimation::character_default();
         assert_eq!(b.amplitude, 0.05);
         assert_eq!(b.frequency, 1.5);
     }
@@ -121,8 +121,8 @@ mod tests {
     }
 
     #[test]
-    fn test_blinking_hamster_default() {
-        let b = BlinkingAnimation::hamster_default();
+    fn test_blinking_character_default() {
+        let b = BlinkingAnimation::character_default();
         assert_eq!(b.blink_duration, 0.15);
         assert_eq!(b.interval_min, 2.0);
         assert_eq!(b.interval_max, 5.0);
@@ -137,8 +137,8 @@ mod tests {
     }
 
     #[test]
-    fn test_idle_motion_hamster_default() {
-        let m = IdleMotion::hamster_default();
+    fn test_idle_motion_character_default() {
+        let m = IdleMotion::character_default();
         assert_eq!(m.noise_scale, 2.0);
         assert_eq!(m.speed, 0.5);
     }

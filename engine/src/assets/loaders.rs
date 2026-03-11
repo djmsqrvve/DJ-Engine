@@ -3,14 +3,14 @@
 use bevy::asset::{io::Reader, AssetLoader, LoadContext};
 use bevy::reflect::TypePath;
 
-use super::definitions::{HamsterPartDefinition, PaletteDefinition};
+use super::definitions::{PaletteDefinition, SpritePartDefinition};
 
-/// Loads [`HamsterPartDefinition`] from JSON files.
+/// Loads [`SpritePartDefinition`] from JSON files.
 #[derive(Default, TypePath)]
-pub struct HamsterPartLoader;
+pub struct SpritePartLoader;
 
-impl AssetLoader for HamsterPartLoader {
-    type Asset = HamsterPartDefinition;
+impl AssetLoader for SpritePartLoader {
+    type Asset = SpritePartDefinition;
     type Settings = ();
     type Error = std::io::Error;
 
@@ -19,7 +19,7 @@ impl AssetLoader for HamsterPartLoader {
         reader: &mut dyn Reader,
         _settings: &(),
         _load_context: &mut LoadContext<'_>,
-    ) -> Result<HamsterPartDefinition, Self::Error> {
+    ) -> Result<SpritePartDefinition, Self::Error> {
         let mut bytes = Vec::new();
         bevy::asset::AsyncReadExt::read_to_end(reader, &mut bytes).await?;
         serde_json::from_slice(&bytes)
@@ -27,7 +27,7 @@ impl AssetLoader for HamsterPartLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["hamsterpart.json"]
+        &["spritepart.json"]
     }
 }
 
@@ -59,17 +59,18 @@ impl AssetLoader for PaletteLoader {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use super::super::definitions::*;
 
     #[test]
-    fn test_hamster_part_definition_loads_from_json_bytes() {
+    fn test_sprite_part_definition_loads_from_json_bytes() {
         let json = r#"{
             "part_name": "body",
             "sprite_file": "body.png",
             "sprite_size": [64, 64],
             "pivot": [0.5, 0.5]
         }"#;
-        let def: HamsterPartDefinition = serde_json::from_str(json).unwrap();
+        let def: SpritePartDefinition = serde_json::from_str(json).unwrap();
         assert_eq!(def.part_name, "body");
         assert_eq!(def.sprite_file, "body.png");
         assert_eq!(def.sprite_size.x, 64);
@@ -95,7 +96,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hamster_part_definition_missing_optional_fields_defaults() {
+    fn test_sprite_part_definition_missing_optional_fields_defaults() {
         // original_offset, layer_index, trim_rect are #[serde(default)]
         let json = r#"{
             "part_name": "head",
@@ -103,10 +104,16 @@ mod tests {
             "sprite_size": [32, 32],
             "pivot": [0.5, 1.0]
         }"#;
-        let def: HamsterPartDefinition = serde_json::from_str(json).unwrap();
+        let def: SpritePartDefinition = serde_json::from_str(json).unwrap();
         assert_eq!(def.original_offset.x, 0);
         assert_eq!(def.layer_index, 0);
         assert!(def.trim_rect.is_none());
+    }
+
+    #[test]
+    fn test_sprite_part_loader_extensions() {
+        let loader = SpritePartLoader;
+        assert_eq!(loader.extensions(), ["spritepart.json"]);
     }
 
     #[test]

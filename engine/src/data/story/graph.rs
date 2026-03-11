@@ -98,7 +98,7 @@ mod tests {
         graph.root_node_id = "start".to_string();
         graph
             .variables
-            .insert("met_hamster".to_string(), serde_json::json!(true));
+            .insert("intro_complete".to_string(), serde_json::json!(true));
         graph.add_node(StoryNodeData::start("start", Some("end")));
         graph.add_node(StoryNodeData::end("end"));
 
@@ -107,6 +107,6 @@ mod tests {
         assert_eq!(json["root_node_id"], json!("start"));
         assert_eq!(json["nodes"][0]["data"]["type"], json!("start"));
         assert_eq!(json["nodes"][1]["data"]["type"], json!("end"));
-        assert_eq!(json["variables"]["met_hamster"], json!(true));
+        assert_eq!(json["variables"]["intro_complete"], json!(true));
     }
 }

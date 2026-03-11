@@ -56,10 +56,10 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
 
                 // Determine color based on item
                 let color = match item.as_str() {
-                    "Grass" => Color::srgb(0.2, 0.8, 0.2),
-                    "Wall" => Color::srgb(0.5, 0.5, 0.5),
-                    "Hamster" => Color::srgb(0.8, 0.5, 0.2),
-                    "Chest" => Color::srgb(0.8, 0.8, 0.1),
+                    "Terrain" => Color::srgb(0.2, 0.8, 0.2),
+                    "Blocker" => Color::srgb(0.5, 0.5, 0.5),
+                    "Actor" => Color::srgb(0.8, 0.5, 0.2),
+                    "Prop" => Color::srgb(0.8, 0.8, 0.1),
                     _ => Color::WHITE,
                 };
 

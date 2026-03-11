@@ -1,12 +1,14 @@
 use super::types::{
-    BrowserTab, EditorState, EditorUiState, EditorView, ProjectMetadata, COLOR_BG, COLOR_PRIMARY,
+    BrowserTab, EditorState, EditorUiState, EditorView, LoadedProject, COLOR_BG, COLOR_PRIMARY,
 };
+use crate::data::loader::DataError;
 use crate::diagnostics::console::ConsoleLogStore;
 use bevy::prelude::*;
 use bevy_egui::{
     egui::{self, CornerRadius, Stroke},
     EguiContexts, EguiPlugin, EguiPrimaryContextPass,
 };
+use std::path::{Path, PathBuf};
 
 use super::types::ActiveStoryGraph;
 
@@ -14,6 +16,13 @@ use super::types::ActiveStoryGraph;
 struct AutomatedTestActive {
     timer: Timer,
     step: usize,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct EditorCliOptions {
+    project_path: Option<PathBuf>,
+    initial_view: EditorView,
+    test_mode: bool,
 }
 
 pub struct EditorPlugin;
@@ -24,52 +33,38 @@ impl Plugin for EditorPlugin {
             app.add_plugins(EguiPlugin::default());
         }
 
-        // Argument Parsing
-        let args: Vec<String> = std::env::args().collect();
-        let mut initial_project = ProjectMetadata::default();
-        let mut initial_view = EditorView::Level;
-        let mut test_mode = false;
+        let cli = parse_editor_cli_args(std::env::args());
+        let mut loaded_project = LoadedProject::default();
 
-        let mut i = 0;
-        while i < args.len() {
-            match args[i].as_str() {
-                "--project" => {
-                    if i + 1 < args.len() {
-                        initial_project.name = "Loaded from CLI".into();
-                        initial_project.path = Some(args[i + 1].clone().into());
-                        info!("CLI: Pre-loading project from {}", args[i + 1]);
-                    }
+        if let Some(path) = cli.project_path.as_deref() {
+            match normalize_project_path(path) {
+                Ok((root_path, manifest_path)) => {
+                    info!("CLI: Mounted project manifest {:?}", manifest_path);
+                    loaded_project.root_path = Some(root_path);
+                    loaded_project.manifest_path = Some(manifest_path);
                 }
-                "--view" => {
-                    if i + 1 < args.len() {
-                        initial_view = match args[i + 1].as_str() {
-                            "story" => EditorView::StoryGraph,
-                            _ => EditorView::Level,
-                        };
-                        info!("CLI: Setting initial view to {:?}", initial_view);
-                    }
+                Err(error) => {
+                    warn!(
+                        "CLI: Failed to normalize project path {:?}: {}",
+                        path, error
+                    );
                 }
-                "--test-mode" => {
-                    test_mode = true;
-                    info!("CLI: Automated Test Mode Enabled");
-                }
-                _ => {}
             }
-            i += 1;
         }
 
         app.init_state::<EditorState>()
-            .insert_resource(initial_project)
+            .insert_resource(loaded_project)
             .insert_resource(EditorUiState {
-                current_view: initial_view,
+                current_view: cli.initial_view,
                 ..default()
             })
             .init_resource::<ActiveStoryGraph>()
+            .add_systems(Startup, super::scene_io::load_initial_project_system)
             .add_systems(EguiPrimaryContextPass, configure_visuals_system)
             .add_systems(EguiPrimaryContextPass, super::editor_ui_system)
             .add_systems(OnEnter(EditorState::Playing), launch_project_system);
 
-        if test_mode {
+        if cli.test_mode {
             app.insert_resource(AutomatedTestActive {
                 timer: Timer::from_seconds(0.5, TimerMode::Repeating),
                 step: 0,
@@ -100,6 +95,69 @@ fn configure_visuals_system(mut contexts: EguiContexts) {
     ctx.set_visuals(visuals);
 }
 
+fn parse_editor_cli_args(args: impl IntoIterator<Item = String>) -> EditorCliOptions {
+    let args: Vec<String> = args.into_iter().collect();
+    let mut options = EditorCliOptions::default();
+    let mut positional_project = None;
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--project" => {
+                if i + 1 < args.len() {
+                    options.project_path = Some(PathBuf::from(&args[i + 1]));
+                    info!("CLI: Pre-loading project from {}", args[i + 1]);
+                    i += 1;
+                }
+            }
+            "--view" => {
+                if i + 1 < args.len() {
+                    options.initial_view = match args[i + 1].as_str() {
+                        "story" => EditorView::StoryGraph,
+                        _ => EditorView::Level,
+                    };
+                    info!("CLI: Setting initial view to {:?}", options.initial_view);
+                    i += 1;
+                }
+            }
+            "--test-mode" => {
+                options.test_mode = true;
+                info!("CLI: Automated Test Mode Enabled");
+            }
+            arg if !arg.starts_with("--") && positional_project.is_none() => {
+                positional_project = Some(PathBuf::from(arg));
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    if options.project_path.is_none() {
+        options.project_path = positional_project;
+    }
+
+    options
+}
+
+fn normalize_project_path(path: &Path) -> Result<(PathBuf, PathBuf), DataError> {
+    if path.file_name().and_then(|name| name.to_str()) == Some("project.json") {
+        let Some(root_path) = path.parent() else {
+            return Err(DataError::InvalidProject(
+                "project.json must live inside a project directory".into(),
+            ));
+        };
+        return Ok((root_path.to_path_buf(), path.to_path_buf()));
+    }
+
+    if path.extension().is_some() {
+        return Err(DataError::InvalidProject(
+            "Project path must be a directory or a project.json manifest".into(),
+        ));
+    }
+
+    Ok((path.to_path_buf(), path.join("project.json")))
+}
+
 fn automated_ui_test_system(
     mut commands: Commands,
     time: Res<Time>,
@@ -119,16 +177,16 @@ fn automated_ui_test_system(
             test_state.step += 1;
         }
         1 => {
-            console.log("TEST: Select 'Hamster' from palette".into());
+            console.log("TEST: Select 'Actor' from palette".into());
             ui_state.browser_tab = BrowserTab::Palette;
-            ui_state.selected_palette_item = Some("Hamster".into());
+            ui_state.selected_palette_item = Some("Actor".into());
             test_state.step += 1;
         }
         2 => {
             console.log("TEST: Simulating click/spawn at (100, 100)".into());
             // Manually spawn entity as if clicked
             commands.spawn((
-                Name::new("Hamster [100, 100]"),
+                Name::new("Actor [100, 100]"),
                 Sprite {
                     color: Color::srgb(0.8, 0.5, 0.2),
                     custom_size: Some(Vec2::new(30.0, 30.0)),
@@ -153,23 +211,86 @@ fn automated_ui_test_system(
 }
 
 fn launch_project_system(
-    project: Res<ProjectMetadata>,
+    loaded_project: Res<LoadedProject>,
     mut script_events: MessageWriter<crate::scripting::ScriptCommand>,
 ) {
-    let Some(path) = &project.path else {
-        warn!("No project path mounted! Cannot launch.");
+    let Some(project) = &loaded_project.project else {
+        warn!("No project loaded; continuing play mode without entry script.");
+        return;
+    };
+    let Some(root_path) = &loaded_project.root_path else {
+        warn!("Project root missing; continuing play mode without entry script.");
+        return;
+    };
+    let Some(entry_script) = project.settings.startup.entry_script.as_deref() else {
+        info!("No entry script configured; story graph preview will continue without scripting.");
         return;
     };
 
-    info!("Editor: Launching project from {:?}", path);
+    let script_path = root_path.join(entry_script);
+    if !script_path.exists() {
+        warn!(
+            "Configured entry script {:?} was not found; continuing without scripting.",
+            script_path
+        );
+        return;
+    }
 
-    // Look for a main.lua or hamster_test.lua in the project's script folder
-    let script_path = path.join("assets/scripts/hamster_test.lua");
-    if script_path.exists() {
-        script_events.write(crate::scripting::ScriptCommand::Load {
-            path: script_path.to_string_lossy().into(),
-        });
-    } else {
-        warn!("No entry script found at {:?}", script_path);
+    info!("Editor: Launching project entry script {:?}", script_path);
+    script_events.write(crate::scripting::ScriptCommand::Load {
+        path: script_path.to_string_lossy().into(),
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_editor_cli_args_supports_positional_project_path() {
+        let cli = parse_editor_cli_args([
+            "dj_engine".into(),
+            "projects/sample".into(),
+            "--view".into(),
+            "story".into(),
+            "--test-mode".into(),
+        ]);
+
+        assert_eq!(cli.project_path, Some(PathBuf::from("projects/sample")));
+        assert_eq!(cli.initial_view, EditorView::StoryGraph);
+        assert!(cli.test_mode);
+    }
+
+    #[test]
+    fn test_parse_editor_cli_args_prefers_explicit_project_flag() {
+        let cli = parse_editor_cli_args([
+            "dj_engine".into(),
+            "projects/ignored".into(),
+            "--project".into(),
+            "projects/explicit".into(),
+        ]);
+
+        assert_eq!(cli.project_path, Some(PathBuf::from("projects/explicit")));
+    }
+
+    #[test]
+    fn test_normalize_project_path_accepts_directory() {
+        let (root, manifest) = normalize_project_path(Path::new("projects/sample")).unwrap();
+        assert_eq!(root, PathBuf::from("projects/sample"));
+        assert_eq!(manifest, PathBuf::from("projects/sample/project.json"));
+    }
+
+    #[test]
+    fn test_normalize_project_path_accepts_project_manifest() {
+        let (root, manifest) =
+            normalize_project_path(Path::new("projects/sample/project.json")).unwrap();
+        assert_eq!(root, PathBuf::from("projects/sample"));
+        assert_eq!(manifest, PathBuf::from("projects/sample/project.json"));
+    }
+
+    #[test]
+    fn test_normalize_project_path_rejects_non_manifest_file() {
+        let result = normalize_project_path(Path::new("projects/sample/notes.json"));
+        assert!(matches!(result, Err(DataError::InvalidProject(_))));
     }
 }

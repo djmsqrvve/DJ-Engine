@@ -4,6 +4,40 @@
 //! game-specific concepts from the core engine.
 
 use bevy::prelude::*;
+use bevy::window::WindowResolution;
+
+/// DoomExe-specific app window configuration.
+#[derive(Debug, Clone)]
+pub struct DoomExeAppConfig {
+    pub window_title: &'static str,
+    pub window_width: u32,
+    pub window_height: u32,
+    pub scale_factor_override: f32,
+}
+
+impl Default for DoomExeAppConfig {
+    fn default() -> Self {
+        Self {
+            window_title: "DoomExe",
+            window_width: 800,
+            window_height: 600,
+            scale_factor_override: 1.0,
+        }
+    }
+}
+
+impl DoomExeAppConfig {
+    pub fn primary_window(&self) -> Window {
+        Window {
+            title: self.window_title.into(),
+            resolution: WindowResolution::new(self.window_width, self.window_height)
+                .with_scale_factor_override(self.scale_factor_override),
+            position: WindowPosition::Centered(MonitorSelection::Primary),
+            present_mode: bevy::window::PresentMode::AutoVsync,
+            ..default()
+        }
+    }
+}
 
 /// The main hamster character component with state tracking.
 #[derive(Component, Resource, Default, Clone)]
@@ -115,4 +149,19 @@ pub struct CorruptionUniforms {
     pub time: f32,
     /// Which palette variant to use (0, 1, 2, 3)
     pub palette_shift: i32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_doomexe_app_config_defaults() {
+        let config = DoomExeAppConfig::default();
+
+        assert_eq!(config.window_title, "DoomExe");
+        assert_eq!(config.window_width, 800);
+        assert_eq!(config.window_height, 600);
+        assert!((config.scale_factor_override - 1.0).abs() < f32::EPSILON);
+    }
 }

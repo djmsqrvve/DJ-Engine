@@ -140,9 +140,9 @@ mod tests {
         let lua = Lua::new();
         let state = create_shared_state();
         register_generic_state_api(&lua, state.clone()).unwrap();
-        lua.load("set_string('name', 'hamster')").exec().unwrap();
+        lua.load("set_string('name', 'tester')").exec().unwrap();
         let val: String = lua.load("return get_string('name')").eval().unwrap();
-        assert_eq!(val, "hamster");
+        assert_eq!(val, "tester");
     }
 
     #[test]

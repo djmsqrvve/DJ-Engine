@@ -389,8 +389,8 @@ mod tests {
     #[test]
     fn test_story_flags_set_get() {
         let mut flags = StoryFlags::default();
-        flags.set("met_hamster", true);
-        assert!(flags.get("met_hamster"));
+        flags.set("met_guide", true);
+        assert!(flags.get("met_guide"));
         assert!(!flags.get("unset_flag"));
     }
 
@@ -479,16 +479,16 @@ mod tests {
     #[test]
     fn test_story_variables_evaluate_string() {
         let mut vars = StoryVariables::default();
-        vars.set("name", serde_json::json!("hamster"));
+        vars.set("name", serde_json::json!("guide"));
         assert!(vars.evaluate(
             "name",
             ConditionOperator::Equals,
-            &serde_json::json!("hamster")
+            &serde_json::json!("guide")
         ));
         assert!(vars.evaluate(
             "name",
             ConditionOperator::Contains,
-            &serde_json::json!("ham")
+            &serde_json::json!("gui")
         ));
         assert!(!vars.evaluate(
             "name",

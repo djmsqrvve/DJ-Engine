@@ -2,6 +2,7 @@
 name = "dj_engine"
 version = "0.1.0"
 edition = "2021"
+default-run = "dj_engine"
 
 [dependencies]
 bevy = { workspace = true }
@@ -18,4 +19,3 @@ uuid = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-

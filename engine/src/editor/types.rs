@@ -1,7 +1,9 @@
+use crate::data::project::Project;
 use crate::data::story::graph::StoryGraphData;
 use bevy::prelude::*;
 use bevy_egui::egui::Color32;
 use bevy_inspector_egui::bevy_inspector;
+use std::path::PathBuf;
 
 pub(crate) const COLOR_PRIMARY: Color32 = Color32::from_rgb(0, 255, 204); // Cyberpunk Mint
 pub(crate) const COLOR_SECONDARY: Color32 = Color32::from_rgb(255, 175, 200); // Pale Rose
@@ -29,11 +31,12 @@ pub enum BrowserTab {
     Palette,
 }
 
-/// Resource holding the current project metadata.
-#[derive(Resource, Default)]
-pub struct ProjectMetadata {
-    pub name: String,
-    pub path: Option<std::path::PathBuf>,
+/// Resource holding the currently mounted editor project.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct LoadedProject {
+    pub root_path: Option<PathBuf>,
+    pub manifest_path: Option<PathBuf>,
+    pub project: Option<Project>,
 }
 
 #[derive(Resource, Default)]

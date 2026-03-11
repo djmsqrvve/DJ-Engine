@@ -5,7 +5,7 @@ members = [
     "games/dev/doomexe",
     "tools/asset_generator"
 ]
-default-members = ["games/dev/doomexe"]
+default-members = ["engine"]
 
 [workspace.dependencies]
 bevy = { version = "0.18", features = ["dynamic_linking", "wav"] }

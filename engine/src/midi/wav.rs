@@ -192,6 +192,14 @@ pub(super) fn generate_wav_square(num_samples: u32, sample_rate: u32, freq: f32)
 mod tests {
     use super::*;
 
+    fn simple_test_midi_bytes() -> Vec<u8> {
+        vec![
+            b'M', b'T', b'h', b'd', 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x60,
+            b'M', b'T', b'r', b'k', 0x00, 0x00, 0x00, 0x13, 0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1,
+            0x20, 0x00, 0x90, 0x3C, 0x40, 0x60, 0x80, 0x3C, 0x40, 0x00, 0xFF, 0x2F, 0x00,
+        ]
+    }
+
     #[test]
     fn test_generate_wav_valid_header() {
         let samples: Vec<f32> = vec![0.0; 44100];
@@ -213,20 +221,17 @@ mod tests {
 
     #[test]
     fn test_parse_midi_bytes_valid() {
-        let midi_path = "games/dev/doomexe/assets/music/overworld_theme.mid";
-        if let Ok(bytes) = std::fs::read(midi_path) {
-            let result = parse_midi_bytes(&bytes);
-            assert!(
-                result.is_ok(),
-                "parse_midi_bytes failed: {:?}",
-                result.err()
-            );
-            let (events, ticks_per_beat, duration) = result.unwrap();
-            assert!(!events.is_empty(), "expected MIDI events");
-            assert!(ticks_per_beat > 0, "expected positive ticks_per_beat");
-            assert!(duration > 0, "expected positive duration");
-        }
-        // Skip test if file not present (e.g. running from non-workspace root)
+        let bytes = simple_test_midi_bytes();
+        let result = parse_midi_bytes(&bytes);
+        assert!(
+            result.is_ok(),
+            "parse_midi_bytes failed: {:?}",
+            result.err()
+        );
+        let (events, ticks_per_beat, duration) = result.unwrap();
+        assert!(!events.is_empty(), "expected MIDI events");
+        assert!(ticks_per_beat > 0, "expected positive ticks_per_beat");
+        assert!(duration > 0, "expected positive duration");
     }
 
     #[test]

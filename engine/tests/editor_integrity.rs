@@ -1,6 +1,7 @@
 use bevy::prelude::*;
+use dj_engine::data::Project;
 use dj_engine::editor::{
-    BrowserTab, EditorPlugin, EditorState, EditorUiState, EditorView, ProjectMetadata,
+    BrowserTab, EditorPlugin, EditorState, EditorUiState, EditorView, LoadedProject,
 };
 
 #[test]
@@ -24,7 +25,7 @@ fn test_editor_initialization_and_state() {
     // since we can't spin up a full UI context in a headless CI environment easily.
 
     app.init_state::<EditorState>()
-        .init_resource::<ProjectMetadata>()
+        .init_resource::<LoadedProject>()
         .init_resource::<EditorUiState>();
 
     // 2. Verify Initial State
@@ -36,14 +37,15 @@ fn test_editor_initialization_and_state() {
     // 3. Simulate User Actions
 
     // "Load Project"
-    let mut project = app.world_mut().resource_mut::<ProjectMetadata>();
-    project.name = "Test Project".into();
-    project.path = Some("test/path".into());
+    let mut project = app.world_mut().resource_mut::<LoadedProject>();
+    project.root_path = Some("test/path".into());
+    project.manifest_path = Some("test/path/project.json".into());
+    project.project = Some(Project::new("Test Project"));
 
     // "Select Palette Item"
     let mut ui_state = app.world_mut().resource_mut::<EditorUiState>();
     ui_state.browser_tab = BrowserTab::Palette;
-    ui_state.selected_palette_item = Some("Hamster".into());
+    ui_state.selected_palette_item = Some("Actor".into());
 
     // "Switch View"
     ui_state.current_view = EditorView::StoryGraph;
@@ -51,11 +53,15 @@ fn test_editor_initialization_and_state() {
     // 4. Verify Changes
     let ui_state_after = app.world().resource::<EditorUiState>();
     assert_eq!(ui_state_after.browser_tab, BrowserTab::Palette);
-    assert_eq!(ui_state_after.selected_palette_item, Some("Hamster".into()));
+    assert_eq!(ui_state_after.selected_palette_item, Some("Actor".into()));
     assert_eq!(ui_state_after.current_view, EditorView::StoryGraph);
 
-    let project_after = app.world().resource::<ProjectMetadata>();
-    assert_eq!(project_after.name, "Test Project");
+    let project_after = app.world().resource::<LoadedProject>();
+    assert_eq!(project_after.project.as_ref().unwrap().name, "Test Project");
+    assert_eq!(
+        project_after.manifest_path.as_deref(),
+        Some(std::path::Path::new("test/path/project.json"))
+    );
 }
 
 #[test]

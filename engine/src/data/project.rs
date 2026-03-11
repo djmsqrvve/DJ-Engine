@@ -98,6 +98,20 @@ impl Default for ProjectPaths {
     }
 }
 
+/// Startup configuration for editor and runtime previews.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ProjectStartup {
+    /// Scene ID the editor should load by default.
+    #[serde(default)]
+    pub default_scene_id: Option<String>,
+    /// Story graph ID the editor should load by default.
+    #[serde(default)]
+    pub default_story_graph_id: Option<String>,
+    /// Optional entry script path relative to the project root.
+    #[serde(default)]
+    pub entry_script: Option<String>,
+}
+
 /// Autosave configuration.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AutosaveSettings {
@@ -162,6 +176,9 @@ pub struct ProjectSettings {
     pub localization: LocalizationSettings,
     /// Project file paths
     pub paths: ProjectPaths,
+    /// Startup defaults for editor/runtime previews
+    #[serde(default)]
+    pub startup: ProjectStartup,
     /// Autosave settings
     pub autosave: AutosaveSettings,
 }
@@ -183,6 +200,7 @@ impl Default for ProjectSettings {
                 default_language: "en".to_string(),
             },
             paths: ProjectPaths::default(),
+            startup: ProjectStartup::default(),
             autosave: AutosaveSettings::default(),
         }
     }
@@ -330,6 +348,38 @@ mod tests {
         let json = serde_json::to_string_pretty(&project).unwrap();
         let deserialized: Project = serde_json::from_str(&json).unwrap();
         assert_eq!(project.name, deserialized.name);
+    }
+
+    #[test]
+    fn test_project_startup_defaults() {
+        let startup = ProjectStartup::default();
+        assert_eq!(startup.default_scene_id, None);
+        assert_eq!(startup.default_story_graph_id, None);
+        assert_eq!(startup.entry_script, None);
+    }
+
+    #[test]
+    fn test_project_startup_roundtrip() {
+        let mut project = Project::new("Roundtrip");
+        project.settings.startup.default_scene_id = Some("intro_scene".into());
+        project.settings.startup.default_story_graph_id = Some("intro_story".into());
+        project.settings.startup.entry_script = Some("assets/scripts/main.lua".into());
+
+        let json = serde_json::to_string_pretty(&project).unwrap();
+        let loaded: Project = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(
+            loaded.settings.startup.default_scene_id.as_deref(),
+            Some("intro_scene")
+        );
+        assert_eq!(
+            loaded.settings.startup.default_story_graph_id.as_deref(),
+            Some("intro_story")
+        );
+        assert_eq!(
+            loaded.settings.startup.entry_script.as_deref(),
+            Some("assets/scripts/main.lua")
+        );
     }
 
     #[test]

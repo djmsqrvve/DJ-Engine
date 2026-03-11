@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use bevy::window::WindowResolution;
 use dj_engine::prelude::*;
+use types::DoomExeAppConfig;
 
 mod assets;
 mod battle;
@@ -15,18 +15,14 @@ mod title;
 mod types;
 
 fn main() {
+    let app_config = DoomExeAppConfig::default();
+
     App::new()
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest()) // Pixel art friendly
                 .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "DJ Engine V1.0".into(),
-                        resolution: WindowResolution::new(800, 600).with_scale_factor_override(1.0),
-                        position: WindowPosition::Centered(MonitorSelection::Primary),
-                        present_mode: bevy::window::PresentMode::AutoVsync,
-                        ..default()
-                    }),
+                    primary_window: Some(app_config.primary_window()),
                     ..default()
                 }),
         )

@@ -6,16 +6,16 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Definition for a single hamster sprite part loaded from JSON.
+/// Definition for a single composited sprite part loaded from JSON.
 #[derive(Serialize, Deserialize, Clone, Debug, Asset, TypePath)]
-pub struct HamsterPartDefinition {
+pub struct SpritePartDefinition {
     /// Identifier used in code (e.g., "body", "head")
     pub part_name: String,
     /// Relative path to PNG sprite file
     pub sprite_file: String,
     /// Full PNG dimensions in pixels
     pub sprite_size: IVec2,
-    /// Position offset in composite hamster image
+    /// Position offset in the assembled sprite
     #[serde(default)]
     pub original_offset: IVec2,
     /// Z-order (0 = back, higher = front)
@@ -62,9 +62,9 @@ impl ColorEntry {
     }
 }
 
-/// Manifest listing all hamster parts to load.
+/// Manifest listing all sprite parts to load.
 #[derive(Serialize, Deserialize, Clone, Debug, Asset, TypePath)]
-pub struct HamsterPartsManifest {
+pub struct SpritePartsManifest {
     /// List of parts to load
     pub parts: Vec<PartEntry>,
 }
@@ -80,31 +80,26 @@ pub struct PartEntry {
     pub metadata_file: String,
 }
 
-/// Resource storing all loaded hamster parts.
+/// Resource storing all loaded sprite parts.
 #[derive(Resource, Default)]
-pub struct HamsterPartLibrary {
+pub struct SpritePartLibrary {
     /// Map of part name to (definition, image handle)
-    pub parts: HashMap<String, (HamsterPartDefinition, Handle<Image>)>,
+    pub parts: HashMap<String, (SpritePartDefinition, Handle<Image>)>,
 }
 
-impl HamsterPartLibrary {
+impl SpritePartLibrary {
     /// Creates a new empty library.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Adds a part to the library.
-    pub fn insert(
-        &mut self,
-        name: String,
-        definition: HamsterPartDefinition,
-        image: Handle<Image>,
-    ) {
+    pub fn insert(&mut self, name: String, definition: SpritePartDefinition, image: Handle<Image>) {
         self.parts.insert(name, (definition, image));
     }
 
     /// Gets a part by name.
-    pub fn get(&self, name: &str) -> Option<&(HamsterPartDefinition, Handle<Image>)> {
+    pub fn get(&self, name: &str) -> Option<&(SpritePartDefinition, Handle<Image>)> {
         self.parts.get(name)
     }
 
@@ -186,26 +181,26 @@ mod tests {
     fn test_part_entry_serde() {
         let entry = PartEntry {
             part_name: "body".into(),
-            directory: "hamster/body".into(),
+            directory: "sprites/body".into(),
             metadata_file: "body.json".into(),
         };
         let json = serde_json::to_string(&entry).unwrap();
         let decoded: PartEntry = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.part_name, "body");
-        assert_eq!(decoded.directory, "hamster/body");
+        assert_eq!(decoded.directory, "sprites/body");
     }
 
     #[test]
     fn test_part_library_empty() {
-        let lib = HamsterPartLibrary::new();
+        let lib = SpritePartLibrary::new();
         assert!(lib.is_empty());
         assert_eq!(lib.len(), 0);
     }
 
     #[test]
     fn test_part_library_insert_get() {
-        let mut lib = HamsterPartLibrary::new();
-        let def = HamsterPartDefinition {
+        let mut lib = SpritePartLibrary::new();
+        let def = SpritePartDefinition {
             part_name: "body".into(),
             sprite_file: "body.png".into(),
             sprite_size: IVec2::new(64, 64),
