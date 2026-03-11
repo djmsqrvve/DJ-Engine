@@ -26,6 +26,18 @@ pub enum SaveError {
 }
 
 fn save_dir() -> PathBuf {
+    if let Ok(override_dir) = std::env::var("DJ_ENGINE_SAVE_DIR") {
+        return PathBuf::from(override_dir);
+    }
+
+    default_save_dir()
+}
+
+fn default_save_dir() -> PathBuf {
+    if let Ok(xdg_data_home) = std::env::var("XDG_DATA_HOME") {
+        return PathBuf::from(xdg_data_home).join("dj_engine/saves");
+    }
+
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
     PathBuf::from(home).join(".local/share/dj_engine/saves")
 }
@@ -121,6 +133,29 @@ fn handle_load_commands(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
+    use std::sync::{Mutex, OnceLock};
+
+    fn save_test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn with_temp_save_dir<T>(f: impl FnOnce(&Path) -> T) -> T {
+        let _guard = save_test_lock().lock().unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let previous = std::env::var_os("DJ_ENGINE_SAVE_DIR");
+
+        std::env::set_var("DJ_ENGINE_SAVE_DIR", temp_dir.path());
+        let result = f(temp_dir.path());
+
+        match previous {
+            Some(value) => std::env::set_var("DJ_ENGINE_SAVE_DIR", value),
+            None => std::env::remove_var("DJ_ENGINE_SAVE_DIR"),
+        }
+
+        result
+    }
 
     #[test]
     fn test_save_data_default() {
@@ -179,36 +214,68 @@ mod tests {
 
     #[test]
     fn test_save_dir_is_xdg_compliant() {
-        let dir = save_dir();
+        let dir = default_save_dir();
         let dir_str = dir.to_string_lossy();
         assert!(dir_str.contains(".local/share/dj_engine/saves"));
     }
 
     #[test]
     fn test_has_save_false_for_missing() {
-        assert!(!has_save(9999));
+        with_temp_save_dir(|_| {
+            assert!(!has_save(9999));
+        });
+    }
+
+    #[test]
+    fn test_save_dir_prefers_override() {
+        with_temp_save_dir(|dir| {
+            assert_eq!(save_dir(), dir);
+        });
+    }
+
+    #[test]
+    fn test_save_dir_uses_xdg_data_home() {
+        let _guard = save_test_lock().lock().unwrap();
+        let previous_override = std::env::var_os("DJ_ENGINE_SAVE_DIR");
+        let previous_xdg = std::env::var_os("XDG_DATA_HOME");
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        std::env::remove_var("DJ_ENGINE_SAVE_DIR");
+        std::env::set_var("XDG_DATA_HOME", temp_dir.path());
+
+        let expected = temp_dir.path().join("dj_engine/saves");
+        assert_eq!(save_dir(), expected);
+
+        match previous_override {
+            Some(value) => std::env::set_var("DJ_ENGINE_SAVE_DIR", value),
+            None => std::env::remove_var("DJ_ENGINE_SAVE_DIR"),
+        }
+        match previous_xdg {
+            Some(value) => std::env::set_var("XDG_DATA_HOME", value),
+            None => std::env::remove_var("XDG_DATA_HOME"),
+        }
     }
 
     #[test]
     fn test_save_and_load_integration() {
-        // Use a unique slot to avoid collision with other tests
-        let slot = 7777;
-        let mut data = SaveData::default();
-        data.flags.insert("test_flag".into(), true);
-        data.game_state = "Overworld".into();
-        data.current_node = Some(5);
+        with_temp_save_dir(|_| {
+            let slot = 7777;
+            let mut data = SaveData::default();
+            data.flags.insert("test_flag".into(), true);
+            data.game_state = "Overworld".into();
+            data.current_node = Some(5);
 
-        let result = save_game(slot, &data);
-        assert!(result.is_ok());
-        assert!(has_save(slot));
+            let result = save_game(slot, &data);
+            assert!(result.is_ok());
+            assert!(has_save(slot));
 
-        let loaded = load_game(slot).unwrap();
-        assert_eq!(loaded.flags["test_flag"], true);
-        assert_eq!(loaded.game_state, "Overworld");
-        assert_eq!(loaded.current_node, Some(5));
+            let loaded = load_game(slot).unwrap();
+            assert_eq!(loaded.flags["test_flag"], true);
+            assert_eq!(loaded.game_state, "Overworld");
+            assert_eq!(loaded.current_node, Some(5));
 
-        // Clean up
-        delete_save(slot).unwrap();
-        assert!(!has_save(slot));
+            delete_save(slot).unwrap();
+            assert!(!has_save(slot));
+        });
     }
 }
