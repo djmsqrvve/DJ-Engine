@@ -155,6 +155,9 @@ fn auto_save(flags: Res<StoryFlags>, variables: Res<StoryVariables>) {
         current_node: None,
         game_state: "Overworld".into(),
         scene_background: None,
+        project_id: None,
+        scene_id: None,
+        story_graph_id: None,
     };
     if let Err(e) = dj_engine::save::save_game(0, &data) {
         error!("Auto-save failed: {e}");

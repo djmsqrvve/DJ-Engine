@@ -1,11 +1,15 @@
-use super::scene_io::{load_mounted_project, resolve_asset_root, save_project_impl};
+use super::scene_io::{resolve_asset_root, save_project_impl};
 use super::types::{
-    ActiveStoryGraph, BrowserTab, EditorState, EditorUiState, EditorView,
-    RuntimePreviewLaunchPhase, RuntimePreviewLaunchState, COLOR_PRIMARY, COLOR_SECONDARY,
+    ActiveStoryGraph, BrowserTab, EditorDirtyState, EditorState, EditorUiState, EditorView,
+    PendingProjectAction, PendingProjectActionResolution, RuntimePreviewLaunchPhase,
+    RuntimePreviewLaunchState, COLOR_PRIMARY, COLOR_SECONDARY,
 };
 use super::views::{draw_grid, draw_story_graph};
 use crate::diagnostics::console::ConsoleLogStore;
-use crate::editor::plugin::{launch_runtime_preview_from_editor, stop_runtime_preview_from_editor};
+use crate::editor::plugin::{
+    launch_runtime_preview_from_editor, request_project_action, resolve_pending_project_action,
+    stop_runtime_preview_from_editor,
+};
 use crate::project_mount::MountedProject;
 use crate::story_graph::GraphExecutor;
 use bevy::prelude::*;
@@ -41,10 +45,14 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
     let has_mounted_project = world.resource::<MountedProject>().manifest_path.is_some();
     let has_loaded_project = world.resource::<MountedProject>().project.is_some();
     let current_state = world.resource::<State<EditorState>>().get().clone();
+    let dirty_state = world.resource::<EditorDirtyState>();
+    let is_dirty = dirty_state.is_dirty;
+    let snapshot_error = dirty_state.snapshot_error.clone();
     let runtime_preview = world.resource::<RuntimePreviewLaunchState>();
     let preview_is_running = runtime_preview.is_running();
     let preview_status = runtime_preview.status_message.clone();
     let preview_phase = runtime_preview.phase.clone();
+    let preview_last_exit = runtime_preview.last_exit.clone();
 
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 2.0;
@@ -78,18 +86,14 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
                 )
                 .clicked()
             {
-                if let Err(error) = load_mounted_project(world) {
-                    error!("Failed to load mounted project: {}", error);
-                }
+                request_project_action(world, PendingProjectAction::LoadMountedProject);
                 ui.close();
             }
             if ui
                 .add_enabled(has_mounted_project, egui::Button::new("🔄 Reload Project"))
                 .clicked()
             {
-                if let Err(error) = load_mounted_project(world) {
-                    error!("Failed to reload mounted project: {}", error);
-                }
+                request_project_action(world, PendingProjectAction::ReloadProject);
                 ui.close();
             }
             if !has_mounted_project {
@@ -195,12 +199,17 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
         ui.add_space(10.0);
         ui.separator();
 
-        let project_name = world
-            .resource::<MountedProject>()
+        let mounted_project = world.resource::<MountedProject>();
+        let project_name = mounted_project
             .project
             .as_ref()
             .map(|project| project.name.clone())
             .unwrap_or_else(|| "No Project Mounted".to_string());
+        let manifest_label = mounted_project
+            .manifest_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "No manifest mounted".to_string());
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let mut ui_state = world.resource_mut::<EditorUiState>();
@@ -211,6 +220,18 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
                 ui_state.console_open = !ui_state.console_open;
             }
             ui.separator();
+            if is_dirty {
+                ui.label(RichText::new("DIRTY").color(COLOR_SECONDARY).strong());
+                ui.separator();
+            }
+            if let Some(last_exit) = &preview_last_exit {
+                ui.label(
+                    RichText::new(format!("Last Exit: {last_exit}"))
+                        .italics()
+                        .color(Color32::GRAY),
+                );
+                ui.separator();
+            }
             if let Some(status) = &preview_status {
                 let status_color = match preview_phase {
                     RuntimePreviewLaunchPhase::Running => COLOR_PRIMARY,
@@ -221,6 +242,16 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
                 ui.label(RichText::new(status.clone()).italics().color(status_color));
                 ui.separator();
             }
+            if let Some(snapshot_error) = &snapshot_error {
+                ui.label(
+                    RichText::new(snapshot_error.clone())
+                        .italics()
+                        .color(Color32::RED),
+                );
+                ui.separator();
+            }
+            ui.label(RichText::new(manifest_label).italics().color(Color32::GRAY));
+            ui.separator();
             ui.label(
                 RichText::new(format!("Active: {}", project_name))
                     .italics()
@@ -232,6 +263,49 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
             );
         });
     });
+}
+
+pub(crate) fn draw_pending_project_action_window(ctx: &egui::Context, world: &mut World) {
+    let pending_action = world
+        .resource::<EditorDirtyState>()
+        .pending_project_action
+        .clone();
+    let Some(pending_action) = pending_action else {
+        return;
+    };
+
+    let action_label = match pending_action {
+        PendingProjectAction::LoadMountedProject => "load the mounted project",
+        PendingProjectAction::ReloadProject => "reload the mounted project",
+    };
+
+    egui::Window::new("Unsaved Changes")
+        .collapsible(false)
+        .resizable(false)
+        .default_size(egui::vec2(420.0, 0.0))
+        .show(ctx, |ui| {
+            ui.label(format!(
+                "You have unsaved changes. Do you want to save before I {action_label}?"
+            ));
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.button("Save and Continue").clicked() {
+                    resolve_pending_project_action(
+                        world,
+                        PendingProjectActionResolution::SaveAndContinue,
+                    );
+                }
+                if ui.button("Discard Changes").clicked() {
+                    resolve_pending_project_action(
+                        world,
+                        PendingProjectActionResolution::DiscardChanges,
+                    );
+                }
+                if ui.button("Cancel").clicked() {
+                    resolve_pending_project_action(world, PendingProjectActionResolution::Cancel);
+                }
+            });
+        });
 }
 
 pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {

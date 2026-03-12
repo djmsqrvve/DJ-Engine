@@ -13,7 +13,8 @@ pub use crate::project_mount::MountedProject;
 pub use plugin::EditorPlugin;
 pub use types::ActiveStoryGraph;
 pub use types::{
-    BrowserTab, EditorState, EditorUiState, EditorView, RuntimePreviewLaunchPhase,
+    BrowserTab, EditorDirtyState, EditorSnapshotBaseline, EditorState, EditorUiState, EditorView,
+    PendingProjectAction, PendingProjectActionResolution, RuntimePreviewLaunchPhase,
     RuntimePreviewLaunchState,
 };
 
@@ -38,6 +39,8 @@ pub(crate) fn editor_ui_system(world: &mut World) {
     if world.resource::<types::EditorUiState>().console_open {
         panels::draw_console_window(&egui_ctx, world);
     }
+
+    panels::draw_pending_project_action_window(&egui_ctx, world);
 
     egui::SidePanel::left("left_panel")
         .default_width(250.0)

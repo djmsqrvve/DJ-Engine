@@ -1,4 +1,5 @@
 use super::types::ActiveStoryGraph;
+use super::types::{EditorDirtyState, EditorSnapshotBaseline};
 use crate::data::components::common::{ColorData, Vec3Data};
 use crate::data::components::entity::EntityComponents;
 use crate::data::components::rendering::{SpriteComponent, TransformComponent};
@@ -15,6 +16,76 @@ use std::path::{Path, PathBuf};
 pub(crate) fn load_initial_project_system(world: &mut World) {
     if let Err(error) = load_mounted_project(world) {
         warn!("Editor: Failed to load mounted project: {}", error);
+    }
+}
+
+pub(crate) fn capture_editor_snapshot(
+    world: &mut World,
+) -> Result<EditorSnapshotBaseline, serde_json::Error> {
+    let project = world.resource::<MountedProject>().project.clone();
+    if project.is_none() {
+        return Ok(EditorSnapshotBaseline::default());
+    }
+
+    let scene_json = Some(serde_json::to_string(&world_to_scene(world))?);
+    let story_graph_json = Some(serde_json::to_string(
+        &world.resource::<ActiveStoryGraph>().0,
+    )?);
+    let project_json = Some(serde_json::to_string(project.as_ref().unwrap())?);
+
+    Ok(EditorSnapshotBaseline {
+        scene_json,
+        story_graph_json,
+        project_json,
+    })
+}
+
+pub(crate) fn sync_editor_snapshot_baseline(world: &mut World) -> Result<(), serde_json::Error> {
+    let snapshot = capture_editor_snapshot(world)?;
+
+    if let Some(mut baseline) = world.get_resource_mut::<EditorSnapshotBaseline>() {
+        *baseline = snapshot;
+    } else {
+        world.insert_resource(snapshot);
+    }
+
+    if let Some(mut dirty_state) = world.get_resource_mut::<EditorDirtyState>() {
+        dirty_state.is_dirty = false;
+        dirty_state.snapshot_error = None;
+    }
+
+    Ok(())
+}
+
+pub(crate) fn refresh_editor_dirty_state(world: &mut World) {
+    let snapshot = match capture_editor_snapshot(world) {
+        Ok(snapshot) => snapshot,
+        Err(error) => {
+            let message = format!("Failed to snapshot editor state: {error}");
+            if let Some(mut dirty_state) = world.get_resource_mut::<EditorDirtyState>() {
+                dirty_state.is_dirty = true;
+                dirty_state.snapshot_error = Some(message.clone());
+            }
+            warn!("Editor: {}", message);
+            return;
+        }
+    };
+
+    let baseline = world
+        .get_resource::<EditorSnapshotBaseline>()
+        .cloned()
+        .unwrap_or_default();
+    let is_dirty = snapshot != baseline;
+
+    if let Some(mut dirty_state) = world.get_resource_mut::<EditorDirtyState>() {
+        dirty_state.is_dirty = is_dirty;
+        dirty_state.snapshot_error = None;
+    } else {
+        world.insert_resource(EditorDirtyState {
+            is_dirty,
+            snapshot_error: None,
+            pending_project_action: None,
+        });
     }
 }
 
@@ -38,6 +109,13 @@ pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
         Err(error) => {
             load_scene_into_editor(world, Scene::new("editor_empty", "Empty Scene"));
             world.insert_resource(ActiveStoryGraph::default());
+            if let Some(mut baseline) = world.get_resource_mut::<EditorSnapshotBaseline>() {
+                *baseline = EditorSnapshotBaseline::default();
+            }
+            if let Some(mut dirty_state) = world.get_resource_mut::<EditorDirtyState>() {
+                dirty_state.is_dirty = false;
+                dirty_state.snapshot_error = None;
+            }
             return Err(error);
         }
     };
@@ -93,6 +171,12 @@ pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
     }
 
     info!("Editor: Loaded project '{}'", project.name);
+    if let Err(error) = sync_editor_snapshot_baseline(world) {
+        warn!(
+            "Editor: Failed to reset dirty baseline after load: {}",
+            error
+        );
+    }
     Ok(())
 }
 
@@ -159,6 +243,12 @@ pub(crate) fn save_project_impl(world: &mut World) -> Result<(), DataError> {
 
     world.resource_mut::<MountedProject>().project = Some(project);
     info!("Successfully saved project to {:?}", manifest_path);
+    if let Err(error) = sync_editor_snapshot_baseline(world) {
+        warn!(
+            "Editor: Failed to reset dirty baseline after save: {}",
+            error
+        );
+    }
     Ok(())
 }
 
@@ -259,6 +349,8 @@ mod tests {
     use crate::data::project::Project;
     use crate::data::project::ProjectSettings;
     use crate::data::story::graph::StoryGraphData;
+    use crate::data::story::StoryNodeData;
+    use crate::editor::{EditorDirtyState, EditorSnapshotBaseline};
 
     #[test]
     fn test_world_to_scene_captures_named_entities() {
@@ -447,6 +539,8 @@ mod tests {
             project: None,
         });
         world.insert_resource(ActiveStoryGraph::default());
+        world.init_resource::<EditorSnapshotBaseline>();
+        world.init_resource::<EditorDirtyState>();
 
         load_mounted_project(&mut world).unwrap();
 
@@ -466,5 +560,108 @@ mod tests {
         let active_graph = &world.resource::<ActiveStoryGraph>().0;
         assert_eq!(active_graph.id, "opening");
         assert_eq!(active_graph.name, "Opening");
+
+        let dirty_state = world.resource::<EditorDirtyState>();
+        assert!(!dirty_state.is_dirty);
+        assert_eq!(dirty_state.snapshot_error, None);
+    }
+
+    #[test]
+    fn test_refresh_editor_dirty_state_detects_scene_changes() {
+        let mut world = World::new();
+        world.insert_resource(MountedProject {
+            root_path: Some(PathBuf::from("/tmp/project")),
+            manifest_path: Some(PathBuf::from("/tmp/project/project.json")),
+            project: Some(Project::new("Dirty Project")),
+        });
+        world.insert_resource(ActiveStoryGraph::default());
+        world.init_resource::<EditorSnapshotBaseline>();
+        world.init_resource::<EditorDirtyState>();
+
+        sync_editor_snapshot_baseline(&mut world).unwrap();
+        world.spawn((Name::new("hero"), Transform::from_xyz(4.0, 8.0, 0.0)));
+
+        refresh_editor_dirty_state(&mut world);
+
+        assert!(world.resource::<EditorDirtyState>().is_dirty);
+    }
+
+    #[test]
+    fn test_refresh_editor_dirty_state_detects_story_graph_changes() {
+        let mut world = World::new();
+        world.insert_resource(MountedProject {
+            root_path: Some(PathBuf::from("/tmp/project")),
+            manifest_path: Some(PathBuf::from("/tmp/project/project.json")),
+            project: Some(Project::new("Dirty Project")),
+        });
+        world.insert_resource(ActiveStoryGraph(StoryGraphData::new("graph", "Graph")));
+        world.init_resource::<EditorSnapshotBaseline>();
+        world.init_resource::<EditorDirtyState>();
+
+        sync_editor_snapshot_baseline(&mut world).unwrap();
+        world
+            .resource_mut::<ActiveStoryGraph>()
+            .0
+            .add_node(StoryNodeData::end("end"));
+
+        refresh_editor_dirty_state(&mut world);
+
+        assert!(world.resource::<EditorDirtyState>().is_dirty);
+    }
+
+    #[test]
+    fn test_refresh_editor_dirty_state_detects_project_changes() {
+        let mut world = World::new();
+        world.insert_resource(MountedProject {
+            root_path: Some(PathBuf::from("/tmp/project")),
+            manifest_path: Some(PathBuf::from("/tmp/project/project.json")),
+            project: Some(Project::new("Dirty Project")),
+        });
+        world.insert_resource(ActiveStoryGraph::default());
+        world.init_resource::<EditorSnapshotBaseline>();
+        world.init_resource::<EditorDirtyState>();
+
+        sync_editor_snapshot_baseline(&mut world).unwrap();
+        world
+            .resource_mut::<MountedProject>()
+            .project
+            .as_mut()
+            .unwrap()
+            .name = "Changed Project".into();
+
+        refresh_editor_dirty_state(&mut world);
+
+        assert!(world.resource::<EditorDirtyState>().is_dirty);
+    }
+
+    #[test]
+    fn test_save_project_impl_resets_dirty_state() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let root_path = temp_dir.path().to_path_buf();
+        let manifest_path = root_path.join("project.json");
+
+        let project = Project::new("Save Reset");
+
+        let mut world = World::new();
+        world.insert_resource(MountedProject {
+            root_path: Some(root_path),
+            manifest_path: Some(manifest_path),
+            project: Some(project),
+        });
+        world.insert_resource(ActiveStoryGraph(StoryGraphData::new("graph", "Graph")));
+        world.init_resource::<EditorSnapshotBaseline>();
+        world.init_resource::<EditorDirtyState>();
+
+        sync_editor_snapshot_baseline(&mut world).unwrap();
+        world.spawn((Name::new("hero"), Transform::from_xyz(12.0, 6.0, 0.0)));
+        refresh_editor_dirty_state(&mut world);
+        assert!(world.resource::<EditorDirtyState>().is_dirty);
+
+        save_project_impl(&mut world).unwrap();
+        refresh_editor_dirty_state(&mut world);
+
+        let dirty_state = world.resource::<EditorDirtyState>();
+        assert!(!dirty_state.is_dirty);
+        assert_eq!(dirty_state.snapshot_error, None);
     }
 }

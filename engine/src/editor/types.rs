@@ -29,6 +29,33 @@ pub enum RuntimePreviewLaunchPhase {
     Failed,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PendingProjectAction {
+    LoadMountedProject,
+    ReloadProject,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PendingProjectActionResolution {
+    SaveAndContinue,
+    DiscardChanges,
+    Cancel,
+}
+
+#[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
+pub struct EditorSnapshotBaseline {
+    pub scene_json: Option<String>,
+    pub story_graph_json: Option<String>,
+    pub project_json: Option<String>,
+}
+
+#[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
+pub struct EditorDirtyState {
+    pub is_dirty: bool,
+    pub snapshot_error: Option<String>,
+    pub pending_project_action: Option<PendingProjectAction>,
+}
+
 #[derive(Resource, Default)]
 pub struct RuntimePreviewLaunchState {
     pub phase: RuntimePreviewLaunchPhase,

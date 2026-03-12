@@ -7,13 +7,18 @@ use crate::audio::AudioCommand;
 use crate::collision::{CollisionSet, MovementIntent};
 use crate::data::loader;
 use crate::data::spawner::{LoadedScene, SceneEntityMarker};
-use crate::data::{BodyType, CollisionComponent, DataError, Scene, StoryGraphData, Vec3Data};
+use crate::data::{
+    BodyType, CollisionComponent, DataError, Project, Scene, StoryGraphData, Vec3Data,
+};
 use crate::input::{ActionState, InputAction};
 use crate::project_mount::{
     load_mounted_project_manifest, resolve_startup_scene_ref, resolve_startup_story_graph_ref,
     MountedProject,
 };
 use crate::rendering::MainCamera;
+use crate::save::{
+    has_save_scoped, load_game_scoped, save_game_scoped, SaveData, SaveError, SaveScope,
+};
 use crate::scene::ChangeSceneEvent;
 use crate::scripting::ScriptCommand;
 use crate::story_graph::{
@@ -22,6 +27,7 @@ use crate::story_graph::{
 use bevy::app::AppExit;
 use bevy::prelude::*;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum PreviewState {
@@ -74,6 +80,7 @@ pub fn parse_runtime_preview_cli_args(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TitleAction {
     NewGame,
+    Continue,
     Quit,
 }
 
@@ -94,6 +101,7 @@ enum DialogueFlowResolution {
 #[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
 struct TitleMenuState {
     selected_index: usize,
+    continue_available: bool,
 }
 
 #[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
@@ -103,6 +111,9 @@ struct PreviewStatus {
 
 #[derive(Resource, Default, Debug, Clone, PartialEq)]
 struct PreviewStartupContent {
+    project_id: Option<String>,
+    scene_id: Option<String>,
+    story_graph_id: Option<String>,
     scene: Option<Scene>,
     story_graph: Option<StoryGraphData>,
     entry_script_path: Option<PathBuf>,
@@ -168,6 +179,37 @@ pub struct PreviewPlayerController {
 
 #[derive(Component)]
 struct PreviewCameraFollow;
+
+#[derive(Debug, Clone)]
+struct LoadedContinuePreview {
+    startup_content: PreviewStartupContent,
+    flags: StoryFlags,
+    variables: StoryVariables,
+}
+
+#[derive(Debug, Error)]
+enum ContinuePreviewError {
+    #[error("No mounted project is loaded for continue.")]
+    MissingProject,
+    #[error("No continue checkpoint is available for the mounted project.")]
+    MissingSave,
+    #[error("Continue checkpoint belongs to project '{found}', not mounted project '{expected}'.")]
+    ProjectMismatch { expected: String, found: String },
+    #[error("Continue only supports overworld checkpoints, but found state '{0}'.")]
+    UnsupportedGameState(String),
+    #[error("Continue checkpoint is missing a saved scene id.")]
+    MissingSceneId,
+    #[error("Saved scene '{0}' is no longer referenced by the mounted project.")]
+    UnknownScene(String),
+    #[error("Failed to load saved scene '{path}': {source}")]
+    SceneLoad { path: String, source: DataError },
+    #[error("Saved story graph '{0}' is no longer referenced by the mounted project.")]
+    UnknownStoryGraph(String),
+    #[error("Failed to load saved story graph '{path}': {source}")]
+    StoryGraphLoad { path: String, source: DataError },
+    #[error(transparent)]
+    Save(#[from] SaveError),
+}
 
 pub struct RuntimePreviewPlugin {
     pub test_mode: bool,
@@ -331,7 +373,8 @@ fn load_preview_startup_content(
         return Ok(PreviewStartupContent::default());
     };
 
-    let scene = resolve_startup_scene_ref(project).and_then(|scene_ref| {
+    let scene_ref = resolve_startup_scene_ref(project).cloned();
+    let scene = scene_ref.as_ref().and_then(|scene_ref| {
         let scene_path = root_path.join(&scene_ref.path);
         match loader::load_scene(&scene_path) {
             Ok(scene) => Some(scene),
@@ -345,7 +388,8 @@ fn load_preview_startup_content(
         }
     });
 
-    let story_graph = resolve_startup_story_graph_ref(project).and_then(|graph_ref| {
+    let story_graph_ref = resolve_startup_story_graph_ref(project).cloned();
+    let story_graph = story_graph_ref.as_ref().and_then(|graph_ref| {
         let graph_path = root_path.join(&graph_ref.path);
         match loader::load_story_graph(&graph_path) {
             Ok(graph) => Some(graph),
@@ -367,10 +411,166 @@ fn load_preview_startup_content(
         .map(|path| root_path.join(path));
 
     Ok(PreviewStartupContent {
+        project_id: Some(project.id.clone()),
+        scene_id: scene_ref.as_ref().map(|scene_ref| scene_ref.id.clone()),
+        story_graph_id: story_graph_ref
+            .as_ref()
+            .map(|graph_ref| graph_ref.id.clone()),
         scene,
         story_graph,
         entry_script_path,
     })
+}
+
+fn preview_save_scope(mounted_project: &MountedProject) -> Option<SaveScope> {
+    mounted_project
+        .project
+        .as_ref()
+        .map(|project| SaveScope::Project(project.id.clone()))
+}
+
+fn preview_continue_available(mounted_project: &MountedProject) -> bool {
+    preview_save_scope(mounted_project)
+        .map(|scope| has_save_scoped(&scope, 0))
+        .unwrap_or(false)
+}
+
+fn load_scene_for_continue(
+    project: &Project,
+    root_path: &Path,
+    scene_id: &str,
+) -> Result<Scene, ContinuePreviewError> {
+    let scene_ref = project
+        .find_scene(scene_id)
+        .ok_or_else(|| ContinuePreviewError::UnknownScene(scene_id.to_string()))?;
+    let scene_path = root_path.join(&scene_ref.path);
+    loader::load_scene(&scene_path).map_err(|source| ContinuePreviewError::SceneLoad {
+        path: scene_path.display().to_string(),
+        source,
+    })
+}
+
+fn load_story_graph_for_continue(
+    project: &Project,
+    root_path: &Path,
+    story_graph_id: &str,
+) -> Result<StoryGraphData, ContinuePreviewError> {
+    let graph_ref = project
+        .find_story_graph(story_graph_id)
+        .ok_or_else(|| ContinuePreviewError::UnknownStoryGraph(story_graph_id.to_string()))?;
+    let graph_path = root_path.join(&graph_ref.path);
+    loader::load_story_graph(&graph_path).map_err(|source| ContinuePreviewError::StoryGraphLoad {
+        path: graph_path.display().to_string(),
+        source,
+    })
+}
+
+fn load_continue_preview(
+    mounted_project: &MountedProject,
+) -> Result<LoadedContinuePreview, ContinuePreviewError> {
+    let Some(project) = mounted_project.project.as_ref() else {
+        return Err(ContinuePreviewError::MissingProject);
+    };
+    let Some(root_path) = mounted_project.root_path.as_ref() else {
+        return Err(ContinuePreviewError::MissingProject);
+    };
+    let Some(scope) = preview_save_scope(mounted_project) else {
+        return Err(ContinuePreviewError::MissingProject);
+    };
+
+    if !has_save_scoped(&scope, 0) {
+        return Err(ContinuePreviewError::MissingSave);
+    }
+
+    let save = load_game_scoped(&scope, 0)?;
+    if save.project_id.as_deref() != Some(project.id.as_str()) {
+        return Err(ContinuePreviewError::ProjectMismatch {
+            expected: project.id.clone(),
+            found: save.project_id.unwrap_or_else(|| "<missing>".into()),
+        });
+    }
+
+    if save.game_state != "Overworld" {
+        return Err(ContinuePreviewError::UnsupportedGameState(save.game_state));
+    }
+
+    let Some(scene_id) = save.scene_id.clone() else {
+        return Err(ContinuePreviewError::MissingSceneId);
+    };
+
+    let scene = load_scene_for_continue(project, root_path, &scene_id)?;
+    let story_graph = match save.story_graph_id.as_deref() {
+        Some(story_graph_id) => Some(load_story_graph_for_continue(
+            project,
+            root_path,
+            story_graph_id,
+        )?),
+        None => None,
+    };
+
+    let entry_script_path = project
+        .settings
+        .startup
+        .entry_script
+        .as_deref()
+        .map(|path| root_path.join(path));
+
+    let mut flags = StoryFlags::default();
+    flags.0 = save.flags.clone();
+
+    let mut variables = StoryVariables::default();
+    variables.0 = save.variables.clone();
+
+    Ok(LoadedContinuePreview {
+        startup_content: PreviewStartupContent {
+            project_id: Some(project.id.clone()),
+            scene_id: Some(scene_id),
+            story_graph_id: save.story_graph_id.clone(),
+            scene: Some(scene),
+            story_graph,
+            entry_script_path,
+        },
+        flags,
+        variables,
+    })
+}
+
+fn build_overworld_checkpoint_save_data(
+    mounted_project: &MountedProject,
+    startup_content: &PreviewStartupContent,
+    flags: &StoryFlags,
+    variables: &StoryVariables,
+) -> Option<SaveData> {
+    let project = mounted_project.project.as_ref()?;
+
+    Some(SaveData {
+        flags: flags.0.clone(),
+        variables: variables.0.clone(),
+        current_node: None,
+        game_state: "Overworld".into(),
+        scene_background: None,
+        project_id: Some(project.id.clone()),
+        scene_id: startup_content.scene_id.clone(),
+        story_graph_id: startup_content.story_graph_id.clone(),
+    })
+}
+
+fn save_overworld_checkpoint(
+    mounted_project: &MountedProject,
+    startup_content: &PreviewStartupContent,
+    flags: &StoryFlags,
+    variables: &StoryVariables,
+) -> Result<PathBuf, ContinuePreviewError> {
+    let Some(scope) = preview_save_scope(mounted_project) else {
+        return Err(ContinuePreviewError::MissingProject);
+    };
+    let Some(save_data) =
+        build_overworld_checkpoint_save_data(mounted_project, startup_content, flags, variables)
+    else {
+        return Err(ContinuePreviewError::MissingProject);
+    };
+
+    save_game_scoped(&scope, 0, &save_data).map_err(ContinuePreviewError::from)
 }
 
 fn prepare_runtime_preview_system(
@@ -416,6 +616,7 @@ fn setup_title_ui(
     mut menu_state: ResMut<TitleMenuState>,
 ) {
     menu_state.selected_index = 0;
+    menu_state.continue_available = preview_continue_available(&mounted_project);
 
     let project_name = mounted_project
         .project
@@ -475,7 +676,8 @@ fn setup_title_ui(
             ));
 
             spawn_title_option(parent, "NEW GAME", 0, TitleAction::NewGame);
-            spawn_title_option(parent, "QUIT", 1, TitleAction::Quit);
+            spawn_title_option(parent, "CONTINUE", 1, TitleAction::Continue);
+            spawn_title_option(parent, "QUIT", 2, TitleAction::Quit);
 
             parent.spawn((
                 Text::new(""),
@@ -521,11 +723,14 @@ fn update_title_ui(
     mut status_query: Query<&mut Text, With<TitleStatusText>>,
 ) {
     for (option, mut color) in &mut option_query {
-        color.0 = if option.index == menu_state.selected_index {
-            Color::srgb(1.0, 0.92, 0.35)
-        } else {
-            Color::WHITE
-        };
+        color.0 =
+            if matches!(option.action, TitleAction::Continue) && !menu_state.continue_available {
+                Color::srgb(0.45, 0.45, 0.45)
+            } else if option.index == menu_state.selected_index {
+                Color::srgb(1.0, 0.92, 0.35)
+            } else {
+                Color::WHITE
+            };
     }
 
     let message = status.message.clone().unwrap_or_default();
@@ -596,10 +801,41 @@ fn start_new_game_preview(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn continue_saved_game_preview(
+    mounted_project: &MountedProject,
+    startup_content: &mut PreviewStartupContent,
+    status: &mut PreviewStatus,
+    next_state: &mut NextState<PreviewState>,
+    executor: &mut GraphExecutor,
+    flags: &mut StoryFlags,
+    variables: &mut StoryVariables,
+    loaded_scene: &mut LoadedScene,
+    dialogue_presentation: &mut DialoguePresentation,
+) {
+    match load_continue_preview(mounted_project) {
+        Ok(loaded_continue) => {
+            *executor = GraphExecutor::default();
+            *flags = loaded_continue.flags;
+            *variables = loaded_continue.variables;
+            *loaded_scene = LoadedScene::default();
+            *dialogue_presentation = DialoguePresentation::default();
+            *startup_content = loaded_continue.startup_content;
+            status.message = None;
+            next_state.set(PreviewState::Overworld);
+        }
+        Err(error) => {
+            status.message = Some(error.to_string());
+            warn!("Runtime Preview: Continue failed: {}", error);
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn title_input_system(
     actions: Res<ActionState>,
+    mounted_project: Res<MountedProject>,
     mut menu_state: ResMut<TitleMenuState>,
-    startup_content: Res<PreviewStartupContent>,
+    mut startup_content: ResMut<PreviewStartupContent>,
     mut status: ResMut<PreviewStatus>,
     mut next_state: ResMut<NextState<PreviewState>>,
     mut executor: ResMut<GraphExecutor>,
@@ -647,6 +883,25 @@ fn title_input_system(
             &mut dialogue_presentation,
             &mut script_events,
         ),
+        TitleAction::Continue => {
+            if !menu_state.continue_available {
+                status.message =
+                    Some("No continue checkpoint is available for the mounted project.".into());
+                return;
+            }
+
+            continue_saved_game_preview(
+                &mounted_project,
+                &mut startup_content,
+                &mut status,
+                &mut next_state,
+                &mut executor,
+                &mut flags,
+                &mut variables,
+                &mut loaded_scene,
+                &mut dialogue_presentation,
+            );
+        }
         TitleAction::Quit => {
             app_exit.write(AppExit::Success);
         }
@@ -904,7 +1159,11 @@ fn cleanup_dialogue_ui(
 
 fn setup_overworld_preview(
     mut commands: Commands,
+    mounted_project: Res<MountedProject>,
     startup_content: Res<PreviewStartupContent>,
+    flags: Res<StoryFlags>,
+    variables: Res<StoryVariables>,
+    mut status: ResMut<PreviewStatus>,
     mut loaded_scene: ResMut<LoadedScene>,
     mut camera_query: Query<(Entity, &mut Transform), With<MainCamera>>,
 ) {
@@ -942,6 +1201,20 @@ fn setup_overworld_preview(
             Vec3::new(spawn.camera.x, spawn.camera.y, spawn.camera.z),
         );
         commands.entity(camera_entity).insert(PreviewCameraFollow);
+    }
+
+    match save_overworld_checkpoint(&mounted_project, &startup_content, &flags, &variables) {
+        Ok(path) => {
+            info!(
+                "Runtime Preview: Saved project-scoped continue checkpoint {:?}",
+                path
+            );
+        }
+        Err(error) => {
+            let message = format!("Failed to save continue checkpoint: {error}");
+            status.message = Some(message.clone());
+            warn!("Runtime Preview: {}", message);
+        }
     }
 }
 
@@ -1062,10 +1335,34 @@ mod tests {
     use crate::data::scene::Entity as SceneEntity;
     use crate::data::story::StoryNodeData;
     use crate::data::{loader, Project};
+    use crate::save::{has_save_scoped, save_game_scoped, SaveScope};
     use crate::story_graph::StoryGraphPlugin;
     use bevy::ecs::message::Messages;
     use bevy::ecs::system::SystemState;
+    use std::path::Path;
+    use std::sync::{Mutex, OnceLock};
     use std::time::Duration;
+
+    fn preview_save_test_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn with_temp_preview_save_dir<T>(f: impl FnOnce(&Path) -> T) -> T {
+        let _guard = preview_save_test_lock().lock().unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+        let previous = std::env::var_os("DJ_ENGINE_SAVE_DIR");
+
+        std::env::set_var("DJ_ENGINE_SAVE_DIR", temp_dir.path());
+        let result = f(temp_dir.path());
+
+        match previous {
+            Some(value) => std::env::set_var("DJ_ENGINE_SAVE_DIR", value),
+            None => std::env::remove_var("DJ_ENGINE_SAVE_DIR"),
+        }
+
+        result
+    }
 
     #[test]
     fn test_parse_runtime_preview_cli_args_supports_positional_project_path() {
@@ -1194,32 +1491,74 @@ mod tests {
 
     #[test]
     fn test_setup_overworld_preview_spawns_player_at_default_spawn() {
-        let mut world = World::new();
-        world.init_resource::<LoadedScene>();
-        world.insert_resource(PreviewStartupContent {
-            scene: Some(test_scene_with_spawn(Vec3::new(48.0, -24.0, 0.0))),
-            ..Default::default()
+        with_temp_preview_save_dir(|_| {
+            let mut world = World::new();
+            let mut project = Project::new("Preview Project");
+            project.id = "preview-project".into();
+
+            world.insert_resource(MountedProject {
+                root_path: Some(PathBuf::from("/tmp/preview-project")),
+                manifest_path: Some(PathBuf::from("/tmp/preview-project/project.json")),
+                project: Some(project.clone()),
+            });
+            world.init_resource::<LoadedScene>();
+            world.insert_resource(StoryFlags::default());
+            world.insert_resource(StoryVariables::default());
+            world.insert_resource(PreviewStatus::default());
+            world.insert_resource(PreviewStartupContent {
+                project_id: Some(project.id.clone()),
+                scene_id: Some("intro".into()),
+                story_graph_id: Some("opening".into()),
+                scene: Some(test_scene_with_spawn(Vec3::new(48.0, -24.0, 0.0))),
+                story_graph: Some(test_story_graph()),
+                entry_script_path: None,
+            });
+
+            let mut system_state: SystemState<(
+                Commands,
+                Res<MountedProject>,
+                Res<PreviewStartupContent>,
+                Res<StoryFlags>,
+                Res<StoryVariables>,
+                ResMut<PreviewStatus>,
+                ResMut<LoadedScene>,
+                Query<(Entity, &mut Transform), With<MainCamera>>,
+            )> = SystemState::new(&mut world);
+
+            let (
+                commands,
+                mounted_project,
+                startup_content,
+                flags,
+                variables,
+                status,
+                loaded_scene,
+                camera_query,
+            ) = system_state.get_mut(&mut world);
+            setup_overworld_preview(
+                commands,
+                mounted_project,
+                startup_content,
+                flags,
+                variables,
+                status,
+                loaded_scene,
+                camera_query,
+            );
+            system_state.apply(&mut world);
+
+            let mut query = world.query::<(&Transform, &PreviewPlayer)>();
+            let (transform, _) = query.single(&world).unwrap();
+            assert_eq!(transform.translation.x, 48.0);
+            assert_eq!(transform.translation.y, -24.0);
+
+            let loaded_scene = world.resource::<LoadedScene>();
+            assert!(loaded_scene.scene.is_some());
+            assert!(has_save_scoped(
+                &SaveScope::Project("preview-project".into()),
+                0
+            ));
         });
-
-        let mut system_state: SystemState<(
-            Commands,
-            Res<PreviewStartupContent>,
-            ResMut<LoadedScene>,
-            Query<(Entity, &mut Transform), With<MainCamera>>,
-        )> = SystemState::new(&mut world);
-
-        let (commands, startup_content, loaded_scene, camera_query) =
-            system_state.get_mut(&mut world);
-        setup_overworld_preview(commands, startup_content, loaded_scene, camera_query);
-        system_state.apply(&mut world);
-
-        let mut query = world.query::<(&Transform, &PreviewPlayer)>();
-        let (transform, _) = query.single(&world).unwrap();
-        assert_eq!(transform.translation.x, 48.0);
-        assert_eq!(transform.translation.y, -24.0);
-
-        let loaded_scene = world.resource::<LoadedScene>();
-        assert!(loaded_scene.scene.is_some());
     }
 
     #[test]
@@ -1257,75 +1596,353 @@ mod tests {
     }
 
     #[test]
-    fn test_runtime_preview_mounts_project_and_reaches_overworld() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let root_path = temp_dir.path().to_path_buf();
-        let manifest_path = root_path.join("project.json");
+    fn test_preview_continue_available_requires_scoped_save() {
+        with_temp_preview_save_dir(|_| {
+            let mut project = Project::new("Preview Project");
+            project.id = "project-a".into();
 
-        std::fs::create_dir_all(root_path.join("scenes")).unwrap();
-        std::fs::create_dir_all(root_path.join("story_graphs")).unwrap();
+            let mounted_project = MountedProject {
+                root_path: None,
+                manifest_path: None,
+                project: Some(project.clone()),
+            };
 
-        let mut project = Project::new("Preview Project");
-        project.add_scene("intro", "scenes/intro.json");
-        project.add_story_graph("opening", "story_graphs/opening.json");
-        project.settings.startup.default_scene_id = Some("intro".into());
-        project.settings.startup.default_story_graph_id = Some("opening".into());
-        loader::save_project(&project, &manifest_path).unwrap();
+            assert!(!preview_continue_available(&mounted_project));
 
-        let scene = test_scene_with_spawn(Vec3::new(8.0, 16.0, 0.0));
-        loader::save_scene(&scene, &root_path.join("scenes/intro.json")).unwrap();
+            save_game_scoped(
+                &SaveScope::Project(project.id.clone()),
+                0,
+                &SaveData {
+                    game_state: "Overworld".into(),
+                    project_id: Some(project.id.clone()),
+                    scene_id: Some("intro".into()),
+                    story_graph_id: Some("opening".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
 
-        let graph = test_story_graph();
-        loader::save_story_graph(&graph, &root_path.join("story_graphs/opening.json")).unwrap();
-
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_plugins(bevy::state::app::StatesPlugin);
-        app.add_plugins(StoryGraphPlugin);
-        app.add_plugins(RuntimePreviewPlugin::new(false));
-        app.insert_resource(MountedProject {
-            root_path: Some(root_path),
-            manifest_path: Some(manifest_path),
-            project: None,
+            assert!(preview_continue_available(&mounted_project));
         });
+    }
 
-        app.world_mut()
-            .resource_mut::<Time>()
-            .advance_by(Duration::from_millis(16));
-        app.update();
+    #[test]
+    fn test_preview_continue_is_project_scoped() {
+        with_temp_preview_save_dir(|_| {
+            let mut project_a = Project::new("Preview Project A");
+            project_a.id = "project-a".into();
+            let mut project_b = Project::new("Preview Project B");
+            project_b.id = "project-b".into();
 
-        let startup_content = app.world().resource::<PreviewStartupContent>();
-        assert!(startup_content.scene.is_some());
-        assert!(startup_content.story_graph.is_some());
+            save_game_scoped(
+                &SaveScope::Project(project_a.id.clone()),
+                0,
+                &SaveData {
+                    game_state: "Overworld".into(),
+                    project_id: Some(project_a.id.clone()),
+                    scene_id: Some("intro".into()),
+                    story_graph_id: Some("opening".into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
 
-        app.world_mut()
-            .resource_mut::<NextState<PreviewState>>()
-            .set(PreviewState::Dialogue);
-        app.world_mut()
-            .resource_mut::<Time>()
-            .advance_by(Duration::from_millis(16));
-        app.update();
+            let mounted_project_b = MountedProject {
+                root_path: None,
+                manifest_path: None,
+                project: Some(project_b),
+            };
 
-        app.world_mut()
-            .resource_mut::<Messages<StoryInputEvent>>()
-            .write(StoryInputEvent::Advance);
-        for _ in 0..4 {
+            assert!(!preview_continue_available(&mounted_project_b));
+        });
+    }
+
+    #[test]
+    fn test_runtime_preview_mounts_project_and_reaches_overworld() {
+        with_temp_preview_save_dir(|_| {
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root_path = temp_dir.path().to_path_buf();
+            let manifest_path = root_path.join("project.json");
+
+            std::fs::create_dir_all(root_path.join("scenes")).unwrap();
+            std::fs::create_dir_all(root_path.join("story_graphs")).unwrap();
+
+            let mut project = Project::new("Preview Project");
+            project.id = "runtime-preview-project".into();
+            project.add_scene("intro", "scenes/intro.json");
+            project.add_story_graph("opening", "story_graphs/opening.json");
+            project.settings.startup.default_scene_id = Some("intro".into());
+            project.settings.startup.default_story_graph_id = Some("opening".into());
+            loader::save_project(&project, &manifest_path).unwrap();
+
+            let scene = test_scene_with_spawn(Vec3::new(8.0, 16.0, 0.0));
+            loader::save_scene(&scene, &root_path.join("scenes/intro.json")).unwrap();
+
+            let graph = test_story_graph();
+            loader::save_story_graph(&graph, &root_path.join("story_graphs/opening.json")).unwrap();
+
+            let mut app = App::new();
+            app.add_plugins(MinimalPlugins);
+            app.add_plugins(bevy::state::app::StatesPlugin);
+            app.add_plugins(StoryGraphPlugin);
+            app.add_plugins(RuntimePreviewPlugin::new(false));
+            app.insert_resource(MountedProject {
+                root_path: Some(root_path),
+                manifest_path: Some(manifest_path),
+                project: None,
+            });
+
             app.world_mut()
                 .resource_mut::<Time>()
                 .advance_by(Duration::from_millis(16));
             app.update();
-        }
 
-        assert_eq!(
-            *app.world().resource::<State<PreviewState>>().get(),
-            PreviewState::Overworld
-        );
-        assert!(app.world().resource::<LoadedScene>().scene.is_some());
+            let startup_content = app.world().resource::<PreviewStartupContent>();
+            assert!(startup_content.scene.is_some());
+            assert!(startup_content.story_graph.is_some());
 
-        let mut player_query = app
-            .world_mut()
-            .query_filtered::<Entity, With<PreviewPlayer>>();
-        assert!(player_query.iter(app.world()).next().is_some());
+            app.world_mut()
+                .resource_mut::<NextState<PreviewState>>()
+                .set(PreviewState::Dialogue);
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_millis(16));
+            app.update();
+
+            app.world_mut()
+                .resource_mut::<Messages<StoryInputEvent>>()
+                .write(StoryInputEvent::Advance);
+            for _ in 0..4 {
+                app.world_mut()
+                    .resource_mut::<Time>()
+                    .advance_by(Duration::from_millis(16));
+                app.update();
+            }
+
+            assert_eq!(
+                *app.world().resource::<State<PreviewState>>().get(),
+                PreviewState::Overworld
+            );
+            assert!(app.world().resource::<LoadedScene>().scene.is_some());
+
+            let mut player_query = app
+                .world_mut()
+                .query_filtered::<Entity, With<PreviewPlayer>>();
+            assert!(player_query.iter(app.world()).next().is_some());
+            assert!(has_save_scoped(
+                &SaveScope::Project("runtime-preview-project".into()),
+                0
+            ));
+        });
+    }
+
+    #[test]
+    fn test_continue_saved_game_preview_restores_flags_variables_and_resumes_overworld() {
+        with_temp_preview_save_dir(|_| {
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root_path = temp_dir.path().to_path_buf();
+            let manifest_path = root_path.join("project.json");
+
+            std::fs::create_dir_all(root_path.join("scenes")).unwrap();
+            std::fs::create_dir_all(root_path.join("story_graphs")).unwrap();
+
+            let mut project = Project::new("Preview Project");
+            project.id = "continue-project".into();
+            project.add_scene("intro", "scenes/intro.json");
+            project.add_story_graph("opening", "story_graphs/opening.json");
+            project.settings.startup.default_scene_id = Some("intro".into());
+            project.settings.startup.default_story_graph_id = Some("opening".into());
+            loader::save_project(&project, &manifest_path).unwrap();
+            loader::save_scene(
+                &test_scene_with_spawn(Vec3::new(32.0, 12.0, 0.0)),
+                &root_path.join("scenes/intro.json"),
+            )
+            .unwrap();
+            loader::save_story_graph(
+                &test_story_graph(),
+                &root_path.join("story_graphs/opening.json"),
+            )
+            .unwrap();
+
+            let mut save = SaveData {
+                game_state: "Overworld".into(),
+                project_id: Some(project.id.clone()),
+                scene_id: Some("intro".into()),
+                story_graph_id: Some("opening".into()),
+                ..Default::default()
+            };
+            save.flags.insert("intro_complete".into(), true);
+            save.variables.insert("coins".into(), serde_json::json!(42));
+            save_game_scoped(&SaveScope::Project(project.id.clone()), 0, &save).unwrap();
+
+            let mut app = App::new();
+            app.add_plugins(MinimalPlugins);
+            app.add_plugins(bevy::state::app::StatesPlugin);
+            app.add_plugins(StoryGraphPlugin);
+            app.add_plugins(RuntimePreviewPlugin::new(false));
+            app.insert_resource(MountedProject {
+                root_path: Some(root_path),
+                manifest_path: Some(manifest_path),
+                project: None,
+            });
+
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_millis(16));
+            app.update();
+
+            let mut system_state: SystemState<(
+                Res<MountedProject>,
+                ResMut<PreviewStartupContent>,
+                ResMut<PreviewStatus>,
+                ResMut<NextState<PreviewState>>,
+                ResMut<GraphExecutor>,
+                ResMut<StoryFlags>,
+                ResMut<StoryVariables>,
+                ResMut<LoadedScene>,
+                ResMut<DialoguePresentation>,
+            )> = SystemState::new(app.world_mut());
+
+            {
+                let (
+                    mounted_project,
+                    mut startup_content,
+                    mut status,
+                    mut next_state,
+                    mut executor,
+                    mut flags,
+                    mut variables,
+                    mut loaded_scene,
+                    mut dialogue_presentation,
+                ) = system_state.get_mut(app.world_mut());
+
+                continue_saved_game_preview(
+                    &mounted_project,
+                    &mut startup_content,
+                    &mut status,
+                    &mut next_state,
+                    &mut executor,
+                    &mut flags,
+                    &mut variables,
+                    &mut loaded_scene,
+                    &mut dialogue_presentation,
+                );
+            }
+            system_state.apply(app.world_mut());
+
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_millis(16));
+            app.update();
+
+            assert_eq!(
+                *app.world().resource::<State<PreviewState>>().get(),
+                PreviewState::Overworld
+            );
+            assert_eq!(
+                app.world().resource::<StoryFlags>().0["intro_complete"],
+                true
+            );
+            assert_eq!(
+                app.world().resource::<StoryVariables>().0["coins"],
+                serde_json::json!(42)
+            );
+            assert!(app.world().resource::<LoadedScene>().scene.is_some());
+        });
+    }
+
+    #[test]
+    fn test_continue_saved_game_preview_surfaces_status_for_missing_scene() {
+        with_temp_preview_save_dir(|_| {
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root_path = temp_dir.path().to_path_buf();
+            let manifest_path = root_path.join("project.json");
+
+            std::fs::create_dir_all(root_path.join("scenes")).unwrap();
+            let mut project = Project::new("Preview Project");
+            project.id = "broken-continue-project".into();
+            project.add_scene("intro", "scenes/intro.json");
+            loader::save_project(&project, &manifest_path).unwrap();
+
+            save_game_scoped(
+                &SaveScope::Project(project.id.clone()),
+                0,
+                &SaveData {
+                    game_state: "Overworld".into(),
+                    project_id: Some(project.id.clone()),
+                    scene_id: Some("missing_scene".into()),
+                    story_graph_id: None,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+            let mut app = App::new();
+            app.add_plugins(MinimalPlugins);
+            app.add_plugins(bevy::state::app::StatesPlugin);
+            app.add_plugins(StoryGraphPlugin);
+            app.add_plugins(RuntimePreviewPlugin::new(false));
+            app.insert_resource(MountedProject {
+                root_path: Some(root_path),
+                manifest_path: Some(manifest_path),
+                project: None,
+            });
+
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_millis(16));
+            app.update();
+
+            let mut system_state: SystemState<(
+                Res<MountedProject>,
+                ResMut<PreviewStartupContent>,
+                ResMut<PreviewStatus>,
+                ResMut<NextState<PreviewState>>,
+                ResMut<GraphExecutor>,
+                ResMut<StoryFlags>,
+                ResMut<StoryVariables>,
+                ResMut<LoadedScene>,
+                ResMut<DialoguePresentation>,
+            )> = SystemState::new(app.world_mut());
+
+            {
+                let (
+                    mounted_project,
+                    mut startup_content,
+                    mut status,
+                    mut next_state,
+                    mut executor,
+                    mut flags,
+                    mut variables,
+                    mut loaded_scene,
+                    mut dialogue_presentation,
+                ) = system_state.get_mut(app.world_mut());
+
+                continue_saved_game_preview(
+                    &mounted_project,
+                    &mut startup_content,
+                    &mut status,
+                    &mut next_state,
+                    &mut executor,
+                    &mut flags,
+                    &mut variables,
+                    &mut loaded_scene,
+                    &mut dialogue_presentation,
+                );
+
+                assert!(status
+                    .message
+                    .as_deref()
+                    .unwrap_or_default()
+                    .contains("missing_scene"));
+            }
+            system_state.apply(app.world_mut());
+
+            assert_eq!(
+                *app.world().resource::<State<PreviewState>>().get(),
+                PreviewState::Title
+            );
+        });
     }
 
     fn test_scene_with_spawn(player_spawn: Vec3) -> Scene {

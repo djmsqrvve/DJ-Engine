@@ -8,6 +8,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum SaveScope {
+    #[default]
+    Global,
+    Project(String),
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SaveData {
     pub flags: HashMap<String, bool>,
@@ -15,6 +22,9 @@ pub struct SaveData {
     pub current_node: Option<usize>,
     pub game_state: String,
     pub scene_background: Option<String>,
+    pub project_id: Option<String>,
+    pub scene_id: Option<String>,
+    pub story_graph_id: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -42,38 +52,77 @@ fn default_save_dir() -> PathBuf {
     PathBuf::from(home).join(".local/share/dj_engine/saves")
 }
 
-fn save_path(slot: usize) -> PathBuf {
-    save_dir().join(format!("save_{slot}.json"))
+fn sanitize_scope_component(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' => ch,
+            _ => '_',
+        })
+        .collect()
 }
 
-pub fn save_game(slot: usize, data: &SaveData) -> Result<PathBuf, SaveError> {
-    let dir = save_dir();
+fn scoped_save_dir(scope: &SaveScope) -> PathBuf {
+    match scope {
+        SaveScope::Global => save_dir(),
+        SaveScope::Project(project_id) => save_dir()
+            .join("projects")
+            .join(sanitize_scope_component(project_id)),
+    }
+}
+
+fn save_path_for_scope(scope: &SaveScope, slot: usize) -> PathBuf {
+    scoped_save_dir(scope).join(format!("save_{slot}.json"))
+}
+
+pub fn save_game_scoped(
+    scope: &SaveScope,
+    slot: usize,
+    data: &SaveData,
+) -> Result<PathBuf, SaveError> {
+    let dir = scoped_save_dir(scope);
     std::fs::create_dir_all(&dir)?;
-    let path = save_path(slot);
+    let path = save_path_for_scope(scope, slot);
     let json = serde_json::to_string_pretty(data)?;
     std::fs::write(&path, json)?;
-    info!("Game saved to slot {slot}");
+    info!("Game saved to scope {:?}, slot {slot}", scope);
     Ok(path)
 }
 
-pub fn load_game(slot: usize) -> Result<SaveData, SaveError> {
-    let path = save_path(slot);
+pub fn load_game_scoped(scope: &SaveScope, slot: usize) -> Result<SaveData, SaveError> {
+    let path = save_path_for_scope(scope, slot);
     let json = std::fs::read_to_string(path)?;
     let data: SaveData = serde_json::from_str(&json)?;
-    info!("Game loaded from slot {slot}");
+    info!("Game loaded from scope {:?}, slot {slot}", scope);
     Ok(data)
 }
 
-pub fn has_save(slot: usize) -> bool {
-    save_path(slot).exists()
+pub fn has_save_scoped(scope: &SaveScope, slot: usize) -> bool {
+    save_path_for_scope(scope, slot).exists()
 }
 
-pub fn delete_save(slot: usize) -> Result<(), SaveError> {
-    let path = save_path(slot);
+pub fn delete_save_scoped(scope: &SaveScope, slot: usize) -> Result<(), SaveError> {
+    let path = save_path_for_scope(scope, slot);
     if path.exists() {
         std::fs::remove_file(path)?;
     }
     Ok(())
+}
+
+pub fn save_game(slot: usize, data: &SaveData) -> Result<PathBuf, SaveError> {
+    save_game_scoped(&SaveScope::Global, slot, data)
+}
+
+pub fn load_game(slot: usize) -> Result<SaveData, SaveError> {
+    load_game_scoped(&SaveScope::Global, slot)
+}
+
+pub fn has_save(slot: usize) -> bool {
+    has_save_scoped(&SaveScope::Global, slot)
+}
+
+pub fn delete_save(slot: usize) -> Result<(), SaveError> {
+    delete_save_scoped(&SaveScope::Global, slot)
 }
 
 /// Message to request a game save.
@@ -162,6 +211,9 @@ mod tests {
         assert!(data.current_node.is_none());
         assert!(data.game_state.is_empty());
         assert!(data.scene_background.is_none());
+        assert_eq!(data.project_id, None);
+        assert_eq!(data.scene_id, None);
+        assert_eq!(data.story_graph_id, None);
     }
 
     #[test]
@@ -176,6 +228,9 @@ mod tests {
         data.current_node = Some(42);
         data.game_state = "Overworld".into();
         data.scene_background = Some("bg/forest.png".into());
+        data.project_id = Some("project-alpha".into());
+        data.scene_id = Some("forest".into());
+        data.story_graph_id = Some("opening".into());
 
         let json = serde_json::to_string(&data).unwrap();
         let loaded: SaveData = serde_json::from_str(&json).unwrap();
@@ -186,6 +241,9 @@ mod tests {
         assert_eq!(loaded.current_node, Some(42));
         assert_eq!(loaded.game_state, "Overworld");
         assert_eq!(loaded.scene_background.as_deref(), Some("bg/forest.png"));
+        assert_eq!(loaded.project_id.as_deref(), Some("project-alpha"));
+        assert_eq!(loaded.scene_id.as_deref(), Some("forest"));
+        assert_eq!(loaded.story_graph_id.as_deref(), Some("opening"));
     }
 
     #[test]
@@ -218,6 +276,23 @@ mod tests {
         with_temp_save_dir(|_| {
             assert!(!has_save(9999));
         });
+    }
+
+    #[test]
+    fn test_save_data_backward_compatible_with_old_json() {
+        let json = r#"{
+          "flags": {"intro_complete": true},
+          "variables": {"score": 12},
+          "current_node": 4,
+          "game_state": "Overworld",
+          "scene_background": "bg/forest.png"
+        }"#;
+
+        let loaded: SaveData = serde_json::from_str(json).unwrap();
+        assert_eq!(loaded.project_id, None);
+        assert_eq!(loaded.scene_id, None);
+        assert_eq!(loaded.story_graph_id, None);
+        assert_eq!(loaded.game_state, "Overworld");
     }
 
     #[test]
@@ -270,6 +345,41 @@ mod tests {
 
             delete_save(slot).unwrap();
             assert!(!has_save(slot));
+        });
+    }
+
+    #[test]
+    fn test_project_scoped_save_path_uses_project_id() {
+        let scope = SaveScope::Project("project-alpha".into());
+        let path = save_path_for_scope(&scope, 0);
+        let path_string = path.to_string_lossy();
+
+        assert!(path_string.contains("projects/project-alpha/save_0.json"));
+    }
+
+    #[test]
+    fn test_project_scoped_save_isolation() {
+        with_temp_save_dir(|_| {
+            let project_a = SaveScope::Project("project-a".into());
+            let project_b = SaveScope::Project("project-b".into());
+
+            let data = SaveData {
+                game_state: "Overworld".into(),
+                project_id: Some("project-a".into()),
+                ..Default::default()
+            };
+
+            save_game_scoped(&project_a, 0, &data).unwrap();
+
+            assert!(has_save_scoped(&project_a, 0));
+            assert!(!has_save_scoped(&project_b, 0));
+            assert!(!has_save(0));
+
+            let loaded = load_game_scoped(&project_a, 0).unwrap();
+            assert_eq!(loaded.project_id.as_deref(), Some("project-a"));
+
+            delete_save_scoped(&project_a, 0).unwrap();
+            assert!(!has_save_scoped(&project_a, 0));
         });
     }
 }

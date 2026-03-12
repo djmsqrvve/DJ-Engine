@@ -57,7 +57,8 @@ pub mod prelude {
         PreviewPlayerController, PreviewState, RuntimePreviewCliOptions, RuntimePreviewPlugin,
     };
     pub use crate::save::{
-        has_save, load_game, save_game, LoadCommand, LoadedSave, SaveCommand, SaveData, SavePlugin,
+        has_save, has_save_scoped, load_game, load_game_scoped, save_game, save_game_scoped,
+        LoadCommand, LoadedSave, SaveCommand, SaveData, SavePlugin, SaveScope,
     };
     pub use crate::scene::*;
     pub use crate::scripting::*;
