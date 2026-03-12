@@ -1,145 +1,149 @@
 # DJ Engine Project Structure
 
-Complete reference for the repository layout.
+Current reference for the checked-in workspace layout.
 
 ## Root Directory
 
-```
+```text
 dj_engine/
-├── .github/             # GitHub configuration
-├── archive/             # Archived documentation
-├── assets/              # Shared assets
-├── docs/                # Documentation
-├── engine/              # Core engine library
-├── games/               # Game projects
-├── tools/               # Utilities
-├── .gitignore           # Git ignore rules
-├── Cargo.lock           # Dependency lock file
-├── Cargo.toml           # Workspace manifest
-├── CONTRIBUTING.md      # Contributor guide
-├── dj                   # CLI helper script
-├── GEMINI.md           # AI assistant context
-├── LICENSE              # MIT license
-├── MAINTAINERS.md       # Project owner guide
-└── README.md            # Project overview
+├── .devcontainer/        # Codespaces and remote-dev config
+├── .github/              # CI and GitHub workflow config
+├── docs/                 # Current docs, handoff notes, and historical specs
+├── engine/               # Reusable engine crate and binaries
+├── games/                # Sample and future game crates
+├── tools/                # Workspace utilities
+├── Cargo.toml            # Workspace manifest
+├── Cargo.lock            # Dependency lock file
+├── Makefile              # Unified command surface
+├── rust-toolchain.toml   # Pinned Rust toolchain
+├── README.md             # Repo overview
+└── LICENSE               # MIT license
 ```
 
----
+## Workspace Crates
 
-## Engine (`engine/`)
+### `engine/`
 
-The core library that games depend on.
+The main engine crate. It is also the default workspace member.
 
-```
-engine/
-├── Cargo.toml           # Engine crate manifest
-├── examples/            # Example JSON data files
-│   ├── database.json    # Items, NPCs, enemies
-│   ├── jrpg_scene.json  # JRPG scene example
-│   ├── story_graph.json # Dialogue graph example
-│   └── td_scene.json    # Tower defense example
-├── src/
-│   ├── lib.rs           # Library root, prelude
-│   ├── core/            # Core plugin and setup
-│   │   └── mod.rs
-│   ├── data/            # Serializable data types
-│   │   ├── mod.rs       # Module exports
-│   │   ├── assets.rs    # Asset references
-│   │   ├── components.rs # Component data
-│   │   ├── database.rs  # Game databases
-│   │   ├── loader.rs    # Load/save functions
-│   │   ├── project.rs   # Project settings
-│   │   ├── scene.rs     # Scene structure
-│   │   ├── spawner.rs   # Entity spawning
-│   │   └── story.rs     # Story graph data
-│   ├── diagnostics/     # Debug and console tools
-│   │   ├── mod.rs
-│   │   └── console.rs
-│   ├── editor/          # Visual editor
-│   │   ├── mod.rs       # Main editor UI
-│   │   └── validation.rs
-│   ├── input/           # Input handling
-│   │   └── mod.rs
-│   ├── scripting/       # Lua integration
-│   │   └── mod.rs
-│   └── story_graph/     # Narrative system
-│       └── mod.rs
-└── tests/               # Integration tests
-    ├── editor_integrity.rs
-    └── integration_tests.rs
+Important files:
+
+- `engine/src/lib.rs`
+  - Library root and public reexports.
+- `engine/src/main.rs`
+  - Editor binary entrypoint (`dj_engine`).
+- `engine/src/bin/minimal.rs`
+  - Minimal rendering smoke binary.
+- `engine/src/bin/runtime_preview.rs`
+  - Engine-owned playable preview binary for mounted projects.
+- `engine/src/project_mount.rs`
+  - Shared mounted-project path normalization and manifest loading.
+
+Important module directories:
+
+```text
+engine/src/
+├── animation/
+├── assets/
+├── audio/
+├── bin/
+├── collision/
+├── core/
+├── data/
+├── diagnostics/
+├── editor/
+├── input/
+├── midi/
+├── rendering/
+├── runtime_preview/
+├── scene/
+├── scripting/
+└── story_graph/
 ```
 
----
+Notable data/editor/runtime files:
 
-## Games (`games/`)
+- `engine/src/data/project.rs`
+  - Project manifest, startup defaults, and project-relative path settings.
+- `engine/src/data/custom.rs`
+  - Registry-driven custom documents under `data/registry.json`.
+- `engine/src/editor/`
+  - Editor shell, document browser, graph preview, runtime handoff, and dirty tracking.
+- `engine/src/runtime_preview/mod.rs`
+  - Title, dialogue, overworld preview, continue flow, and preview-profile loading.
 
-Individual game projects that use the engine.
+### `games/dev/doomexe/`
 
-```
-games/
-└── dev/                 # Development games
-    └── doomexe/         # Main game project
-        ├── Cargo.toml   # Game crate manifest
-        ├── assets/      # Game-specific assets
-        │   ├── music/
-        │   ├── scripts/
-        │   └── sprites/
-        ├── src/
-        │   ├── main.rs  # Game entry point
-        │   └── hamster/ # Hamster narrator feature
-        │       ├── mod.rs
-        │       ├── components.rs
-        │       └── tests/
-        ├── scenes/      # Scene JSON files (saved)
-        └── story_graphs/ # Story graph JSON files
-```
+Sample game crate that exercises the engine. It is not the engine source of
+truth, but it remains a useful consumer and regression target.
 
----
+Current high-level layout:
 
-## Documentation (`docs/`)
-
-```
-docs/
-├── README.md                   # Documentation index
-├── GETTING_STARTED.md          # First-time setup
-├── ARCHITECTURE.md             # System design
-├── CODE_STYLE.md               # Coding standards
-├── TESTING.md                  # Test guide
-├── PROJECT_STRUCTURE.md        # This file
-├── Architecture_Specification.json  # Canonical spec
-├── Game_Engine_Technical_Roadmap.md # Development plan
-└── complete-detailed-docs.md   # Implementation guides
+```text
+games/dev/doomexe/
+├── Cargo.toml
+├── assets/
+│   ├── music/
+│   ├── palettes/
+│   └── scripts/
+├── docs/
+└── src/
+    ├── assets/
+    ├── battle/
+    ├── dialogue/
+    ├── hamster/
+    ├── hud/
+    ├── overworld/
+    └── scripting/
 ```
 
----
+### `tools/asset_generator/`
 
-## GitHub (`.github/`)
+Small workspace utility for MIDI generation and optional asset repair helpers.
 
+## Docs Directory
+
+`docs/` contains both current guides and older planning/spec files.
+
+Use these as current docs first:
+
+- `docs/README.md`
+- `docs/GETTING_STARTED.md`
+- `docs/ARCHITECTURE.md`
+- `docs/TESTING.md`
+- `docs/AI_HANDOFF_SUITE/`
+
+Treat these as historical/planning context rather than current repo truth:
+
+- `docs/ROADMAP.md`
+- `docs/Game_Engine_Technical_Roadmap.md`
+- `docs/EDITOR_Specification_Complete.md`
+- `docs/complete-detailed-docs.md`
+- `docs/DETAILED_TASK_DOCS.md`
+- `docs/Architecture_Specification.json`
+
+## Mounted Project Shape
+
+Projects opened through the editor or runtime preview are rooted at
+`project.json` and can carry custom documents beside scenes and story graphs:
+
+```text
+project.json
+scenes/
+story_graphs/
+assets/
+data/
+  registry.json
+  <custom_kind>/
 ```
-.github/
-├── ISSUE_TEMPLATE/
-│   ├── bug_report.md
-│   └── feature_request.md
-├── PULL_REQUEST_TEMPLATE.md
-└── workflows/           # CI/CD (future)
-```
 
----
+## Key Commands
 
-## Tools (`tools/`)
-
-```
-tools/
-└── asset_generator/     # Asset processing utilities
-```
-
----
-
-## Key Files Explained
-
-| File | Purpose |
-|------|---------|
-| `Cargo.toml` (root) | Defines workspace members |
-| `dj` | Shell script for common commands |
-| `GEMINI.md` | Context for AI coding assistants |
-| `Cargo.lock` | Exact dependency versions (committed for reproducibility) |
+- `make dev`
+  - Launch the editor.
+- `make preview PROJECT=/path/to/project`
+  - Launch runtime preview for a mounted project.
+- `make game`
+  - Launch the sample DoomExe game.
+- `make test`
+  - Run workspace tests.

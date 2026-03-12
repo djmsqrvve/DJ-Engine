@@ -14,13 +14,16 @@ Key responsibilities:
 - gameplay database rows
 - story graph serialization
 - scene spawning support
+- registry-driven custom document loading and validation
 
-Primary loader functions reexported in the engine prelude:
+Important loader and path helpers include:
 
 - `load_project`
 - `load_scene`
 - `load_database`
 - `load_story_graph`
+- mounted-project helpers in `engine/src/project_mount.rs`
+- custom-document loading and validation in `engine/src/data/custom.rs`
 
 Important data modules:
 
@@ -30,6 +33,14 @@ Important data modules:
 - `story.rs`
 - `spawner.rs`
 - `loader.rs`
+- `custom.rs`
+
+Key current project facts:
+
+- `ProjectPaths` now includes a `data` root, defaulting to `data`.
+- mounted projects can define startup defaults for scene, story graph, and
+  optional entry script
+- custom authored documents are discovered from `data/registry.json`
 
 ## Story Graph Split
 
@@ -50,10 +61,10 @@ There are two distinct story layers:
 Important current behavior:
 
 - `GraphExecutor::load_from_data()` bridges editor data into runtime nodes.
-- `Start`, `Dialogue`, `Choice`, `Action`, and `End` variants are currently the
-  clearest implemented path.
-- Unhandled story variants presently collapse to `StoryNode::End`, so agent work
-  in this area should be careful about assuming full graph coverage.
+- The clearest implemented runtime path remains dialogue/choice/action-oriented
+  flows that can drive the engine preview loop.
+- Runtime preview now uses these graphs directly as part of its mounted-project
+  startup flow.
 
 ## Engine Scripting Layer
 
@@ -66,8 +77,12 @@ Current shape:
 - `ScriptCommand::Load { path }` reads a Lua file and executes it.
 - The engine exposes helper registration functions for shared generic state.
 
-This is a straightforward file-execution model. It is not a large asset-backed
-script loader yet.
+This is still a straightforward file-execution model rather than a large
+asset-backed script pipeline.
+
+Mounted projects can now also set `project.settings.startup.entry_script`, and
+runtime preview will attempt to resolve and load that script relative to the
+project root.
 
 ## DoomExe Scripting Layer
 
@@ -91,16 +106,19 @@ The game also:
 
 ## Editor Interaction With Data And Scripts
 
-The editor plugin uses the data/story layer directly:
+The editor plugin now uses the mounted-project and data layers directly:
 
-- it stores `ProjectMetadata`
+- it stores `MountedProject`
 - it stores `ActiveStoryGraph`
+- it stores `LoadedCustomDocuments`
 - it can switch between level and story-graph views
-- on entering play mode it looks for `assets/scripts/hamster_test.lua` under the
-  mounted project path and sends `ScriptCommand::Load`
+- it includes a `Docs` browser for custom documents discovered from
+  `data/registry.json`
+- `Run Project` auto-saves and launches the separate `runtime_preview` process
+- `Preview Graph` remains an editor-only Story Graph tool
 
-That means editor "play" behavior and game startup scripting overlap around the
-same `hamster_test.lua` entrypoint pattern.
+That means the editor no longer tries to behave like full project runtime. The
+runtime preview binary is now responsible for mounted-project startup scripts.
 
 ## Asset Generator Role
 
@@ -110,4 +128,3 @@ The asset generator is intentionally small:
 - optionally repairs hamster sprite image files if those source files exist
 
 It assumes a workspace-root working directory.
-

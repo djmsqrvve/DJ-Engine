@@ -2,8 +2,8 @@
 
 ## What `doomexe` Is
 
-`games/dev/doomexe` is the current playable game crate and the default workspace
-member. It is a prototype game built on top of `DJEnginePlugin` with its own
+`games/dev/doomexe` is the current playable sample game crate. It is a
+prototype game built on top of `DJEnginePlugin` with its own
 state machine, UI, Lua extensions, and gameplay modules.
 
 ## App Composition
@@ -37,7 +37,7 @@ Current states:
 Current state transitions that matter:
 
 - Title `NEW GAME` moves to `NarratorDialogue`.
-- Title `CONTINUE` currently jumps directly to `Overworld`.
+- Title `CONTINUE` resumes the game's own save flow.
 - `StoryEvent` with id `StartBattle` moves the game into `Battle`.
 
 ## Game Modules

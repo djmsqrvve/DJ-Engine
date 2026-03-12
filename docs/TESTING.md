@@ -1,39 +1,59 @@
 # DJ Engine Testing Guide
 
-This document explains how to write and run tests for DJ Engine.
+This document explains the current validation flow and where tests live in the
+workspace.
 
-## Running Tests
+## Fast Validation Commands
 
-### All Tests
+Use the same target-dir convention as the repo docs and handoff suite:
+
 ```bash
-make test
-# or
-cargo test --workspace
+cargo fmt --all --check
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo check --workspace
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo test --workspace
+RUSTC_WRAPPER= CARGO_TARGET_DIR=~/.cargo-targets/dj_engine_bevy18 cargo clippy --workspace --all-targets -- -W clippy::all
 ```
 
-### Specific Package
+Equivalent `make` entrypoints:
+
+```bash
+make fmt
+make test
+make quality-check
+make guardrail
+```
+
+## Package-Level Commands
+
 ```bash
 cargo test -p dj_engine
 cargo test -p doomexe
-```
-
-### Specific Test
-```bash
-cargo test test_story_graph_serialization
-```
-
-### With Output
-```bash
+cargo test test_name -- --exact
 cargo test -- --nocapture
 ```
 
----
+## Runtime Smoke Commands
 
-## Test Structure
+These are useful when a change touches native window boot, editor flow, runtime
+preview, or the sample game:
 
-### Unit Tests (in same file)
+```bash
+timeout 20s make dev
+timeout 20s make preview PROJECT=/path/to/project
+timeout 20s make game
+```
+
+Inside the editor, `Run Project` hands off to the separate `runtime_preview`
+process. That means editor and runtime-preview changes often need both unit
+coverage and a native smoke boot.
+
+## Test Layout
+
+### Unit tests
+
+Most engine modules keep focused unit tests inline with the source file:
+
 ```rust
-// At bottom of any .rs file
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -46,155 +66,69 @@ mod tests {
 }
 ```
 
-### Integration Tests (separate files)
-Location: `engine/tests/*.rs`
+### Integration tests
 
-```rust
-// engine/tests/integration_tests.rs
-use dj_engine::prelude::*;
+Cross-system coverage typically lives under `engine/tests/`, especially for:
 
-#[test]
-fn test_engine_initialization() {
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    app.add_plugins(DJEnginePlugin);
-    app.update();
-}
-```
+- editor shell behavior
+- mounted project loading
+- runtime preview boot paths
+- scene/data serialization boundaries
 
----
+### Temp-project tests
 
-## Current Test Coverage
-
-| Module | Tests | Description |
-|--------|-------|-------------|
-| `data::loader` | 3 | Load/save operations |
-| `data::scene` | 3 | Scene serialization |
-| `data::story` | 3 | Story graph validation |
-| `data::database` | 2 | Database operations |
-| `data::components` | 2 | Component serialization |
-| `data::assets` | 1 | Asset indexing |
-| `data::project` | 2 | Project structure |
-| `data::spawner` | 1 | Entity spawning |
-| `editor_integrity` | 2 | Editor plugin tests |
-| `integration` | 2 | Full engine tests |
-| `doomexe::hamster` | 4 | Game-specific tests |
-
-**Total: 26 tests**
-
----
+When testing mounted-project flows, prefer `tempfile`-backed project roots with
+real `project.json`, `scenes/`, `story_graphs/`, and `data/registry.json`
+content instead of hardcoding repo-local fixture assumptions.
 
 ## Writing Good Tests
 
-### Test One Thing
+### Test one behavior at a time
+
 ```rust
-// ✅ Good - tests one behavior
 #[test]
 fn test_add_node_increases_count() {
     let mut graph = StoryGraphData::new("test", "Test");
     assert_eq!(graph.nodes.len(), 0);
-    
+
     graph.add_node(StoryNodeData::dialogue("n1", "NPC", "Hello"));
     assert_eq!(graph.nodes.len(), 1);
 }
-
-// ❌ Bad - tests multiple unrelated things
-#[test]
-fn test_everything() {
-    // Tests add, remove, find, validate all in one
-}
 ```
 
-### Test Edge Cases
-```rust
-#[test]
-fn test_empty_graph_validation() {
-    let graph = StoryGraphData::new("test", "Test");
-    let errors = graph.validate();
-    assert!(errors.iter().any(|e| matches!(e, ValidationError::MissingRootNode(_))));
-}
+### Prefer stable assertions
 
-#[test]
-fn test_broken_reference_detection() {
-    let mut graph = StoryGraphData::new("test", "Test");
-    // Node points to non-existent target
-    let mut node = StoryNodeData::dialogue("start", "NPC", "Hi");
-    node.data = StoryNodeVariant::Dialogue(DialogueNodeData {
-        next_node_id: Some("nonexistent".to_string()),
-        ..Default::default()
-    });
-    graph.add_node(node);
-    graph.root_node_id = "start".to_string();
-    
-    let errors = graph.validate();
-    assert!(errors.iter().any(|e| matches!(e, ValidationError::BrokenReference { .. })));
-}
-```
+- Assert on resources, state transitions, and loaded data.
+- Avoid brittle UI text assertions unless the exact copy matters.
+- For editor/runtime tests, prefer helper-level command resolution and lifecycle
+  assertions over trying to automate a full native click path.
 
-### Use Descriptive Names
-```rust
-// ✅ Good
-#[test]
-fn test_load_scene_with_missing_file_returns_file_not_found_error() { ... }
+### Cover edge cases
 
-// ❌ Bad
-#[test]
-fn test1() { ... }
-```
+- missing files
+- broken refs
+- duplicate IDs
+- malformed custom document manifests
+- save/load mismatch conditions
+- runtime preview fallback behavior
 
----
+## Current Hot Spots Worth Testing
 
-## Testing Bevy Systems
+When touching these areas, add or extend tests nearby:
 
-### Using App for Integration Tests
-```rust
-#[test]
-fn test_editor_initialization() {
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    app.add_plugins(EditorPlugin);
-    
-    // Run one frame
-    app.update();
-    
-    // Check resources exist
-    assert!(app.world().contains_resource::<EditorUiState>());
-}
-```
+- `engine/src/data/custom.rs`
+  - custom document registration, manifest loading, validation, preview profiles
+- `engine/src/project_mount.rs`
+  - project path normalization and mounted-project resolution
+- `engine/src/editor/`
+  - dirty tracking, runtime handoff, document browser, load/save behavior
+- `engine/src/runtime_preview/mod.rs`
+  - title flow, continue flow, dialogue transitions, preview-profile loading
+- `games/dev/doomexe/`
+  - sample-game compatibility with engine changes
 
-### Testing with World
-```rust
-#[test]
-fn test_entity_spawning() {
-    let mut world = World::new();
-    
-    // Spawn entity
-    let entity = world.spawn((Name::new("Test"), Transform::default())).id();
-    
-    // Verify
-    assert!(world.get::<Name>(entity).is_some());
-}
-```
+## CI Expectation
 
----
-
-## Test Data
-
-### Example JSON Files
-Located in `engine/examples/`:
-- `jrpg_scene.json`
-- `td_scene.json`
-- `story_graph.json`
-- `database.json`
-
-Use these for testing serialization/deserialization.
-
----
-
-## Continuous Integration
-
-Tests run automatically on:
-- Push to `main`
-- Pull requests
-
-Required to pass before merge.
+Workspace compile and test validation runs in CI. Before landing non-trivial
+changes, match that locally with the `fmt`, `check`, `test`, and `clippy`
+commands above.

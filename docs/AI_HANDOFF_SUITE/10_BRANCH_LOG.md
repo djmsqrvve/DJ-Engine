@@ -10,19 +10,19 @@ branches so branch intent does not get lost between sessions.
 
 | Branch | Checkpoint | Purpose | Status | Next Action |
 |--------|------------|---------|--------|-------------|
-| `main` | `cb9e2be` | Current integration branch | Active. Local `main` now contains the spawner runtime-state slice, manifest-driven editor/project mounting decoupling, engine-first launch defaults, generic sprite-part API cleanup, the mounted-project runtime preview flow, the editor-to-runtime preview handoff, and project-scoped continue/dirty-state polish. Current uncommitted work adds the custom-document registry/editor/runtime scaffold on top of that base. | Commit the custom-document scaffold, then continue toward richer game-data authoring and preview flows on top of the new registry layer. |
+| `main` | `7555544` | Current integration branch | Active. Local `main` now contains the spawner runtime-state slice, manifest-driven editor/project mounting decoupling, engine-first launch defaults, generic sprite-part API cleanup, the mounted-project runtime preview flow, the editor-to-runtime preview handoff, project-scoped continue/dirty-state polish, and the custom-document registry/editor/runtime scaffold. | Continue expanding richer authored-data/editor/runtime flows on top of the custom-document registry layer and keep older docs aligned with current engine behavior. |
 | `checkpoint/phase3-phase4-save-crt` | `1d61b7e` | Save/load and CRT checkpoint branch | Parked checkpoint branch. | Keep as recovery/reference point unless resumed for save/load or CRT-specific work. |
 | `feat/phase5-custom-aabb-collision` | `74505d0` | Collision prototype branch | Feature branch exists with custom AABB collision and trigger interaction work. | Revisit when Phase 5 becomes active or when collision decisions need comparison against `main`. |
 | `refactor/phase6-data-api-cleanup` | `7c3602c` | Data/API cleanup refactor branch | Matches `main` tip right now. | Use when Phase 6 data cleanup starts; otherwise leave parked. |
 
 ## Planned Next Work
 
-The immediate follow-up order after the 2026-03-11 engine preview checkpoint is:
+The immediate follow-up order after the 2026-03-11 custom-document scaffold checkpoint is:
 
-1. Expand generic runtime preview behavior beyond `Title -> Dialogue -> Overworld` while keeping DoomExe-specific gameplay systems outside the engine crate.
-2. Continue engine-only decoupling in older prose docs and onboarding material outside the already-updated engine-facing docs.
-3. Improve editor/runtime workflow polish on top of the new handoff path: clearer mounted-project status, exit reporting, and future dirty-state UX.
-4. Land the custom-document scaffold so mounted projects can carry registry-driven authored data beside scenes and story graphs.
+1. Expand the custom-document platform with richer game-side registrations, validators, reference pickers, and editor routes.
+2. Continue generic runtime preview behavior beyond the current `Title -> Dialogue -> Overworld` baseline while keeping DoomExe-specific gameplay systems outside the engine crate.
+3. Continue engine-only cleanup in older prose docs and onboarding material so current guides stay aligned with the engine-first workflow.
+4. Grow editor/runtime extension points for custom project data, preview presets, and future game-specific panel mounting without forking the shell.
 
 ## Logging Rules
 
@@ -40,4 +40,4 @@ The immediate follow-up order after the 2026-03-11 engine preview checkpoint is:
 - 2026-03-11: Landed integration commit `de5b8ea` (`feat: add mounted project runtime preview`) covering the shared `MountedProject` path, the `runtime_preview` binary, `make preview`, generic `Title -> Dialogue -> Overworld` preview flow, and the story-graph advance fix required to complete that loop.
 - 2026-03-11: Landed integration commit `7d0f291` (`feat: hand off editor play to runtime preview`) so the editor now auto-saves mounted projects, launches the separate `runtime_preview` process via `Run Project`, tracks preview lifecycle state, and keeps graph preview as a Story Graph-only editor tool.
 - 2026-03-11: Landed integration commit `cb9e2be` (`feat: add preview continue flow and editor dirty tracking`) adding project-scoped runtime preview saves, `Continue`, and snapshot-based dirty tracking plus guarded reloads in the editor shell.
-- 2026-03-11: Uncommitted custom-document scaffold adds `data/registry.json` discovery, generic custom document registration/validation, a document browser/editor surface in the engine editor, and preview-profile-driven custom-data loading in `runtime_preview`.
+- 2026-03-11: Landed integration commit `7555544` (`feat: add custom document scaffolding`) adding `data/registry.json` discovery, generic custom document registration/validation, a document browser/editor surface in the engine editor, and preview-profile-driven custom-data loading in `runtime_preview`.

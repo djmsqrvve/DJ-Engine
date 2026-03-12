@@ -1,160 +1,169 @@
 # DJ Engine Architecture
 
-This document explains the core design and architecture of DJ Engine.
+This document describes the current high-level architecture of DJ Engine after
+the engine/editor/runtime decoupling work.
 
 ## Overview
 
-DJ Engine is a **modular, plugin-based game engine** built on Bevy ECS. It separates concerns into distinct layers:
+DJ Engine is a Bevy-based engine crate with three main entry surfaces:
 
-```
-┌─────────────────────────────────────────────────┐
-│                   Games                          │
-│            (doomexe, your game)                  │
-├─────────────────────────────────────────────────┤
-│                 DJ Engine                        │
-│  ┌─────────┬─────────┬─────────┬─────────────┐  │
-│  │ Editor  │ Story   │ Script  │ Diagnostics │  │
-│  │ Plugin  │ Graph   │ Plugin  │   Plugin    │  │
-│  ├─────────┴─────────┴─────────┴─────────────┤  │
-│  │              Data Module                   │  │
-│  │    (Serializable types, loaders)           │  │
-│  ├───────────────────────────────────────────┤  │
-│  │              Core Plugin                   │  │
-│  │    (App setup, registrations)              │  │
-│  └───────────────────────────────────────────┘  │
-├─────────────────────────────────────────────────┤
-│                    Bevy                          │
-│        (ECS, Rendering, Audio, etc.)             │
-└─────────────────────────────────────────────────┘
-```
+- the editor shell (`dj_engine`)
+- the engine-owned runtime preview (`runtime_preview`)
+- optional game crates such as `doomexe`
 
----
+At a high level:
+
+```text
+Mounted Project / Sample Game
+        |
+        v
++-----------------------------+
+|         DJ Engine           |
+| +-------------------------+ |
+| | Editor Shell           | |
+| | Runtime Preview        | |
+| | Data + Custom Docs     | |
+| | Story Graph            | |
+| | Rendering / Audio      | |
+| | Input / Collision      | |
+| | Scripting / Save       | |
+| +-------------------------+ |
++-----------------------------+
+        |
+        v
+       Bevy
+```
 
 ## Core Principles
 
-### 1. Data-Driven Design
+### Engine-first, project-agnostic boundaries
 
-All game content is defined in JSON files, not hardcoded:
-- Scenes → `scenes/*.json`
-- Story graphs → `story_graphs/*.json`
-- Databases → `databases/*.json`
+The engine owns reusable structure and tooling. Sample-game logic stays outside
+engine core.
 
-**Benefit**: Content can be edited without recompiling.
+- Engine owns project manifests, scene/story loading, runtime preview, custom
+  document discovery, editor routing, and generic validation.
+- Games own semantics such as combat rules, HUD logic, enemy behavior,
+  progression rules, and game-specific scripting extensions.
 
-### 2. Separation of Data and Runtime
+### Data-driven project model
 
-```rust
-// ❌ Bad: Mixing serialization with runtime logic
-#[derive(Component, Serialize)]
-struct Player { hp: i32, bevy_handle: Handle<Image> }
+Mounted projects are rooted at `project.json` and can include:
 
-// ✅ Good: Separate data and runtime
-// Data (for JSON)
-#[derive(Serialize, Deserialize)]
-struct PlayerData { hp: i32, sprite_id: String }
+- `scenes/`
+- `story_graphs/`
+- `assets/`
+- `data/registry.json` plus custom document folders
 
-// Runtime (for ECS)
-#[derive(Component)]
-struct Player { hp: i32 }
-```
+The engine treats `data/registry.json` as the entrypoint for custom authored
+documents that live beside scenes and story graphs.
 
-### 3. Plugin Architecture
+### Separate serialized data from live ECS state
 
-Each feature is a Bevy plugin that can be enabled/disabled:
+The editor, runtime preview, and save flows all rely on a data layer separate
+from live runtime components. That keeps authored JSON, validation, and ECS
+runtime state from collapsing into one type surface.
 
-```rust
-app.add_plugins((
-    DJEnginePlugin,     // Core
-    EditorPlugin,       // Visual editor
-    ScriptingPlugin,    // Lua support
-    DiagnosticsPlugin,  // Debug tools
-));
-```
+## Main Execution Paths
 
----
+### Editor shell
 
-## Module Reference
+- Binary: `engine/src/main.rs`
+- Primary command: `make dev`
+- Responsibilities:
+  - mount projects from `project.json`
+  - edit scenes and story graphs
+  - browse and edit custom documents
+  - track dirty state
+  - hand off `Run Project` to the separate runtime preview process
 
-### Core (`engine/src/core/`)
-- `DJEnginePlugin` - Main engine initialization
-- Registers all data types for reflection
+The old idea of the editor becoming full runtime state has been replaced by a
+separate handoff model. The editor stays an authoring tool.
 
-### Data (`engine/src/data/`)
-| File | Purpose |
-|------|---------|
-| `mod.rs` | Module exports, DataPlugin |
-| `project.rs` | Project settings |
-| `scene.rs` | Scene, Layer, Entity |
-| `components.rs` | Component data structs |
-| `story.rs` | Story graph data |
-| `database.rs` | Items, NPCs, enemies |
-| `assets.rs` | Asset references |
-| `loader.rs` | Load/save functions |
-| `spawner.rs` | Entity spawning systems |
+### Runtime preview
 
-### Story Graph (`engine/src/story_graph/`)
-- `StoryGraph` - Runtime graph resource
-- `GraphExecutor` - Processes nodes
-- `StoryNode` - Dialogue, Choice, Branch, etc.
+- Binary: `engine/src/bin/runtime_preview.rs`
+- Primary command: `make preview PROJECT=/path/to/project`
+- Responsibilities:
+  - mount a project
+  - load startup scene/story data
+  - load custom documents and preview profiles
+  - run the generic `Title -> Dialogue -> Overworld` preview loop
+  - support project-scoped continue checkpoints
 
-### Editor (`engine/src/editor/`)
-- `EditorPlugin` - Egui-based visual editor
-- Level editor view
-- Story graph editor view
-- Inspector panel
+### Sample game
 
-### Scripting (`engine/src/scripting/`)
-- `ScriptingPlugin` - Lua integration via mlua
-- `LuaContext` - Thread-safe Lua state
-- Script loading and execution
+- Binary: `games/dev/doomexe/src/main.rs`
+- Primary command: `make game`
+- Role:
+  - exercise engine features as a sample consumer
+  - remain separate from engine core semantics
 
----
+## Data Architecture
 
-## Data Flow
+### Built-in project data
 
-```
-JSON Files                    Runtime
-    │                           │
-    ▼                           │
-load_scene()              ┌─────┴─────┐
-load_story_graph()   ──►  │  Bevy     │
-load_database()           │  World    │
-    │                     │  (ECS)    │
-    │                     └─────┬─────┘
-    │                           │
-    ▼                           ▼
-Data Structs              Components
-(Serialize)               (Runtime)
-```
+Key engine-owned data modules:
 
----
+- `engine/src/data/project.rs`
+  - project manifest, project-relative paths, startup defaults
+- `engine/src/data/scene.rs`
+  - scene composition and entity data
+- `engine/src/data/story/`
+  - serialized story graph data
+- `engine/src/data/spawner.rs`
+  - scene-to-runtime spawn bridge
+- `engine/src/data/loader.rs`
+  - load/save helpers and data errors
 
-## Key Types
+### Custom document platform
 
-### StoryNode (Runtime)
-```rust
-enum StoryNode {
-    Dialogue { speaker, text, next },
-    Choice { prompt, options },
-    Branch { condition, if_true, if_false },
-    End,
-}
-```
+Custom game data lives in `engine/src/data/custom.rs` and adds:
 
-### StoryNodeData (Serialized)
-```rust
-struct StoryNodeData {
-    id: String,
-    position: Vec3Data,  // Editor position
-    data: StoryNodeVariant,
-}
-```
+- `CustomDataManifest`
+- `CustomDocumentEntry`
+- `DocumentRef`
+- `LoadedCustomDocuments`
+- `ValidationIssue`
+- `EditorDocumentRoute`
 
----
+Games can register their own document kinds and validators without forcing
+engine-core Helix- or DoomExe-specific branches.
+
+## Editor Architecture
+
+The editor is split across focused modules under `engine/src/editor/`.
+
+Important responsibilities:
+
+- mounted-project lifecycle
+- level and story-graph views
+- graph preview as an editor-only tool
+- custom-document browser and raw JSON editing
+- dirty tracking across scene/story/project/custom-doc state
+- runtime preview launch/stop lifecycle and status reporting
+
+## Runtime And Save Architecture
+
+- `engine/src/runtime_preview/mod.rs`
+  - preview state machine and project boot flow
+- `engine/src/project_mount.rs`
+  - shared path normalization and startup resolution
+- `engine/src/save.rs`
+  - save helpers, scoped saves, and runtime preview continue support
+
+The preview path uses project startup defaults and preview profiles rather than
+hardcoded sample-game assumptions.
 
 ## Extension Points
 
-1. **New Component Types** - Add to `data/components.rs`
-2. **New Node Types** - Add to `story_graph/mod.rs` and `data/story.rs`
-3. **New Editor Views** - Add to `editor/mod.rs`
-4. **Game Plugins** - Create in `games/dev/your_game/`
+Current extension seams include:
+
+- custom document kind registration
+- custom document validators
+- editor document routing
+- runtime preview loading of custom document bundles
+- game-side scripting/plugin layers in consumer crates
+
+That is the architectural boundary to protect as new Helix-style or other
+game-specific systems are introduced.

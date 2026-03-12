@@ -1,45 +1,52 @@
 # DJ Engine Documentation
 
-Welcome to the DJ Engine documentation. This index helps you find what you need.
+This index separates current repo guides from older design and planning docs.
 
-## 📚 Guides
+## Start Here
+
+Use these first when you need the current repo shape rather than historical design intent:
 
 | Guide | Description | Audience |
 |-------|-------------|----------|
-| [AI Handoff Suite](AI_HANDOFF_SUITE/README.md) | Current source-derived repo handoff for new coding agents | AI agents |
-| [Getting Started](GETTING_STARTED.md) | First-time setup and hello world | New users |
-| [Architecture](ARCHITECTURE.md) | System design and core concepts | Contributors |
+| [AI Handoff Suite](AI_HANDOFF_SUITE/README.md) | Source-derived handoff for the current worktree and recent engine milestones | AI agents and contributors resuming work |
+| [Getting Started](GETTING_STARTED.md) | Current setup, validation, and runtime launch commands | New contributors |
+| [Architecture](ARCHITECTURE.md) | Current engine/editor/runtime/custom-document architecture | Contributors |
+| [Testing Guide](TESTING.md) | Current validation commands and test structure | Contributors |
+| [Project Structure](PROJECT_STRUCTURE.md) | Current workspace layout and mounted-project shape | Everyone |
 | [Code Style](CODE_STYLE.md) | Coding standards and conventions | Contributors |
-| [Testing Guide](TESTING.md) | How to write and run tests | Contributors |
-| [Project Structure](PROJECT_STRUCTURE.md) | File and folder layout | Everyone |
 
-## 🗂️ Reference
+The root [README.md](../README.md) and [engine/README.md](../engine/README.md)
+are also kept current for the engine-first workflow.
 
-| Document | Description |
-|----------|-------------|
-| [Architecture_Specification.json](Architecture_Specification.json) | Canonical high-level spec |
-| [Game_Engine_Technical_Roadmap.md](Game_Engine_Technical_Roadmap.md) | 20-week development plan |
-| [complete-detailed-docs.md](complete-detailed-docs.md) | Implementation guides & templates |
+## Current Areas
 
-## 🔧 Engine Modules
+| Area | Location | Notes |
+|------|----------|-------|
+| Engine core | `engine/src/` | Reusable engine/editor/runtime code |
+| Sample game | `games/dev/doomexe/` | Optional sample consumer, not the engine source of truth |
+| Runtime preview | `engine/src/runtime_preview/` | Engine-owned playable preview loop for mounted projects |
+| Custom documents | `engine/src/data/custom.rs` | Registry-driven authored data under `data/registry.json` |
+| Editor shell | `engine/src/editor/` | Egui editor, graph preview, and runtime handoff |
 
-| Module | Location | Description |
-|--------|----------|-------------|
-| Core | `engine/src/core/` | Engine initialization and plugin |
-| Data | `engine/src/data/` | Serializable JSON data types |
-| Editor | `engine/src/editor/` | Egui-based visual editor |
-| Story Graph | `engine/src/story_graph/` | Narrative and dialogue system |
-| Scripting | `engine/src/scripting/` | Lua integration |
-| Diagnostics | `engine/src/diagnostics/` | Console and debug tools |
-| Input | `engine/src/input/` | Input handling |
+## Historical And Planning Docs
 
-## 🎮 Games
+These files are still useful context, but they are not the source of truth for
+the current repository and may describe older DoomExe-first or hamster-era
+assumptions:
 
-| Game | Location | Status |
-|------|----------|--------|
-| DoomExe | `games/dev/doomexe/` | Active development |
+| Document | Status |
+|----------|--------|
+| [ROADMAP.md](ROADMAP.md) | Historical milestone notes |
+| [Game_Engine_Technical_Roadmap.md](Game_Engine_Technical_Roadmap.md) | Older long-range planning document |
+| [EDITOR_Specification_Complete.md](EDITOR_Specification_Complete.md) | Older editor specification |
+| [complete-detailed-docs.md](complete-detailed-docs.md) | Historical implementation draft |
+| [DETAILED_TASK_DOCS.md](DETAILED_TASK_DOCS.md) | Historical task/spec draft |
+| [Architecture_Specification.json](Architecture_Specification.json) | Historical high-level architecture artifact |
 
-## 🆘 Need Help?
+When any of those disagree with code, the code, Cargo manifests, `Makefile`,
+root README, engine README, and AI Handoff Suite win.
+
+## Need Help?
 
 - Check existing [GitHub Issues](https://github.com/djmsqrvve/dj_engine/issues)
 - Read the [Contributing Guide](../CONTRIBUTING.md)

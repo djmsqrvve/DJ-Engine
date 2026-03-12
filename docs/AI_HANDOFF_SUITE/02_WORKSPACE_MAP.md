@@ -37,8 +37,10 @@ docs/
 
 Purpose:
 
-- Shared engine code used by both the editor and the game.
+- Shared engine code used by the editor, runtime preview, and sample games.
 - Exposes the `DJEnginePlugin` bundle and the `prelude`.
+- Also owns the mounted-project path, custom-document registry, and runtime
+  preview flow.
 
 Important entrypoints:
 
@@ -46,12 +48,15 @@ Important entrypoints:
 - `engine/src/core/mod.rs`
 - `engine/src/main.rs`
 - `engine/src/bin/minimal.rs`
+- `engine/src/bin/runtime_preview.rs`
+- `engine/src/project_mount.rs`
+- `engine/src/data/custom.rs`
 
 ### `games/dev/doomexe`
 
 Purpose:
 
-- Main playable game crate and current default workspace member.
+- Current sample game crate.
 - Uses the shared engine plus its own game-state, UI, Lua, and gameplay modules.
 
 Important entrypoints:
@@ -77,6 +82,8 @@ Important entrypoint:
   - Editor binary entrypoint.
 - `engine/src/bin/minimal.rs`
   - Minimal graphics sanity check binary.
+- `engine/src/bin/runtime_preview.rs`
+  - Engine-owned playable preview for mounted projects.
 - `games/dev/doomexe/src/main.rs`
   - Game binary entrypoint.
 - `engine/src/editor/` — decomposed into submodules (March 2026):
@@ -88,13 +95,16 @@ Important entrypoint:
   - `plugin.rs` — `EditorPlugin` + lifecycle systems
   - `validation.rs` — `ValidationState`, `draw_validation_panel`
 - `engine/src/data/`
-  - Serializable project, scene, database, story, and prefab layer.
+  - Serializable project, scene, database, story, prefab, and custom-document
+    layer.
 - `engine/src/story_graph/` — decomposed into submodules (March 2026):
   - `mod.rs` — `StoryGraphPlugin` + re-exports (33 lines)
   - `types.rs` — all types/resources/events/impls + unit tests (300 lines)
   - `executor.rs` — `execute_graph` system + helpers (223 lines)
 - `engine/src/scripting/`
   - Engine-level Lua runtime and API registration.
+- `engine/src/runtime_preview/`
+  - Generic `Title -> Dialogue -> Overworld` preview loop plus continue support.
 
 ## Current Asset Layout
 
