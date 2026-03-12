@@ -11,6 +11,7 @@ Use these first when you need the current repo shape rather than historical desi
 | [AI Handoff Suite](AI_HANDOFF_SUITE/README.md) | Source-derived handoff for the current worktree and recent engine milestones | AI agents and contributors resuming work |
 | [Getting Started](GETTING_STARTED.md) | Current setup, validation, and runtime launch commands | New contributors |
 | [Architecture](ARCHITECTURE.md) | Current engine/editor/runtime/custom-document architecture | Contributors |
+| [Current Gaps](CURRENT_GAPS.md) | High-level near-, mid-, and long-term gap map for the current engine state | Contributors and planners |
 | [Testing Guide](TESTING.md) | Current validation commands and test structure | Contributors |
 | [Project Structure](PROJECT_STRUCTURE.md) | Current workspace layout and mounted-project shape | Everyone |
 | [Code Style](CODE_STYLE.md) | Coding standards and conventions | Contributors |

@@ -13,6 +13,8 @@ can resume without reconstructing the recent engine/editor cleanup.
 | `de5b8ea` | feat: add mounted project runtime preview |
 | `7d0f291` | feat: hand off editor play to runtime preview |
 | `cb9e2be` | feat: add preview continue flow and editor dirty tracking |
+| `7555544` | feat: add custom document scaffolding |
+| `da2c5c4` | docs: refresh current onboarding guides |
 
 These checkpoints landed on `main` as two intentionally-scoped slices: the
 engine/editor decoupling foundation first, then the mounted-project runtime
@@ -103,7 +105,7 @@ flow, then project-scoped continue/save plus snapshot-based dirty tracking.
 - The toolbar now reports mounted-project context, dirty state, preview status,
   and last preview exit more clearly.
 
-### 7. Custom Document Scaffold (Current Uncommitted Slice)
+### 7. Custom Document Scaffold
 
 - Added a generic custom-document system under `engine/src/data/custom.rs`
   centered around `data/registry.json`.
@@ -120,6 +122,18 @@ flow, then project-scoped continue/save plus snapshot-based dirty tracking.
   custom document bundle together.
 - Added thin-slice tests covering registry loading, broken refs, editor state,
   and preview-profile-driven runtime startup with Helix-shaped sample kinds.
+
+### 8. Current Docs And Onboarding Sweep
+
+- Refreshed the current onboarding guides under `docs/` so the active entry path
+  matches the engine-first repo shape rather than older DoomExe-first docs.
+- Updated the AI Handoff Suite index, workspace map, engine guide, game guide,
+  data/scripting guide, and branch log to reflect the mounted-project runtime
+  preview path, custom-document scaffold, and current launch surface.
+- Added `docs/CURRENT_GAPS.md` as a high-level near-, mid-, and long-term gap
+  map for the current engine state.
+- Reclassified older long-form roadmap/spec docs as historical context rather
+  than treating them as the source of truth for the checked-in repo.
 
 ---
 
@@ -158,7 +172,7 @@ Runtime smoke notes:
 ## Current State After This Checkpoint
 
 - Branch: `main`
-- Primary checkpoints: `e9a37a8`, `de5b8ea`, `7d0f291`
+- Primary checkpoints: `e9a37a8`, `de5b8ea`, `7d0f291`, `cb9e2be`, `7555544`, `da2c5c4`
 - Local `main` is ahead of `origin/main`.
 - The engine/editor shell is now much less coupled to DoomExe.
 - The engine now has a generic playable preview path for mounted projects that is
@@ -170,6 +184,8 @@ Runtime smoke notes:
   built-in database.
 - `engine/src` and `engine/tests` no longer contain DoomExe/hamster sample naming
   in engine-generic code paths.
+- The current onboarding path now points contributors toward the engine-first
+  docs and explicitly marks older roadmap/spec material as historical.
 
 Intentional sample-specific references still remain in DoomExe and in older
 historical docs. That is expected.
@@ -178,13 +194,13 @@ historical docs. That is expected.
 
 ## Best Next Work
 
-1. Expand generic runtime preview capabilities from the current
+1. Expand the custom-document platform from scaffold-level support into richer
+   authoring and extension workflows: typed editors, reference pickers,
+   validators, and better preview-profile UX.
+2. Expand generic runtime preview capabilities beyond the current
    `Title -> Dialogue -> Overworld` baseline while keeping DoomExe-specific battle,
    continue/save UX, and sample gameplay out of the engine crate.
-2. Continue the decoupling pass through older docs in `docs/` that still describe
-   the repo as DoomExe-first or still mention old hamster-era engine APIs.
-3. Improve editor/runtime workflow polish on top of the new handoff path:
-   mounted-project clarity, richer preview exit reporting, and future dirty-state UX.
-4. Commit and extend the custom-document scaffold so games can register richer
-   data kinds, validators, editor routes, and preview profiles without engine-core
-   game branches.
+3. Improve editor/runtime extension seams so future games can mount custom
+   panels, preview presets, and runtime data consumers without forking the shell.
+4. Use `docs/CURRENT_GAPS.md` as the short current planning map while older
+   long-form roadmap/spec docs remain historical context.
