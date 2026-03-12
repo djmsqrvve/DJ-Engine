@@ -148,6 +148,29 @@ The engine plugin bundle currently adds:
 - Uses mounted project startup defaults, preview profiles, and project-scoped
   saves rather than DoomExe state/plugins.
 
+## External Data Integration
+
+DJ-Engine is the primary Rust/Bevy consumer in a DJ multiverse that includes
+multiple Helix game variants (Helix2000, potential Helix MMORPG, etc.).
+
+`helix_standardization` (`~/dev/helix/helix_standardization`) provides the shared
+data standard across all Helix variants: ~7,800 entities, 22 JSON schemas, 284
+categories covering abilities, items, mobs, quests, zones, equipment, mounts,
+currencies, and more. It includes a visualizer, CLI, TypeScript/Python SDKs, and
+an ecosystem audit for DJ-Engine at `audits/AUDIT_DJ_ENGINE.md`.
+
+The integration point is the custom document registry (`data/registry.json`), not
+engine core. A game plugin maps `helix_standardization` categories to DJ-Engine
+document kinds registered via `CustomDocumentRegistration<T>`. The engine never
+depends on `helix_standardization` at compile time or runtime.
+
+In production, each game is self-contained. `helix_standardization` is a
+dev/testing data bridge for keeping data organized and shareable across Helix game
+variants regardless of language or engine.
+
+See `docs/LONG_TERM_GOALS.md` for the full integration path and guardrails, and
+`docs/ARCHITECTURE.md` for the data flow diagram.
+
 ## What To Read First In The Engine
 
 For a fast code walk:

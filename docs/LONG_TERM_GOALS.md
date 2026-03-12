@@ -89,6 +89,7 @@ The engine should not absorb:
 - game-specific balance formulas
 
 If a feature only makes sense for one game’s meaning, it belongs in the game.
+`helix_standardization` data flows through game plugins, not engine core.
 
 ### Prefer extension seams over hardcoded branches
 
@@ -122,9 +123,10 @@ and preview a meaningful slice without engine-core game branches.
 
 ### Proof point 2
 
-At least one richer external consumer, such as a Helix-style project, can use
-the same editor/runtime infrastructure while keeping its semantics outside the
-engine crate.
+At least one richer external consumer — specifically, a Helix game consuming
+data from `helix_standardization` (`~/dev/helix/helix_standardization`) — can
+use the same editor/runtime infrastructure while keeping its semantics outside
+the engine crate.
 
 ### Proof point 3
 
@@ -133,6 +135,31 @@ The engine remains understandable:
 - current docs stay aligned with the live repo
 - extension points are discoverable
 - contributors do not need historical tribal knowledge to use the engine
+
+## Helix Data Integration Path
+
+The DJ multiverse includes a Helix timeline with multiple game variants (Helix2000,
+potential Helix MMORPG, etc.) that may run on different engines or languages.
+`helix_standardization` (`~/dev/helix/helix_standardization`) is the shared data
+standard across all of them: ~7,800 entities, 22 JSON schemas, 284 categories
+covering abilities, items, mobs, quests, zones, equipment, mounts, currencies,
+and more.
+
+The integration path into DJ-Engine is:
+
+- `helix_standardization` dist/ JSON → game plugin maps categories to DJ-Engine
+  document kinds → registered via `CustomDocumentRegistration<T>` → loaded
+  through `data/registry.json`
+- The engine never depends on `helix_standardization` at compile time or runtime
+- Each game variant maps standardized data to its own runtime needs
+- Production builds carry their own data — `helix_standardization` is a
+  dev/testing bridge only
+
+The test fixtures in `engine/src/runtime_preview/mod.rs` intentionally use
+Helix-shaped document kinds (`abilities`, `enemy_archetypes`, `evolution_tree`,
+`waves`) as proof that the custom document platform can carry real game data
+shapes. These are engine tests exercising the generic platform, not engine-level
+Helix dependencies.
 
 ## Relationship To Current Planning
 

@@ -165,5 +165,43 @@ Current extension seams include:
 - runtime preview loading of custom document bundles
 - game-side scripting/plugin layers in consumer crates
 
-That is the architectural boundary to protect as new Helix-style or other
-game-specific systems are introduced.
+That is the architectural boundary to protect as new game-specific systems are
+introduced.
+
+## External Data Sources
+
+The custom document platform is designed to accept data from external pipelines.
+The engine never depends on any external data source at compile time or runtime —
+external data flows through game plugins that register document kinds.
+
+The primary planned external source is `helix_standardization`
+(`~/dev/helix/helix_standardization`), a mature data standardization pipeline
+with ~7,800 entities across 22 JSON schemas and 284 categories (abilities, items,
+mobs, quests, zones, equipment, mounts, currencies, etc.).
+
+The intended data flow:
+
+```text
+helix_standardization dist/ JSON
+        |
+        v
+  Game plugin maps categories to DJ-Engine document kinds
+        |
+        v
+  Registered via CustomDocumentRegistration<T>
+        |
+        v
+  Loaded through data/registry.json
+        |
+        v
+  Editor browsing, structured editing, validation, runtime loading
+```
+
+This is a dev/testing integration. Production builds embed their own data and do
+not depend on `helix_standardization` being present.
+
+The test fixtures in `engine/src/runtime_preview/mod.rs` intentionally use
+Helix-shaped document kinds (`abilities`, `enemy_archetypes`, `evolution_tree`,
+`waves`) as proof that the custom document platform can carry real game data
+shapes. These are engine tests exercising the generic platform, not engine-level
+Helix dependencies.

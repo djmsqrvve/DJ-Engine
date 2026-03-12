@@ -35,8 +35,8 @@ What the engine needs next:
 
 Why this matters:
 
-- The custom-document platform is the foundation for Helix-style and other
-  non-scene game data
+- The custom-document platform is the foundation for Helix games (via
+  `helix_standardization`) and other non-scene game data
 - If authoring remains raw JSON-first for too long, the engine seam will exist
   technically but still feel bad in practice
 
@@ -200,6 +200,7 @@ Why it matters:
 
 Success looks like:
 
-- a richer external consumer, like a Helix-style project, can mount into the
-  engine with mostly additive game-side code
+- a richer external consumer — specifically, a Helix game plugin consuming
+  `helix_standardization` data through the custom document registry — can mount
+  into the engine with mostly additive game-side code
 - the engine still reads as generic after that work lands

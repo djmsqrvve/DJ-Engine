@@ -69,8 +69,9 @@ Short version:
 - Add long-horizon project infrastructure such as schema evolution, migration
   hooks, stronger save/settings extensibility, and more mature debugging and
   inspection workflows.
-- Validate the engine against a richer external consumer, such as a Helix-style
-  action/survival project, while keeping engine APIs generic and reusable.
+- Validate the engine against a richer external consumer — specifically, a Helix
+  game consuming `helix_standardization` data — while keeping engine APIs generic
+  and reusable.
 
 Details live in [Long-Term Goals](LONG_TERM_GOALS.md).
 
