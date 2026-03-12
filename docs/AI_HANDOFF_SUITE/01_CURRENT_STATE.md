@@ -60,8 +60,9 @@ timeout 20s make doom
   part of this repo, not just compile-only scaffolding.
 - Engine startup audio is muted by default because `AudioState::new()` sets
   `master_volume` to `0.0`.
-- The rendering module is still lightweight: it sets up the main camera, but
-  the offscreen render target, upscaling, and CRT pipeline are still TODOs.
+- The rendering module includes a main camera, an offscreen 320×240 render
+  target with upscaling, and a CRT post-processing pipeline (`crt_material.rs`,
+  `crt.wgsl`) with configurable scanlines, barrel distortion, and color bleeding.
 - The asset module provides asset definitions, a library resource, and
   `HamsterPartLoader` and `PaletteLoader` implemented as Bevy `AssetLoader`s.
 - The story graph runtime bridge is partial: some data-layer story variants map
