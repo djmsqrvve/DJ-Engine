@@ -78,6 +78,7 @@ pub mod prelude {
 
     // Re-export commonly used rendering items
     pub use crate::data::{
+        update_loaded_custom_document_envelope, update_loaded_custom_document_typed,
         AppCustomDocumentExt, CustomDataManifest, CustomDocument, CustomDocumentEntry,
         CustomDocumentRegistration, CustomDocumentRegistry, DJDataRegistryPlugin, DocumentRef,
         EditorDocumentRoute, LoadedCustomDocuments, PreviewProfilePayload, ValidationIssue,

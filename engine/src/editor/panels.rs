@@ -6,8 +6,10 @@ use super::types::{
 };
 use super::views::{draw_grid, draw_story_graph};
 use crate::data::{
-    filter_document_refs_by_kind, update_loaded_custom_document_raw_json, CustomDocumentRegistry,
-    DocumentLinkTarget, DocumentRef, EditorDocumentRoute, LoadedCustomDocuments,
+    filter_document_refs_by_kind, update_loaded_custom_document_envelope,
+    update_loaded_custom_document_raw_json, update_loaded_custom_document_typed,
+    CustomDocumentRegistry, DocumentLink, DocumentLinkTarget, DocumentRef, EditorDocumentRoute,
+    LoadedCustomDocuments, PreviewProfilePayload, Project,
 };
 use crate::diagnostics::console::ConsoleLogStore;
 use crate::editor::extensions::EditorExtensionRegistry;
@@ -43,6 +45,575 @@ fn save_project_with_feedback(world: &mut World) -> bool {
             error!("{message}");
             false
         }
+    }
+}
+
+fn available_document_kinds(loaded_documents: &LoadedCustomDocuments) -> Vec<String> {
+    loaded_documents
+        .available_kinds()
+        .into_iter()
+        .filter(|kind| kind != "all")
+        .collect()
+}
+
+fn first_document_id_for_kind(loaded_documents: &LoadedCustomDocuments, kind: &str) -> String {
+    filter_document_refs_by_kind(loaded_documents, kind, "")
+        .into_iter()
+        .next()
+        .map(|document_ref| document_ref.id)
+        .unwrap_or_default()
+}
+
+fn default_document_link(
+    loaded_documents: &LoadedCustomDocuments,
+    preferred_kind: Option<&str>,
+) -> DocumentLink {
+    let available_kinds = available_document_kinds(loaded_documents);
+    let kind = preferred_kind
+        .filter(|kind| available_kinds.iter().any(|candidate| candidate == *kind))
+        .map(str::to_string)
+        .or_else(|| available_kinds.first().cloned())
+        .unwrap_or_default();
+    let id = if kind.is_empty() {
+        String::new()
+    } else {
+        first_document_id_for_kind(loaded_documents, &kind)
+    };
+
+    DocumentLink {
+        field_path: "payload.ref".into(),
+        target: DocumentLinkTarget::Document { kind, id },
+    }
+}
+
+fn default_preview_profile_ref(
+    loaded_documents: &LoadedCustomDocuments,
+    preferred_kind: Option<&str>,
+) -> DocumentRef {
+    let available_kinds = available_document_kinds(loaded_documents);
+    let kind = preferred_kind
+        .filter(|kind| available_kinds.iter().any(|candidate| candidate == *kind))
+        .map(str::to_string)
+        .or_else(|| available_kinds.first().cloned())
+        .unwrap_or_default();
+    let id = if kind.is_empty() {
+        String::new()
+    } else {
+        first_document_id_for_kind(loaded_documents, &kind)
+    };
+
+    DocumentRef { kind, id }
+}
+
+fn apply_envelope_update<F>(
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    selected: &DocumentRef,
+    structured_error: &mut Option<String>,
+    update: F,
+) where
+    F: FnOnce(&mut crate::data::CustomDocument<serde_json::Value>),
+{
+    if let Err(error) = update_loaded_custom_document_envelope(
+        loaded_documents,
+        project,
+        registry,
+        &selected.kind,
+        &selected.id,
+        update,
+    ) {
+        *structured_error = Some(format!(
+            "Failed to apply structured document update: {error}"
+        ));
+    }
+}
+
+fn apply_typed_update<T, F>(
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    selected: &DocumentRef,
+    structured_error: &mut Option<String>,
+    update: F,
+) where
+    T: serde::Serialize + serde::de::DeserializeOwned,
+    F: FnOnce(&mut crate::data::CustomDocument<T>),
+{
+    if let Err(error) = update_loaded_custom_document_typed::<T, _>(
+        loaded_documents,
+        project,
+        registry,
+        &selected.kind,
+        &selected.id,
+        update,
+    ) {
+        *structured_error = Some(format!("Failed to apply typed document update: {error}"));
+    }
+}
+
+fn draw_generic_document_metadata_editor(
+    ui: &mut egui::Ui,
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    selected: &DocumentRef,
+    document: &crate::data::LoadedCustomDocument,
+    structured_error: &mut Option<String>,
+) {
+    let Some(parsed) = document.document.as_ref() else {
+        return;
+    };
+
+    ui.separator();
+    ui.label(RichText::new("Structured Metadata").strong());
+
+    let mut label = parsed.label.clone().unwrap_or_default();
+    ui.label("Label");
+    if ui.text_edit_singleline(&mut label).changed() {
+        let normalized = label.trim();
+        let value = if normalized.is_empty() {
+            None
+        } else {
+            Some(normalized.to_string())
+        };
+        apply_envelope_update(
+            loaded_documents,
+            project,
+            registry,
+            selected,
+            structured_error,
+            move |document| {
+                document.label = value;
+            },
+        );
+    }
+
+    let mut tags = parsed.tags.join(", ");
+    ui.label("Tags (comma separated)");
+    if ui.text_edit_singleline(&mut tags).changed() {
+        let normalized_tags: Vec<String> = tags
+            .split(',')
+            .map(str::trim)
+            .filter(|tag| !tag.is_empty())
+            .map(str::to_string)
+            .collect();
+        apply_envelope_update(
+            loaded_documents,
+            project,
+            registry,
+            selected,
+            structured_error,
+            move |document| {
+                document.tags = normalized_tags;
+            },
+        );
+    }
+}
+
+fn draw_document_links_editor(
+    ui: &mut egui::Ui,
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    selected: &DocumentRef,
+    document: &crate::data::LoadedCustomDocument,
+    structured_error: &mut Option<String>,
+) {
+    let Some(parsed) = document.document.as_ref() else {
+        return;
+    };
+
+    ui.separator();
+    ui.label(RichText::new("Reference Links").strong());
+
+    let available_kinds = available_document_kinds(loaded_documents);
+    let mut links = parsed.references.clone();
+    let mut links_changed = false;
+    let mut remove_index = None;
+
+    for (index, link) in links.iter_mut().enumerate() {
+        let before_link = link.clone();
+        ui.group(|ui| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(format!("Link {}", index + 1)).strong());
+                if ui.small_button("Remove").clicked() {
+                    remove_index = Some(index);
+                }
+            });
+
+            ui.label("Field Path");
+            if ui.text_edit_singleline(&mut link.field_path).changed() {
+                links_changed = true;
+            }
+
+            let mut target_kind_label = match &link.target {
+                DocumentLinkTarget::Document { .. } => "document",
+                DocumentLinkTarget::Scene { .. } => "scene",
+                DocumentLinkTarget::StoryGraph { .. } => "story_graph",
+                DocumentLinkTarget::Asset { .. } => "asset",
+            }
+            .to_string();
+
+            egui::ComboBox::from_id_salt(format!("doc_link_target_type_{index}"))
+                .selected_text(target_kind_label.clone())
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut target_kind_label, "document".to_string(), "document");
+                    ui.selectable_value(&mut target_kind_label, "scene".to_string(), "scene");
+                    ui.selectable_value(
+                        &mut target_kind_label,
+                        "story_graph".to_string(),
+                        "story_graph",
+                    );
+                    ui.selectable_value(&mut target_kind_label, "asset".to_string(), "asset");
+                });
+
+            let current_target_label = match &link.target {
+                DocumentLinkTarget::Document { .. } => "document",
+                DocumentLinkTarget::Scene { .. } => "scene",
+                DocumentLinkTarget::StoryGraph { .. } => "story_graph",
+                DocumentLinkTarget::Asset { .. } => "asset",
+            };
+
+            if target_kind_label != current_target_label {
+                link.target = match target_kind_label.as_str() {
+                    "scene" => DocumentLinkTarget::Scene {
+                        id: project
+                            .scenes
+                            .first()
+                            .map(|scene_ref| scene_ref.id.clone())
+                            .unwrap_or_default(),
+                    },
+                    "story_graph" => DocumentLinkTarget::StoryGraph {
+                        id: project
+                            .story_graphs
+                            .first()
+                            .map(|graph_ref| graph_ref.id.clone())
+                            .unwrap_or_default(),
+                    },
+                    "asset" => DocumentLinkTarget::Asset {
+                        path: String::new(),
+                    },
+                    _ => default_document_link(loaded_documents, Some(&selected.kind)).target,
+                };
+                links_changed = true;
+            }
+
+            match &mut link.target {
+                DocumentLinkTarget::Document { kind, id } => {
+                    egui::ComboBox::from_id_salt(format!("doc_link_kind_{index}"))
+                        .selected_text(if kind.is_empty() {
+                            "<kind>".to_string()
+                        } else {
+                            kind.clone()
+                        })
+                        .show_ui(ui, |ui| {
+                            for available_kind in &available_kinds {
+                                ui.selectable_value(kind, available_kind.clone(), available_kind);
+                            }
+                        });
+
+                    let id_options = if kind.is_empty() {
+                        Vec::new()
+                    } else {
+                        filter_document_refs_by_kind(loaded_documents, kind, "")
+                    };
+                    if id_options.iter().all(|candidate| candidate.id != *id) {
+                        *id = id_options
+                            .first()
+                            .map(|candidate| candidate.id.clone())
+                            .unwrap_or_default();
+                        links_changed = true;
+                    }
+
+                    egui::ComboBox::from_id_salt(format!("doc_link_id_{index}"))
+                        .selected_text(if id.is_empty() {
+                            "<id>".to_string()
+                        } else {
+                            id.clone()
+                        })
+                        .show_ui(ui, |ui| {
+                            for option in id_options {
+                                ui.selectable_value(id, option.id.clone(), option.id);
+                            }
+                        });
+                }
+                DocumentLinkTarget::Scene { id } => {
+                    egui::ComboBox::from_id_salt(format!("doc_link_scene_{index}"))
+                        .selected_text(if id.is_empty() {
+                            "<scene>".to_string()
+                        } else {
+                            id.clone()
+                        })
+                        .show_ui(ui, |ui| {
+                            for scene_ref in &project.scenes {
+                                ui.selectable_value(id, scene_ref.id.clone(), scene_ref.id.clone());
+                            }
+                        });
+                }
+                DocumentLinkTarget::StoryGraph { id } => {
+                    egui::ComboBox::from_id_salt(format!("doc_link_story_graph_{index}"))
+                        .selected_text(if id.is_empty() {
+                            "<story graph>".to_string()
+                        } else {
+                            id.clone()
+                        })
+                        .show_ui(ui, |ui| {
+                            for graph_ref in &project.story_graphs {
+                                ui.selectable_value(id, graph_ref.id.clone(), graph_ref.id.clone());
+                            }
+                        });
+                }
+                DocumentLinkTarget::Asset { path } => {
+                    ui.label("Asset Path");
+                    if ui.text_edit_singleline(path).changed() {
+                        links_changed = true;
+                    }
+                }
+            }
+        });
+        if *link != before_link {
+            links_changed = true;
+        }
+        ui.add_space(4.0);
+    }
+
+    if let Some(index) = remove_index {
+        links.remove(index);
+        links_changed = true;
+    }
+
+    ui.horizontal(|ui| {
+        if ui.button("Add Document Link").clicked() {
+            links.push(default_document_link(
+                loaded_documents,
+                Some(&selected.kind),
+            ));
+            links_changed = true;
+        }
+        if ui.button("Add Scene Link").clicked() {
+            links.push(DocumentLink {
+                field_path: "payload.scene_id".into(),
+                target: DocumentLinkTarget::Scene {
+                    id: project
+                        .scenes
+                        .first()
+                        .map(|scene_ref| scene_ref.id.clone())
+                        .unwrap_or_default(),
+                },
+            });
+            links_changed = true;
+        }
+        if ui.button("Add Story Graph Link").clicked() {
+            links.push(DocumentLink {
+                field_path: "payload.story_graph_id".into(),
+                target: DocumentLinkTarget::StoryGraph {
+                    id: project
+                        .story_graphs
+                        .first()
+                        .map(|graph_ref| graph_ref.id.clone())
+                        .unwrap_or_default(),
+                },
+            });
+            links_changed = true;
+        }
+        if ui.button("Add Asset Link").clicked() {
+            links.push(DocumentLink {
+                field_path: "payload.asset".into(),
+                target: DocumentLinkTarget::Asset {
+                    path: String::new(),
+                },
+            });
+            links_changed = true;
+        }
+    });
+
+    if links_changed {
+        apply_envelope_update(
+            loaded_documents,
+            project,
+            registry,
+            selected,
+            structured_error,
+            move |document| {
+                document.references = links;
+            },
+        );
+    }
+}
+
+fn draw_preview_profile_editor(
+    ui: &mut egui::Ui,
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    selected: &DocumentRef,
+    structured_error: &mut Option<String>,
+) {
+    let Ok(Some(document)) =
+        loaded_documents.get_typed::<PreviewProfilePayload>(&selected.kind, &selected.id)
+    else {
+        return;
+    };
+
+    ui.separator();
+    ui.label(RichText::new("Preview Profile").strong());
+
+    let mut scene_id = document.payload.scene_id.clone().unwrap_or_default();
+    ui.horizontal(|ui| {
+        ui.label("Startup Scene");
+        egui::ComboBox::from_id_salt("preview_profile_scene_id")
+            .selected_text(if scene_id.is_empty() {
+                "<none>".to_string()
+            } else {
+                scene_id.clone()
+            })
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut scene_id, String::new(), "<none>");
+                for scene_ref in &project.scenes {
+                    ui.selectable_value(&mut scene_id, scene_ref.id.clone(), scene_ref.id.clone());
+                }
+            });
+    });
+    if scene_id != document.payload.scene_id.clone().unwrap_or_default() {
+        let scene_value = if scene_id.is_empty() {
+            None
+        } else {
+            Some(scene_id)
+        };
+        apply_typed_update::<PreviewProfilePayload, _>(
+            loaded_documents,
+            project,
+            registry,
+            selected,
+            structured_error,
+            move |document| {
+                document.payload.scene_id = scene_value;
+            },
+        );
+    }
+
+    let mut story_graph_id = document.payload.story_graph_id.clone().unwrap_or_default();
+    ui.horizontal(|ui| {
+        ui.label("Startup Story Graph");
+        egui::ComboBox::from_id_salt("preview_profile_story_graph_id")
+            .selected_text(if story_graph_id.is_empty() {
+                "<none>".to_string()
+            } else {
+                story_graph_id.clone()
+            })
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut story_graph_id, String::new(), "<none>");
+                for graph_ref in &project.story_graphs {
+                    ui.selectable_value(
+                        &mut story_graph_id,
+                        graph_ref.id.clone(),
+                        graph_ref.id.clone(),
+                    );
+                }
+            });
+    });
+    if story_graph_id != document.payload.story_graph_id.clone().unwrap_or_default() {
+        let story_graph_value = if story_graph_id.is_empty() {
+            None
+        } else {
+            Some(story_graph_id)
+        };
+        apply_typed_update::<PreviewProfilePayload, _>(
+            loaded_documents,
+            project,
+            registry,
+            selected,
+            structured_error,
+            move |document| {
+                document.payload.story_graph_id = story_graph_value;
+            },
+        );
+    }
+
+    ui.label(RichText::new("Custom Document Bundle").strong());
+    let available_kinds = available_document_kinds(loaded_documents);
+    let mut refs = document.payload.document_refs.clone();
+    let mut refs_changed = false;
+    let mut remove_index = None;
+
+    for (index, document_ref) in refs.iter_mut().enumerate() {
+        let before_ref = document_ref.clone();
+        ui.horizontal(|ui| {
+            egui::ComboBox::from_id_salt(format!("preview_profile_doc_kind_{index}"))
+                .selected_text(if document_ref.kind.is_empty() {
+                    "<kind>".to_string()
+                } else {
+                    document_ref.kind.clone()
+                })
+                .show_ui(ui, |ui| {
+                    for kind in &available_kinds {
+                        ui.selectable_value(&mut document_ref.kind, kind.clone(), kind);
+                    }
+                });
+
+            let id_options = if document_ref.kind.is_empty() {
+                Vec::new()
+            } else {
+                filter_document_refs_by_kind(loaded_documents, &document_ref.kind, "")
+            };
+            if id_options
+                .iter()
+                .all(|candidate| candidate.id != document_ref.id)
+            {
+                document_ref.id = id_options
+                    .first()
+                    .map(|candidate| candidate.id.clone())
+                    .unwrap_or_default();
+                refs_changed = true;
+            }
+
+            egui::ComboBox::from_id_salt(format!("preview_profile_doc_id_{index}"))
+                .selected_text(if document_ref.id.is_empty() {
+                    "<id>".to_string()
+                } else {
+                    document_ref.id.clone()
+                })
+                .show_ui(ui, |ui| {
+                    for option in id_options {
+                        ui.selectable_value(
+                            &mut document_ref.id,
+                            option.id.clone(),
+                            option.id.clone(),
+                        );
+                    }
+                });
+
+            if ui.small_button("Remove").clicked() {
+                remove_index = Some(index);
+            }
+        });
+        if *document_ref != before_ref {
+            refs_changed = true;
+        }
+    }
+
+    if let Some(index) = remove_index {
+        refs.remove(index);
+        refs_changed = true;
+    }
+
+    if ui.button("Add Document To Bundle").clicked() {
+        refs.push(default_preview_profile_ref(loaded_documents, None));
+        refs_changed = true;
+    }
+
+    if refs_changed {
+        apply_typed_update::<PreviewProfilePayload, _>(
+            loaded_documents,
+            project,
+            registry,
+            selected,
+            structured_error,
+            move |document| {
+                document.payload.document_refs = refs;
+            },
+        );
     }
 }
 
@@ -609,6 +1180,42 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
 
             if !document.entry.tags.is_empty() {
                 ui.label(format!("Tags: {}", document.entry.tags.join(", ")));
+            }
+
+            let mut structured_error = None;
+            if let Some(project) = project.as_ref() {
+                draw_generic_document_metadata_editor(
+                    ui,
+                    &mut loaded_documents,
+                    project,
+                    &registry,
+                    &selected_custom_document,
+                    &document,
+                    &mut structured_error,
+                );
+                draw_document_links_editor(
+                    ui,
+                    &mut loaded_documents,
+                    project,
+                    &registry,
+                    &selected_custom_document,
+                    &document,
+                    &mut structured_error,
+                );
+                if document.kind() == "preview_profiles" {
+                    draw_preview_profile_editor(
+                        ui,
+                        &mut loaded_documents,
+                        project,
+                        &registry,
+                        &selected_custom_document,
+                        &mut structured_error,
+                    );
+                }
+            }
+
+            if let Some(structured_error) = structured_error {
+                ui.colored_label(Color32::RED, structured_error);
             }
 
             if document.resolved_route == EditorDocumentRoute::CustomPanel {

@@ -1002,6 +1002,52 @@ pub fn update_loaded_custom_document_raw_json(
     loaded_documents.issues = validate_loaded_custom_documents(loaded_documents, project, registry);
 }
 
+pub fn update_loaded_custom_document_envelope<F>(
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    kind: &str,
+    id: &str,
+    update: F,
+) -> Result<bool, serde_json::Error>
+where
+    F: FnOnce(&mut CustomDocumentEnvelope),
+{
+    let Some(mut document) = loaded_documents
+        .get(kind, id)
+        .and_then(|document| document.document.clone())
+    else {
+        return Ok(false);
+    };
+
+    update(&mut document);
+    let raw_json = serde_json::to_string_pretty(&document)?;
+    update_loaded_custom_document_raw_json(loaded_documents, project, registry, kind, id, raw_json);
+    Ok(true)
+}
+
+pub fn update_loaded_custom_document_typed<T, F>(
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    kind: &str,
+    id: &str,
+    update: F,
+) -> Result<bool, serde_json::Error>
+where
+    T: Serialize + DeserializeOwned,
+    F: FnOnce(&mut CustomDocument<T>),
+{
+    let Some(mut document) = loaded_documents.get_typed::<T>(kind, id)? else {
+        return Ok(false);
+    };
+
+    update(&mut document);
+    let raw_json = serde_json::to_string_pretty(&document)?;
+    update_loaded_custom_document_raw_json(loaded_documents, project, registry, kind, id, raw_json);
+    Ok(true)
+}
+
 pub fn save_loaded_custom_documents(
     loaded_documents: &LoadedCustomDocuments,
     root_path: &Path,
@@ -1285,5 +1331,138 @@ mod tests {
         assert_eq!(refs.len(), 2);
         assert_eq!(refs[0].id, "alpha");
         assert_eq!(refs[1].id, "zeta");
+    }
+
+    #[test]
+    fn test_update_loaded_custom_document_envelope_updates_pretty_json() {
+        let project = Project::new("Envelope Update");
+        let mut loaded = LoadedCustomDocuments {
+            manifest_path: None,
+            manifest: Some(CustomDataManifest::default()),
+            documents: vec![LoadedCustomDocument {
+                entry: CustomDocumentEntry {
+                    kind: "abilities".into(),
+                    id: "fireball".into(),
+                    path: "abilities/fireball.json".into(),
+                    schema_version: 1,
+                    editor_route: EditorDocumentRoute::Table,
+                    tags: Vec::new(),
+                },
+                raw_json: r#"{"kind":"abilities","id":"fireball","schema_version":1,"payload":{"power":10}}"#.into(),
+                document: Some(CustomDocumentEnvelope {
+                    kind: "abilities".into(),
+                    id: "fireball".into(),
+                    schema_version: 1,
+                    label: None,
+                    tags: Vec::new(),
+                    references: Vec::new(),
+                    payload: serde_json::json!({ "power": 10 }),
+                }),
+                parse_error: None,
+                resolved_route: EditorDocumentRoute::Table,
+            }],
+            issues: Vec::new(),
+        };
+
+        let registry = CustomDocumentRegistry::default();
+        let updated = update_loaded_custom_document_envelope(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            |document| {
+                document.label = Some("Fireball".into());
+                document.tags = vec!["starter".into(), "magic".into()];
+            },
+        )
+        .unwrap();
+
+        assert!(updated);
+        let updated_document = loaded.get("abilities", "fireball").unwrap();
+        let parsed = updated_document.document.as_ref().unwrap();
+        assert_eq!(parsed.label.as_deref(), Some("Fireball"));
+        assert_eq!(parsed.tags, vec!["starter", "magic"]);
+        assert!(updated_document
+            .raw_json
+            .contains("\n  \"label\": \"Fireball\""));
+        assert_eq!(updated_document.parse_error, None);
+    }
+
+    #[test]
+    fn test_update_loaded_custom_document_typed_updates_preview_profile_payload() {
+        let mut project = Project::new("Typed Update");
+        project.add_scene("arena", "scenes/arena.json");
+        project.add_story_graph("opening", "story_graphs/opening.json");
+        project.add_story_graph("boss_intro", "story_graphs/boss_intro.json");
+
+        let mut loaded = LoadedCustomDocuments {
+            manifest_path: None,
+            manifest: Some(CustomDataManifest::default()),
+            documents: vec![LoadedCustomDocument {
+                entry: CustomDocumentEntry {
+                    kind: "preview_profiles".into(),
+                    id: "default_preview".into(),
+                    path: "preview_profiles/default_preview.json".into(),
+                    schema_version: 1,
+                    editor_route: EditorDocumentRoute::Inspector,
+                    tags: Vec::new(),
+                },
+                raw_json: r#"{"kind":"preview_profiles","id":"default_preview","schema_version":1,"payload":{"scene_id":"arena","story_graph_id":"opening","document_refs":[]}}"#.into(),
+                document: Some(CustomDocumentEnvelope {
+                    kind: "preview_profiles".into(),
+                    id: "default_preview".into(),
+                    schema_version: 1,
+                    label: None,
+                    tags: Vec::new(),
+                    references: Vec::new(),
+                    payload: serde_json::json!({
+                        "scene_id": "arena",
+                        "story_graph_id": "opening",
+                        "document_refs": []
+                    }),
+                }),
+                parse_error: None,
+                resolved_route: EditorDocumentRoute::Inspector,
+            }],
+            issues: Vec::new(),
+        };
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(DJDataRegistryPlugin);
+        let registry = app.world().resource::<CustomDocumentRegistry>().clone();
+
+        let updated = update_loaded_custom_document_typed::<PreviewProfilePayload, _>(
+            &mut loaded,
+            &project,
+            &registry,
+            "preview_profiles",
+            "default_preview",
+            |document| {
+                document.payload.story_graph_id = Some("boss_intro".into());
+                document.payload.document_refs.push(DocumentRef {
+                    kind: "abilities".into(),
+                    id: "dash".into(),
+                });
+            },
+        )
+        .unwrap();
+
+        assert!(updated);
+        let updated_document = loaded
+            .get_typed::<PreviewProfilePayload>("preview_profiles", "default_preview")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            updated_document.payload.story_graph_id.as_deref(),
+            Some("boss_intro")
+        );
+        assert_eq!(updated_document.payload.document_refs.len(), 1);
+        assert_eq!(updated_document.payload.document_refs[0].kind, "abilities");
+        assert!(loaded
+            .issues
+            .iter()
+            .any(|issue| issue.code == "preview_profile_missing_document"));
     }
 }
