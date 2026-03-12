@@ -4,7 +4,9 @@ use super::types::{
     PendingProjectAction, PendingProjectActionResolution, RuntimePreviewLaunchPhase,
     RuntimePreviewLaunchState, COLOR_BG, COLOR_PRIMARY,
 };
+use crate::data::{DJDataRegistryPlugin, LoadedCustomDocuments};
 use crate::diagnostics::console::ConsoleLogStore;
+use crate::editor::extensions::EditorExtensionRegistry;
 use crate::project_mount::{normalize_project_path, MountedProject};
 use bevy::prelude::*;
 use bevy_egui::{
@@ -75,6 +77,9 @@ impl Plugin for EditorPlugin {
         if !app.is_plugin_added::<EguiPlugin>() {
             app.add_plugins(EguiPlugin::default());
         }
+        if !app.is_plugin_added::<DJDataRegistryPlugin>() {
+            app.add_plugins(DJDataRegistryPlugin);
+        }
 
         let cli = parse_editor_cli_args(std::env::args());
         let mut mounted_project = MountedProject::default();
@@ -105,6 +110,8 @@ impl Plugin for EditorPlugin {
             .init_resource::<EditorSnapshotBaseline>()
             .init_resource::<EditorDirtyState>()
             .init_resource::<RuntimePreviewLaunchState>()
+            .init_resource::<LoadedCustomDocuments>()
+            .init_resource::<EditorExtensionRegistry>()
             .add_systems(Startup, super::scene_io::load_initial_project_system)
             .add_systems(EguiPrimaryContextPass, configure_visuals_system)
             .add_systems(EguiPrimaryContextPass, super::editor_ui_system)

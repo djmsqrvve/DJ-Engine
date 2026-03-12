@@ -5,7 +5,12 @@ use super::types::{
     RuntimePreviewLaunchState, COLOR_PRIMARY, COLOR_SECONDARY,
 };
 use super::views::{draw_grid, draw_story_graph};
+use crate::data::{
+    filter_document_refs_by_kind, update_loaded_custom_document_raw_json, CustomDocumentRegistry,
+    DocumentLinkTarget, DocumentRef, EditorDocumentRoute, LoadedCustomDocuments,
+};
 use crate::diagnostics::console::ConsoleLogStore;
+use crate::editor::extensions::EditorExtensionRegistry;
 use crate::editor::plugin::{
     launch_runtime_preview_from_editor, request_project_action, resolve_pending_project_action,
     stop_runtime_preview_from_editor,
@@ -319,6 +324,7 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
                 "Hierarchy",
             );
             ui.selectable_value(&mut ui_state.browser_tab, BrowserTab::Assets, "Files");
+            ui.selectable_value(&mut ui_state.browser_tab, BrowserTab::Documents, "Docs");
         });
         ui.add_space(4.0);
         ui.separator();
@@ -400,6 +406,88 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
 
                 ui_state.selected_palette_item = selected;
             }
+            BrowserTab::Documents => {
+                ui.add_space(5.0);
+                ui.label(
+                    RichText::new("CUSTOM DOCUMENTS")
+                        .strong()
+                        .color(COLOR_PRIMARY),
+                );
+                ui.add_space(5.0);
+                ui.label(RichText::new("Search").italics());
+                ui.text_edit_singleline(&mut ui_state.custom_document_search_query);
+
+                let loaded_documents = world.resource::<LoadedCustomDocuments>().clone();
+                let available_kinds = loaded_documents.available_kinds();
+                if ui_state.custom_document_kind_filter.is_empty() {
+                    ui_state.custom_document_kind_filter = "all".into();
+                }
+
+                egui::ComboBox::from_label("Kind")
+                    .selected_text(ui_state.custom_document_kind_filter.clone())
+                    .show_ui(ui, |ui| {
+                        for kind in available_kinds {
+                            ui.selectable_value(
+                                &mut ui_state.custom_document_kind_filter,
+                                kind.clone(),
+                                kind,
+                            );
+                        }
+                    });
+
+                ui.separator();
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    let search_query = ui_state.custom_document_search_query.to_lowercase();
+                    let selected_kind = ui_state.custom_document_kind_filter.clone();
+
+                    if loaded_documents.documents.is_empty() {
+                        ui.label(
+                            RichText::new("No custom documents discovered.")
+                                .italics()
+                                .color(Color32::GRAY),
+                        );
+                        return;
+                    }
+
+                    for document in &loaded_documents.documents {
+                        let kind_matches =
+                            selected_kind == "all" || document.entry.kind == selected_kind;
+                        let search_matches = search_query.is_empty()
+                            || document.entry.id.to_lowercase().contains(&search_query)
+                            || document.entry.kind.to_lowercase().contains(&search_query);
+                        if !kind_matches || !search_matches {
+                            continue;
+                        }
+
+                        let issue_count = loaded_documents
+                            .issues_for(&document.entry.kind, &document.entry.id)
+                            .len();
+                        let selected = ui_state.selected_custom_document.as_ref()
+                            == Some(&DocumentRef {
+                                kind: document.entry.kind.clone(),
+                                id: document.entry.id.clone(),
+                            });
+                        let label = format!(
+                            "{}:{}  [{:?}]{}",
+                            document.entry.kind,
+                            document.entry.id,
+                            document.resolved_route,
+                            if issue_count > 0 {
+                                format!("  ({} issues)", issue_count)
+                            } else {
+                                String::new()
+                            }
+                        );
+
+                        if ui.selectable_label(selected, label).clicked() {
+                            ui_state.selected_custom_document = Some(DocumentRef {
+                                kind: document.entry.kind.clone(),
+                                id: document.entry.id.clone(),
+                            });
+                        }
+                    }
+                });
+            }
         }
     });
 }
@@ -462,6 +550,155 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
                     _ => {
                         ui.label("Not implemented in inspector yet.");
                     }
+                }
+            }
+        });
+        return;
+    }
+
+    let selected_custom_document = world
+        .resource::<EditorUiState>()
+        .selected_custom_document
+        .clone();
+    if let Some(selected_custom_document) = selected_custom_document {
+        let mounted_project = world.resource::<MountedProject>().clone();
+        let project = mounted_project.project.clone();
+        let registry = world
+            .get_resource::<CustomDocumentRegistry>()
+            .cloned()
+            .unwrap_or_default();
+        let extensions = world
+            .get_resource::<EditorExtensionRegistry>()
+            .cloned()
+            .unwrap_or_default();
+
+        world.resource_scope::<LoadedCustomDocuments, _>(|_, mut loaded_documents| {
+            let Some(document) = loaded_documents
+                .get(&selected_custom_document.kind, &selected_custom_document.id)
+                .cloned()
+            else {
+                ui.label(
+                    RichText::new("Selected custom document could not be found.")
+                        .italics()
+                        .color(Color32::RED),
+                );
+                return;
+            };
+
+            ui.label(
+                RichText::new(format!(
+                    "{}:{}",
+                    selected_custom_document.kind, selected_custom_document.id
+                ))
+                .strong(),
+            );
+            ui.separator();
+            ui.label(format!("Route: {:?}", document.resolved_route));
+            ui.label(format!("Registry Path: {}", document.entry.path));
+            ui.label(format!("Schema Version: {}", document.entry.schema_version));
+            ui.label(format!(
+                "Issue Count: {}",
+                loaded_documents
+                    .issues_for(&selected_custom_document.kind, &selected_custom_document.id)
+                    .len()
+            ));
+
+            if let Some(parse_error) = &document.parse_error {
+                ui.colored_label(Color32::RED, format!("Parse Error: {}", parse_error));
+            }
+
+            if !document.entry.tags.is_empty() {
+                ui.label(format!("Tags: {}", document.entry.tags.join(", ")));
+            }
+
+            if document.resolved_route == EditorDocumentRoute::CustomPanel {
+                let matching_panels: Vec<_> = extensions
+                    .custom_panels
+                    .iter()
+                    .filter(|panel| panel.kind == selected_custom_document.kind)
+                    .collect();
+                ui.separator();
+                ui.label(RichText::new("Registered Custom Panels").strong());
+                if matching_panels.is_empty() {
+                    ui.label(
+                        RichText::new("No custom panels registered for this kind yet.")
+                            .italics()
+                            .color(Color32::GRAY),
+                    );
+                } else {
+                    for panel in matching_panels {
+                        ui.label(format!("• {} ({})", panel.title, panel.panel_id));
+                    }
+                }
+            }
+
+            if let Some(parsed) = &document.document {
+                if !parsed.references.is_empty() {
+                    ui.separator();
+                    ui.label(RichText::new("References").strong());
+                    for link in &parsed.references {
+                        let target = match &link.target {
+                            DocumentLinkTarget::Document { kind, id } => {
+                                format!("document {}:{}", kind, id)
+                            }
+                            DocumentLinkTarget::Scene { id } => format!("scene {}", id),
+                            DocumentLinkTarget::StoryGraph { id } => {
+                                format!("story graph {}", id)
+                            }
+                            DocumentLinkTarget::Asset { path } => format!("asset {}", path),
+                        };
+                        ui.label(format!("{} -> {}", link.field_path, target));
+                    }
+                }
+            }
+
+            let reference_suggestions =
+                filter_document_refs_by_kind(&loaded_documents, &selected_custom_document.kind, "");
+            if !reference_suggestions.is_empty() {
+                ui.separator();
+                ui.label(RichText::new("Same-Kind Reference Suggestions").strong());
+                for document_ref in reference_suggestions.into_iter().take(6) {
+                    ui.label(format!("{}:{}", document_ref.kind, document_ref.id));
+                }
+            }
+
+            ui.separator();
+            ui.label(RichText::new("Raw Document").strong());
+            let mut raw_json = document.raw_json.clone();
+            let response = ui.add(
+                egui::TextEdit::multiline(&mut raw_json)
+                    .desired_width(f32::INFINITY)
+                    .desired_rows(20),
+            );
+            if response.changed() {
+                if let Some(project) = project.as_ref() {
+                    update_loaded_custom_document_raw_json(
+                        &mut loaded_documents,
+                        project,
+                        &registry,
+                        &selected_custom_document.kind,
+                        &selected_custom_document.id,
+                        raw_json,
+                    );
+                } else if let Some(selected) = loaded_documents
+                    .get_mut(&selected_custom_document.kind, &selected_custom_document.id)
+                {
+                    selected.raw_json = raw_json;
+                }
+            }
+
+            let issues = loaded_documents
+                .issues_for(&selected_custom_document.kind, &selected_custom_document.id);
+            if !issues.is_empty() {
+                ui.separator();
+                ui.label(RichText::new("Validation Issues").strong());
+                for issue in issues {
+                    let color = match issue.severity {
+                        crate::data::ValidationSeverity::Error => Color32::RED,
+                        crate::data::ValidationSeverity::Warning => COLOR_SECONDARY,
+                        crate::data::ValidationSeverity::Info => Color32::GRAY,
+                    };
+                    ui.colored_label(color, format!("{}: {}", issue.code, issue.message));
                 }
             }
         });

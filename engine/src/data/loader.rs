@@ -8,10 +8,12 @@ use std::path::Path;
 use thiserror::Error;
 
 use super::assets::AssetIndex;
+use super::custom::CustomDataManifest;
 use super::database::Database;
 use super::project::Project;
 use super::scene::Scene;
 use super::story::graph::StoryGraphData;
+use serde_json::Value;
 
 /// Error type for data loading operations.
 #[derive(Debug, Error)]
@@ -114,6 +116,28 @@ pub fn load_asset_index(path: &Path) -> Result<AssetIndex, DataError> {
     Ok(index)
 }
 
+/// Load a custom data manifest from a JSON file.
+pub fn load_custom_data_manifest(path: &Path) -> Result<CustomDataManifest, DataError> {
+    if !path.exists() {
+        return Err(DataError::NotFound(path.display().to_string()));
+    }
+
+    let content = fs::read_to_string(path)?;
+    let manifest: CustomDataManifest = serde_json::from_str(&content)?;
+    Ok(manifest)
+}
+
+/// Load a raw custom document from a JSON file.
+pub fn load_custom_document_value(path: &Path) -> Result<Value, DataError> {
+    if !path.exists() {
+        return Err(DataError::NotFound(path.display().to_string()));
+    }
+
+    let content = fs::read_to_string(path)?;
+    let document: Value = serde_json::from_str(&content)?;
+    Ok(document)
+}
+
 /// Save a project to a JSON file.
 pub fn save_project(project: &Project, path: &Path) -> Result<(), DataError> {
     let content = serde_json::to_string_pretty(project)?;
@@ -142,6 +166,16 @@ pub fn save_story_graph(graph: &StoryGraphData, path: &Path) -> Result<(), DataE
     Ok(())
 }
 
+/// Save a custom data manifest to a JSON file.
+pub fn save_custom_data_manifest(
+    manifest: &CustomDataManifest,
+    path: &Path,
+) -> Result<(), DataError> {
+    let content = serde_json::to_string_pretty(manifest)?;
+    fs::write(path, content)?;
+    Ok(())
+}
+
 /// Save the entire project structure to a directory.
 ///
 /// This creates the necessary subdirectories (scenes, assets, etc.) and saves the `project.json` file.
@@ -161,6 +195,7 @@ pub fn save_project_structure(project: &Project, root_path: &Path) -> Result<(),
     fs::create_dir_all(root_path.join(&paths.story_graphs))?;
     fs::create_dir_all(root_path.join(&paths.database))?;
     fs::create_dir_all(root_path.join(&paths.assets))?;
+    fs::create_dir_all(root_path.join(&paths.data))?;
 
     // Save project.json
     let project_file = root_path.join("project.json");
@@ -207,5 +242,6 @@ mod tests {
         assert!(root_path.join("story_graphs").exists());
         assert!(root_path.join("database").exists());
         assert!(root_path.join("assets").exists());
+        assert!(root_path.join("data").exists());
     }
 }

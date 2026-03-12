@@ -12,11 +12,12 @@ can resume without reconstructing the recent engine/editor cleanup.
 | `e9a37a8` | feat: advance engine editor and decoupling work |
 | `de5b8ea` | feat: add mounted project runtime preview |
 | `7d0f291` | feat: hand off editor play to runtime preview |
+| `cb9e2be` | feat: add preview continue flow and editor dirty tracking |
 
 These checkpoints landed on `main` as two intentionally-scoped slices: the
 engine/editor decoupling foundation first, then the mounted-project runtime
 preview path, then the editor-to-runtime handoff built on top of that preview
-flow.
+flow, then project-scoped continue/save plus snapshot-based dirty tracking.
 
 ---
 
@@ -89,6 +90,37 @@ flow.
 - Added command-resolution coverage for sibling `runtime_preview` binaries and
   dev-build `cargo run` fallback behavior.
 
+### 6. Preview Continue Flow and Editor Dirty Tracking
+
+- Added project-scoped save plumbing for runtime preview so mounted projects can
+  use `New Game / Continue / Quit` without colliding with global sample-game
+  save slots.
+- Runtime preview now writes overworld checkpoints per `Project.id` and can
+  resume flags, variables, scene context, and story-graph context safely.
+- The editor now tracks snapshot-based dirty state across scene, story graph,
+  and mounted-project resource changes, and protects reload/discard actions with
+  explicit confirmation.
+- The toolbar now reports mounted-project context, dirty state, preview status,
+  and last preview exit more clearly.
+
+### 7. Custom Document Scaffold (Current Uncommitted Slice)
+
+- Added a generic custom-document system under `engine/src/data/custom.rs`
+  centered around `data/registry.json`.
+- Mounted projects can now resolve a custom data root from `ProjectPaths.data`
+  and load custom documents beside scenes and story graphs.
+- Added generic registration and validation surfaces:
+  `CustomDocumentRegistration<T>`, `LoadedCustomDocuments`,
+  `ValidationIssue`, and `EditorDocumentRoute`.
+- Added engine editor scaffolding for custom documents:
+  a new `Docs` browser tab, custom-document selection state, raw JSON editing,
+  issue display, and extension registries for custom panels/actions/views.
+- Added runtime-preview support for registry-loaded custom data and
+  `preview_profiles`, so preview startup can request a scene, story graph, and
+  custom document bundle together.
+- Added thin-slice tests covering registry loading, broken refs, editor state,
+  and preview-profile-driven runtime startup with Helix-shaped sample kinds.
+
 ---
 
 ## Validation Completed
@@ -133,6 +165,9 @@ Runtime smoke notes:
   separate from the editor shell and separate from DoomExe’s own crate-specific flow.
 - The editor shell now launches that preview path intentionally instead of
   treating full project runtime as an in-editor state transition.
+- The engine now has the first scaffolding layer for registry-driven custom game
+  data that can sit beside `project.json`, scenes, story graphs, and the legacy
+  built-in database.
 - `engine/src` and `engine/tests` no longer contain DoomExe/hamster sample naming
   in engine-generic code paths.
 
@@ -150,3 +185,6 @@ historical docs. That is expected.
    the repo as DoomExe-first or still mention old hamster-era engine APIs.
 3. Improve editor/runtime workflow polish on top of the new handoff path:
    mounted-project clarity, richer preview exit reporting, and future dirty-state UX.
+4. Commit and extend the custom-document scaffold so games can register richer
+   data kinds, validators, editor routes, and preview profiles without engine-core
+   game branches.

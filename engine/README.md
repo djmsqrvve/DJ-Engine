@@ -6,6 +6,7 @@ This crate is the reusable engine layer for DJ Engine projects.
 
 - Bevy-based runtime and editor foundations
 - Data-driven scenes, story graphs, and project manifests
+- Registry-driven custom documents under `data/registry.json`
 - Manifest-driven runtime preview flow for mounted projects
 - Palette-aware rendering and post-processing
 - Lua scripting hooks for gameplay and tools
@@ -29,3 +30,15 @@ This crate is the reusable engine layer for DJ Engine projects.
 - Inside the editor, `Run Project` now auto-saves the mounted project and hands
   off to the separate `runtime_preview` process, while `Preview Graph` remains
   an editor-only Story Graph tool.
+
+## Custom Documents
+
+Mounted projects can now define generic custom documents in `data/registry.json`
+without changing engine core. The engine owns discovery, path resolution,
+validation payloads, editor routing, and runtime-preview loading for those
+documents. Games are expected to register their own kinds and validators on top
+of the shared registry surface.
+
+The first built-in contract is `preview_profiles`, which lets runtime preview
+request a scene, story graph, and custom document bundle together through the
+same mounted-project flow.

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use dj_engine::data::Project;
+use dj_engine::data::{LoadedCustomDocuments, Project};
+use dj_engine::editor::EditorExtensionRegistry;
 use dj_engine::editor::{
     BrowserTab, EditorDirtyState, EditorPlugin, EditorSnapshotBaseline, EditorState, EditorUiState,
     EditorView, MountedProject, RuntimePreviewLaunchPhase, RuntimePreviewLaunchState,
@@ -30,13 +31,17 @@ fn test_editor_initialization_and_state() {
         .init_resource::<EditorUiState>()
         .init_resource::<EditorSnapshotBaseline>()
         .init_resource::<EditorDirtyState>()
-        .init_resource::<RuntimePreviewLaunchState>();
+        .init_resource::<RuntimePreviewLaunchState>()
+        .init_resource::<LoadedCustomDocuments>()
+        .init_resource::<EditorExtensionRegistry>();
 
     // 2. Verify Initial State
     let ui_state = app.world().resource::<EditorUiState>();
     assert_eq!(ui_state.current_view, EditorView::Level);
     assert_eq!(ui_state.browser_tab, BrowserTab::Hierarchy);
     assert_eq!(ui_state.selected_palette_item, None);
+    assert_eq!(ui_state.selected_custom_document, None);
+    assert_eq!(ui_state.custom_document_kind_filter, "");
 
     let launch_state = app.world().resource::<RuntimePreviewLaunchState>();
     assert_eq!(launch_state.phase, RuntimePreviewLaunchPhase::Idle);
@@ -50,6 +55,9 @@ fn test_editor_initialization_and_state() {
     assert_eq!(dirty_state.snapshot_error, None);
     assert_eq!(dirty_state.pending_project_action, None);
 
+    let custom_documents = app.world().resource::<LoadedCustomDocuments>();
+    assert!(custom_documents.documents.is_empty());
+
     // 3. Simulate User Actions
 
     // "Load Project"
@@ -60,16 +68,18 @@ fn test_editor_initialization_and_state() {
 
     // "Select Palette Item"
     let mut ui_state = app.world_mut().resource_mut::<EditorUiState>();
-    ui_state.browser_tab = BrowserTab::Palette;
+    ui_state.browser_tab = BrowserTab::Documents;
     ui_state.selected_palette_item = Some("Actor".into());
+    ui_state.custom_document_kind_filter = "abilities".into();
 
     // "Switch View"
     ui_state.current_view = EditorView::StoryGraph;
 
     // 4. Verify Changes
     let ui_state_after = app.world().resource::<EditorUiState>();
-    assert_eq!(ui_state_after.browser_tab, BrowserTab::Palette);
+    assert_eq!(ui_state_after.browser_tab, BrowserTab::Documents);
     assert_eq!(ui_state_after.selected_palette_item, Some("Actor".into()));
+    assert_eq!(ui_state_after.custom_document_kind_filter, "abilities");
     assert_eq!(ui_state_after.current_view, EditorView::StoryGraph);
 
     let project_after = app.world().resource::<MountedProject>();

@@ -24,6 +24,7 @@
 | Story graph runtime | JSON-serializable dialogue, branching, and scripted actions |
 | Lua scripting | Runtime game logic via `mlua` for content-heavy iteration |
 | Modular Bevy plugins | Engine systems can be bundled or composed per game |
+| Custom document platform | Registry-driven game data under `data/registry.json` for reusable non-scene content |
 
 ## Quick Start
 
@@ -41,6 +42,12 @@ Inside the editor, the primary top-bar action is now `Run Project`, which saves
 the mounted project and launches the separate `runtime_preview` process. The
 old in-editor graph preview remains available as `Preview Graph` inside the
 Story Graph view.
+
+Mounted projects can now also carry custom authored data beside scenes and
+story graphs. DJ Engine looks for `data/registry.json` under the mounted
+project root and uses that registry to discover reusable custom document kinds
+such as abilities, enemy archetypes, waves, evolution graphs, and preview
+profiles.
 
 The workspace toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml), so `rustup` will automatically select the validated Rust version for local development and CI.
 
@@ -92,6 +99,18 @@ dj_engine/
 ├── tools/asset_generator/  # Asset processing utilities
 ├── docs/                   # Project and engine documentation
 └── Makefile                # Unified command interface
+```
+
+Mounted project content now follows this shape:
+
+```text
+project.json
+scenes/
+story_graphs/
+assets/
+data/
+  registry.json
+  <custom_kind>/
 ```
 
 ## Documentation

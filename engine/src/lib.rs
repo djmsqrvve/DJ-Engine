@@ -77,6 +77,13 @@ pub mod prelude {
     };
 
     // Re-export commonly used rendering items
+    pub use crate::data::{
+        AppCustomDocumentExt, CustomDataManifest, CustomDocument, CustomDocumentEntry,
+        CustomDocumentRegistration, CustomDocumentRegistry, DJDataRegistryPlugin, DocumentRef,
+        EditorDocumentRoute, LoadedCustomDocuments, PreviewProfilePayload, ValidationIssue,
+        ValidationSeverity,
+    };
+    pub use crate::editor::AppEditorExtensionExt;
     pub use crate::rendering::{
         CrtConfig, DisplayCamera, MainCamera, OffscreenTarget, GAME_HEIGHT, GAME_WIDTH,
     };

@@ -1,4 +1,5 @@
 use crate::data::story::graph::StoryGraphData;
+use crate::data::DocumentRef;
 use bevy::prelude::*;
 use bevy_egui::egui::Color32;
 use bevy_inspector_egui::bevy_inspector;
@@ -47,6 +48,7 @@ pub struct EditorSnapshotBaseline {
     pub scene_json: Option<String>,
     pub story_graph_json: Option<String>,
     pub project_json: Option<String>,
+    pub custom_documents_json: Option<String>,
 }
 
 #[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
@@ -88,6 +90,7 @@ pub enum BrowserTab {
     #[default]
     Hierarchy,
     Assets,
+    Documents,
     Palette,
 }
 
@@ -101,6 +104,9 @@ pub struct EditorUiState {
     // We don't need Option<Entity> anymore, SelectedEntities handles it
     pub selected_entities: bevy_inspector::hierarchy::SelectedEntities,
     pub asset_search_query: String,
+    pub custom_document_search_query: String,
+    pub custom_document_kind_filter: String,
+    pub selected_custom_document: Option<DocumentRef>,
     pub selected_palette_item: Option<String>,
     pub console_open: bool,
     pub dragged_node_id: Option<String>,

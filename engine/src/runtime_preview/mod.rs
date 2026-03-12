@@ -8,7 +8,9 @@ use crate::collision::{CollisionSet, MovementIntent};
 use crate::data::loader;
 use crate::data::spawner::{LoadedScene, SceneEntityMarker};
 use crate::data::{
-    BodyType, CollisionComponent, DataError, Project, Scene, StoryGraphData, Vec3Data,
+    load_custom_documents_from_project, resolve_default_preview_profile, BodyType,
+    CollisionComponent, CustomDocumentRegistry, DJDataRegistryPlugin, DataError, DocumentRef,
+    LoadedCustomDocuments, Project, Scene, StoryGraphData, Vec3Data,
 };
 use crate::input::{ActionState, InputAction};
 use crate::project_mount::{
@@ -114,6 +116,8 @@ struct PreviewStartupContent {
     project_id: Option<String>,
     scene_id: Option<String>,
     story_graph_id: Option<String>,
+    preview_profile_id: Option<String>,
+    required_document_refs: Vec<DocumentRef>,
     scene: Option<Scene>,
     story_graph: Option<StoryGraphData>,
     entry_script_path: Option<PathBuf>,
@@ -229,9 +233,13 @@ impl Default for RuntimePreviewPlugin {
 
 impl Plugin for RuntimePreviewPlugin {
     fn build(&self, app: &mut App) {
+        if !app.is_plugin_added::<DJDataRegistryPlugin>() {
+            app.add_plugins(DJDataRegistryPlugin);
+        }
         app.init_state::<PreviewState>()
             .init_resource::<MountedProject>()
             .init_resource::<LoadedScene>()
+            .init_resource::<LoadedCustomDocuments>()
             .init_resource::<ActionState>()
             .init_resource::<TitleMenuState>()
             .init_resource::<PreviewStatus>()
@@ -365,6 +373,7 @@ fn follow_camera_translation(current_camera: Vec3, target: Vec3) -> Vec3 {
 
 fn load_preview_startup_content(
     mounted_project: &MountedProject,
+    loaded_custom_documents: &LoadedCustomDocuments,
 ) -> Result<PreviewStartupContent, DataError> {
     let Some(root_path) = mounted_project.root_path.as_ref() else {
         return Ok(PreviewStartupContent::default());
@@ -373,7 +382,14 @@ fn load_preview_startup_content(
         return Ok(PreviewStartupContent::default());
     };
 
-    let scene_ref = resolve_startup_scene_ref(project).cloned();
+    let preview_profile = resolve_default_preview_profile(loaded_custom_documents);
+
+    let scene_ref = preview_profile
+        .as_ref()
+        .and_then(|profile| profile.payload.scene_id.as_deref())
+        .and_then(|scene_id| project.find_scene(scene_id))
+        .cloned()
+        .or_else(|| resolve_startup_scene_ref(project).cloned());
     let scene = scene_ref.as_ref().and_then(|scene_ref| {
         let scene_path = root_path.join(&scene_ref.path);
         match loader::load_scene(&scene_path) {
@@ -388,7 +404,12 @@ fn load_preview_startup_content(
         }
     });
 
-    let story_graph_ref = resolve_startup_story_graph_ref(project).cloned();
+    let story_graph_ref = preview_profile
+        .as_ref()
+        .and_then(|profile| profile.payload.story_graph_id.as_deref())
+        .and_then(|story_graph_id| project.find_story_graph(story_graph_id))
+        .cloned()
+        .or_else(|| resolve_startup_story_graph_ref(project).cloned());
     let story_graph = story_graph_ref.as_ref().and_then(|graph_ref| {
         let graph_path = root_path.join(&graph_ref.path);
         match loader::load_story_graph(&graph_path) {
@@ -416,6 +437,11 @@ fn load_preview_startup_content(
         story_graph_id: story_graph_ref
             .as_ref()
             .map(|graph_ref| graph_ref.id.clone()),
+        preview_profile_id: preview_profile.as_ref().map(|profile| profile.id.clone()),
+        required_document_refs: preview_profile
+            .as_ref()
+            .map(|profile| profile.payload.document_refs.clone())
+            .unwrap_or_default(),
         scene,
         story_graph,
         entry_script_path,
@@ -526,6 +552,8 @@ fn load_continue_preview(
             project_id: Some(project.id.clone()),
             scene_id: Some(scene_id),
             story_graph_id: save.story_graph_id.clone(),
+            preview_profile_id: None,
+            required_document_refs: Vec::new(),
             scene: Some(scene),
             story_graph,
             entry_script_path,
@@ -575,6 +603,8 @@ fn save_overworld_checkpoint(
 
 fn prepare_runtime_preview_system(
     mut mounted_project: ResMut<MountedProject>,
+    registry: Res<CustomDocumentRegistry>,
+    mut loaded_custom_documents: ResMut<LoadedCustomDocuments>,
     mut startup_content: ResMut<PreviewStartupContent>,
     mut status: ResMut<PreviewStatus>,
 ) {
@@ -592,10 +622,17 @@ fn prepare_runtime_preview_system(
         }
     }
 
-    match load_preview_startup_content(&mounted_project) {
+    *loaded_custom_documents = load_custom_documents_from_project(&mounted_project, &registry);
+    let has_blocking_errors = loaded_custom_documents.has_blocking_errors();
+
+    match load_preview_startup_content(&mounted_project, &loaded_custom_documents) {
         Ok(content) => {
             *startup_content = content;
-            status.message = None;
+            status.message = if has_blocking_errors {
+                Some("Custom document validation failed. Fix the mounted project before running preview.".into())
+            } else {
+                None
+            };
             if let Some(project) = mounted_project.project.as_ref() {
                 info!("Runtime Preview: Mounted project '{}'", project.name);
             }
@@ -834,6 +871,7 @@ fn continue_saved_game_preview(
 fn title_input_system(
     actions: Res<ActionState>,
     mounted_project: Res<MountedProject>,
+    loaded_custom_documents: Res<LoadedCustomDocuments>,
     mut menu_state: ResMut<TitleMenuState>,
     mut startup_content: ResMut<PreviewStartupContent>,
     mut status: ResMut<PreviewStatus>,
@@ -870,6 +908,13 @@ fn title_input_system(
         .find(|option| option.index == menu_state.selected_index)
         .map(|option| option.action)
         .unwrap_or(TitleAction::NewGame);
+
+    if selected_action != TitleAction::Quit && loaded_custom_documents.has_blocking_errors() {
+        status.message = Some(
+            "Custom document validation failed. Resolve the errors in the mounted project before running preview.".into(),
+        );
+        return;
+    }
 
     match selected_action {
         TitleAction::NewGame => start_new_game_preview(
@@ -1334,22 +1379,45 @@ mod tests {
     use crate::data::components::{EntityComponents, TransformComponent};
     use crate::data::scene::Entity as SceneEntity;
     use crate::data::story::StoryNodeData;
-    use crate::data::{loader, Project};
-    use crate::save::{has_save_scoped, save_game_scoped, SaveScope};
+    use crate::data::{
+        loader, AppCustomDocumentExt, CustomDataManifest, CustomDocumentEntry,
+        CustomDocumentRegistration, EditorDocumentRoute, LoadedCustomDocuments, Project,
+    };
+    use crate::save::{has_save_scoped, save_game_scoped, save_test_lock, SaveScope};
     use crate::story_graph::StoryGraphPlugin;
     use bevy::ecs::message::Messages;
     use bevy::ecs::system::SystemState;
+    use serde::{Deserialize, Serialize};
     use std::path::Path;
-    use std::sync::{Mutex, OnceLock};
     use std::time::Duration;
 
-    fn preview_save_test_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
+    const CUSTOM_DOC_SCHEMA: &str = r#"{
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object"
+    }"#;
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct TestAbilityPayload {
+        power: u32,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct TestEnemyPayload {
+        health: u32,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct TestWavePayload {
+        enemies: Vec<String>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct TestEvolutionPayload {
+        root: String,
     }
 
     fn with_temp_preview_save_dir<T>(f: impl FnOnce(&Path) -> T) -> T {
-        let _guard = preview_save_test_lock().lock().unwrap();
+        let _guard = save_test_lock().lock().unwrap();
         let temp_dir = tempfile::tempdir().unwrap();
         let previous = std::env::var_os("DJ_ENGINE_SAVE_DIR");
 
@@ -1509,6 +1577,8 @@ mod tests {
                 project_id: Some(project.id.clone()),
                 scene_id: Some("intro".into()),
                 story_graph_id: Some("opening".into()),
+                preview_profile_id: None,
+                required_document_refs: Vec::new(),
                 scene: Some(test_scene_with_spawn(Vec3::new(48.0, -24.0, 0.0))),
                 story_graph: Some(test_story_graph()),
                 entry_script_path: None,
@@ -1941,6 +2011,216 @@ mod tests {
             assert_eq!(
                 *app.world().resource::<State<PreviewState>>().get(),
                 PreviewState::Title
+            );
+        });
+    }
+
+    #[test]
+    fn test_runtime_preview_loads_custom_document_bundle_from_preview_profile() {
+        with_temp_preview_save_dir(|_| {
+            let temp_dir = tempfile::tempdir().unwrap();
+            let root_path = temp_dir.path().to_path_buf();
+            let manifest_path = root_path.join("project.json");
+
+            std::fs::create_dir_all(root_path.join("scenes")).unwrap();
+            std::fs::create_dir_all(root_path.join("story_graphs")).unwrap();
+            std::fs::create_dir_all(root_path.join("data/abilities")).unwrap();
+            std::fs::create_dir_all(root_path.join("data/enemy_archetypes")).unwrap();
+            std::fs::create_dir_all(root_path.join("data/waves")).unwrap();
+            std::fs::create_dir_all(root_path.join("data/evolution_tree")).unwrap();
+            std::fs::create_dir_all(root_path.join("data/preview_profiles")).unwrap();
+
+            let mut project = Project::new("Preview Project");
+            project.id = "custom-doc-preview".into();
+            project.add_scene("arena", "scenes/arena.json");
+            project.add_story_graph("opening", "story_graphs/opening.json");
+            project.settings.startup.default_scene_id = Some("arena".into());
+            project.settings.startup.default_story_graph_id = Some("opening".into());
+            loader::save_project(&project, &manifest_path).unwrap();
+            loader::save_scene(
+                &test_scene_with_spawn(Vec3::new(20.0, 10.0, 0.0)),
+                &root_path.join("scenes/arena.json"),
+            )
+            .unwrap();
+            loader::save_story_graph(
+                &test_story_graph(),
+                &root_path.join("story_graphs/opening.json"),
+            )
+            .unwrap();
+
+            let custom_manifest = CustomDataManifest {
+                version: 1,
+                documents: vec![
+                    CustomDocumentEntry {
+                        kind: "abilities".into(),
+                        id: "starter_strike".into(),
+                        path: "abilities/starter_strike.json".into(),
+                        schema_version: 1,
+                        editor_route: EditorDocumentRoute::Table,
+                        tags: vec!["starter".into()],
+                    },
+                    CustomDocumentEntry {
+                        kind: "enemy_archetypes".into(),
+                        id: "slime".into(),
+                        path: "enemy_archetypes/slime.json".into(),
+                        schema_version: 1,
+                        editor_route: EditorDocumentRoute::Table,
+                        tags: vec!["enemy".into()],
+                    },
+                    CustomDocumentEntry {
+                        kind: "waves".into(),
+                        id: "first_wave".into(),
+                        path: "waves/first_wave.json".into(),
+                        schema_version: 1,
+                        editor_route: EditorDocumentRoute::Table,
+                        tags: vec!["wave".into()],
+                    },
+                    CustomDocumentEntry {
+                        kind: "evolution_tree".into(),
+                        id: "starter_tree".into(),
+                        path: "evolution_tree/starter_tree.json".into(),
+                        schema_version: 1,
+                        editor_route: EditorDocumentRoute::Graph,
+                        tags: vec!["progression".into()],
+                    },
+                    CustomDocumentEntry {
+                        kind: "preview_profiles".into(),
+                        id: "default_preview".into(),
+                        path: "preview_profiles/default_preview.json".into(),
+                        schema_version: 1,
+                        editor_route: EditorDocumentRoute::Inspector,
+                        tags: vec!["preview".into()],
+                    },
+                ],
+            };
+            std::fs::write(
+                root_path.join("data/registry.json"),
+                serde_json::to_string_pretty(&custom_manifest).unwrap(),
+            )
+            .unwrap();
+
+            std::fs::write(
+                root_path.join("data/abilities/starter_strike.json"),
+                r#"{
+                  "kind": "abilities",
+                  "id": "starter_strike",
+                  "schema_version": 1,
+                  "payload": { "power": 10 }
+                }"#,
+            )
+            .unwrap();
+            std::fs::write(
+                root_path.join("data/enemy_archetypes/slime.json"),
+                r#"{
+                  "kind": "enemy_archetypes",
+                  "id": "slime",
+                  "schema_version": 1,
+                  "payload": { "health": 20 }
+                }"#,
+            )
+            .unwrap();
+            std::fs::write(
+                root_path.join("data/waves/first_wave.json"),
+                r#"{
+                  "kind": "waves",
+                  "id": "first_wave",
+                  "schema_version": 1,
+                  "payload": { "enemies": ["slime"] }
+                }"#,
+            )
+            .unwrap();
+            std::fs::write(
+                root_path.join("data/evolution_tree/starter_tree.json"),
+                r#"{
+                  "kind": "evolution_tree",
+                  "id": "starter_tree",
+                  "schema_version": 1,
+                  "payload": { "root": "starter_strike" }
+                }"#,
+            )
+            .unwrap();
+            std::fs::write(
+                root_path.join("data/preview_profiles/default_preview.json"),
+                r#"{
+                  "kind": "preview_profiles",
+                  "id": "default_preview",
+                  "schema_version": 1,
+                  "references": [
+                    { "field_path": "payload.document_refs[0]", "type": "document", "kind": "abilities", "id": "starter_strike" },
+                    { "field_path": "payload.document_refs[1]", "type": "document", "kind": "enemy_archetypes", "id": "slime" },
+                    { "field_path": "payload.document_refs[2]", "type": "document", "kind": "waves", "id": "first_wave" },
+                    { "field_path": "payload.document_refs[3]", "type": "document", "kind": "evolution_tree", "id": "starter_tree" }
+                  ],
+                  "payload": {
+                    "scene_id": "arena",
+                    "story_graph_id": "opening",
+                    "document_refs": [
+                      { "kind": "abilities", "id": "starter_strike" },
+                      { "kind": "enemy_archetypes", "id": "slime" },
+                      { "kind": "waves", "id": "first_wave" },
+                      { "kind": "evolution_tree", "id": "starter_tree" }
+                    ]
+                  }
+                }"#,
+            )
+            .unwrap();
+
+            let mut app = App::new();
+            app.add_plugins(MinimalPlugins);
+            app.add_plugins(bevy::state::app::StatesPlugin);
+            app.add_plugins(StoryGraphPlugin);
+            app.add_plugins(RuntimePreviewPlugin::new(false));
+            app.register_custom_document(CustomDocumentRegistration::<TestAbilityPayload>::new(
+                "abilities",
+                1,
+                EditorDocumentRoute::Table,
+                CUSTOM_DOC_SCHEMA,
+            ));
+            app.register_custom_document(CustomDocumentRegistration::<TestEnemyPayload>::new(
+                "enemy_archetypes",
+                1,
+                EditorDocumentRoute::Table,
+                CUSTOM_DOC_SCHEMA,
+            ));
+            app.register_custom_document(CustomDocumentRegistration::<TestWavePayload>::new(
+                "waves",
+                1,
+                EditorDocumentRoute::Table,
+                CUSTOM_DOC_SCHEMA,
+            ));
+            app.register_custom_document(CustomDocumentRegistration::<TestEvolutionPayload>::new(
+                "evolution_tree",
+                1,
+                EditorDocumentRoute::Graph,
+                CUSTOM_DOC_SCHEMA,
+            ));
+            app.insert_resource(MountedProject {
+                root_path: Some(root_path),
+                manifest_path: Some(manifest_path),
+                project: None,
+            });
+
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_millis(16));
+            app.update();
+
+            let loaded_documents = app.world().resource::<LoadedCustomDocuments>();
+            assert_eq!(loaded_documents.documents.len(), 5);
+            assert!(!loaded_documents.has_blocking_errors());
+
+            let startup_content = app.world().resource::<PreviewStartupContent>();
+            assert_eq!(
+                startup_content.preview_profile_id.as_deref(),
+                Some("default_preview")
+            );
+            assert_eq!(startup_content.required_document_refs.len(), 4);
+            assert_eq!(
+                startup_content.required_document_refs[0],
+                DocumentRef {
+                    kind: "abilities".into(),
+                    id: "starter_strike".into()
+                }
             );
         });
     }

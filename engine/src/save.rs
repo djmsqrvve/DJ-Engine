@@ -7,6 +7,8 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+#[cfg(test)]
+use std::sync::{Mutex, OnceLock};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum SaveScope {
@@ -73,6 +75,12 @@ fn scoped_save_dir(scope: &SaveScope) -> PathBuf {
 
 fn save_path_for_scope(scope: &SaveScope, slot: usize) -> PathBuf {
     scoped_save_dir(scope).join(format!("save_{slot}.json"))
+}
+
+#[cfg(test)]
+pub(crate) fn save_test_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
 }
 
 pub fn save_game_scoped(
@@ -180,15 +188,9 @@ fn handle_load_commands(mut commands: MessageReader<LoadCommand>, mut loaded: Re
 mod tests {
     use super::*;
     use std::path::Path;
-    use std::sync::{Mutex, OnceLock};
-
-    fn save_test_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
 
     fn with_temp_save_dir<T>(f: impl FnOnce(&Path) -> T) -> T {
-        let _guard = save_test_lock().lock().unwrap();
+        let _guard = crate::save::save_test_lock().lock().unwrap();
         let temp_dir = tempfile::tempdir().unwrap();
         let previous = std::env::var_os("DJ_ENGINE_SAVE_DIR");
 
@@ -304,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_save_dir_uses_xdg_data_home() {
-        let _guard = save_test_lock().lock().unwrap();
+        let _guard = crate::save::save_test_lock().lock().unwrap();
         let previous_override = std::env::var_os("DJ_ENGINE_SAVE_DIR");
         let previous_xdg = std::env::var_os("XDG_DATA_HOME");
         let temp_dir = tempfile::tempdir().unwrap();

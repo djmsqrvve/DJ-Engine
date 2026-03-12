@@ -4,6 +4,10 @@ use crate::data::components::common::{ColorData, Vec3Data};
 use crate::data::components::entity::EntityComponents;
 use crate::data::components::rendering::{SpriteComponent, TransformComponent};
 use crate::data::scene::{Entity as SceneEntity, Scene};
+use crate::data::{
+    load_custom_documents_from_project, save_loaded_custom_documents, CustomDocumentRegistry,
+    LoadedCustomDocuments,
+};
 use crate::data::{loader, DataError};
 use crate::project_mount::{
     ensure_default_project_refs, load_mounted_project_manifest, resolve_startup_scene_ref,
@@ -32,11 +36,18 @@ pub(crate) fn capture_editor_snapshot(
         &world.resource::<ActiveStoryGraph>().0,
     )?);
     let project_json = Some(serde_json::to_string(project.as_ref().unwrap())?);
+    let custom_documents_json = Some(serde_json::to_string(
+        &world
+            .get_resource::<LoadedCustomDocuments>()
+            .cloned()
+            .unwrap_or_default(),
+    )?);
 
     Ok(EditorSnapshotBaseline {
         scene_json,
         story_graph_json,
         project_json,
+        custom_documents_json,
     })
 }
 
@@ -102,6 +113,7 @@ pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
     };
 
     world.resource_mut::<MountedProject>().project = None;
+    world.insert_resource(LoadedCustomDocuments::default());
 
     let project = match load_mounted_project_manifest(&mut world.resource_mut::<MountedProject>()) {
         Ok(Some(project)) => project,
@@ -116,6 +128,7 @@ pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
                 dirty_state.is_dirty = false;
                 dirty_state.snapshot_error = None;
             }
+            world.insert_resource(LoadedCustomDocuments::default());
             return Err(error);
         }
     };
@@ -129,6 +142,14 @@ pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
         mounted_project.manifest_path = Some(manifest_path);
         mounted_project.project = Some(project.clone());
     }
+
+    let registry = world
+        .get_resource::<CustomDocumentRegistry>()
+        .cloned()
+        .unwrap_or_default();
+    let mounted_project = world.resource::<MountedProject>().clone();
+    let loaded_custom_documents = load_custom_documents_from_project(&mounted_project, &registry);
+    world.insert_resource(loaded_custom_documents);
 
     if let Some(scene_ref) = scene_ref {
         let scene_path = root_path.join(&scene_ref.path);
@@ -168,6 +189,7 @@ pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
         ui_state.selected_node_id = None;
         ui_state.connection_start_id = None;
         ui_state.dragged_node_id = None;
+        ui_state.selected_custom_document = None;
     }
 
     info!("Editor: Loaded project '{}'", project.name);
@@ -238,6 +260,12 @@ pub(crate) fn save_project_impl(world: &mut World) -> Result<(), DataError> {
 
     let graph = world.resource::<ActiveStoryGraph>().0.clone();
     loader::save_story_graph(&graph, &graph_path)?;
+
+    let custom_documents = world
+        .get_resource::<LoadedCustomDocuments>()
+        .cloned()
+        .unwrap_or_default();
+    save_loaded_custom_documents(&custom_documents, &root_path, &project)?;
 
     loader::save_project(&project, &manifest_path)?;
 

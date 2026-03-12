@@ -2,6 +2,7 @@
 //!
 //! Provides a professional game development environment using Egui.
 
+mod extensions;
 pub(crate) mod panels;
 mod plugin;
 pub(crate) mod scene_io;
@@ -10,6 +11,10 @@ pub mod validation;
 pub(crate) mod views;
 
 pub use crate::project_mount::MountedProject;
+pub use extensions::{
+    AppEditorExtensionExt, EditorExtensionRegistry, RegisteredCustomEditorPanel,
+    RegisteredPreviewPreset, RegisteredToolbarAction, RegisteredValidationView,
+};
 pub use plugin::EditorPlugin;
 pub use types::ActiveStoryGraph;
 pub use types::{

@@ -55,6 +55,16 @@ pub fn load_mounted_project_manifest(
     Ok(Some(project))
 }
 
+pub fn resolve_custom_data_root(mounted_project: &MountedProject) -> Option<PathBuf> {
+    let root_path = mounted_project.root_path.as_ref()?;
+    let project = mounted_project.project.as_ref()?;
+    Some(root_path.join(&project.settings.paths.data))
+}
+
+pub fn resolve_custom_data_manifest_path(mounted_project: &MountedProject) -> Option<PathBuf> {
+    Some(resolve_custom_data_root(mounted_project)?.join("registry.json"))
+}
+
 pub fn resolve_startup_scene_ref(project: &Project) -> Option<&SceneRef> {
     project
         .settings
@@ -181,6 +191,23 @@ mod tests {
                 .as_ref()
                 .map(|project| project.name.as_str()),
             Some("Mounted Project")
+        );
+    }
+
+    #[test]
+    fn test_resolve_custom_data_manifest_path_uses_project_data_root() {
+        let mut project = Project::new("Data Project");
+        project.settings.paths.data = "custom_data".into();
+
+        let mounted_project = MountedProject {
+            root_path: Some(PathBuf::from("/tmp/data_project")),
+            manifest_path: Some(PathBuf::from("/tmp/data_project/project.json")),
+            project: Some(project),
+        };
+
+        assert_eq!(
+            resolve_custom_data_manifest_path(&mounted_project),
+            Some(PathBuf::from("/tmp/data_project/custom_data/registry.json"))
         );
     }
 }

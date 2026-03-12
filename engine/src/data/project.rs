@@ -85,6 +85,8 @@ pub struct ProjectPaths {
     pub database: String,
     /// Path to assets directory
     pub assets: String,
+    /// Path to custom data registry and documents
+    pub data: String,
 }
 
 impl Default for ProjectPaths {
@@ -94,6 +96,7 @@ impl Default for ProjectPaths {
             story_graphs: "story_graphs".to_string(),
             database: "database".to_string(),
             assets: "assets".to_string(),
+            data: "data".to_string(),
         }
     }
 }
@@ -388,5 +391,11 @@ mod tests {
         project.add_scene("level_01", "scenes/level_01.json");
         assert_eq!(project.scenes.len(), 1);
         assert!(project.find_scene("level_01").is_some());
+    }
+
+    #[test]
+    fn test_project_paths_include_custom_data_root_by_default() {
+        let project = Project::new("Data Paths");
+        assert_eq!(project.settings.paths.data, "data");
     }
 }

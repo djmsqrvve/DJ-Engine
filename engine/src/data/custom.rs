@@ -1,0 +1,1289 @@
+use crate::data::loader::DataError;
+use crate::data::project::Project;
+use crate::project_mount::MountedProject;
+use bevy::prelude::*;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
+use std::marker::PhantomData;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+pub type DocumentKindId = String;
+pub type DocumentId = String;
+
+fn default_manifest_version() -> u32 {
+    1
+}
+
+fn default_schema_version() -> u32 {
+    1
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EditorDocumentRoute {
+    #[default]
+    Inspector,
+    Table,
+    Graph,
+    CustomPanel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DocumentRef {
+    pub kind: DocumentKindId,
+    pub id: DocumentId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum DocumentLinkTarget {
+    Document {
+        kind: DocumentKindId,
+        id: DocumentId,
+    },
+    Scene {
+        id: String,
+    },
+    StoryGraph {
+        id: String,
+    },
+    Asset {
+        path: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DocumentLink {
+    pub field_path: String,
+    #[serde(flatten)]
+    pub target: DocumentLinkTarget,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CustomDocument<T> {
+    pub kind: DocumentKindId,
+    pub id: DocumentId,
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
+    #[serde(default)]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub references: Vec<DocumentLink>,
+    pub payload: T,
+}
+
+pub type CustomDocumentEnvelope = CustomDocument<Value>;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CustomDocumentEntry {
+    pub kind: DocumentKindId,
+    pub id: DocumentId,
+    pub path: String,
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
+    #[serde(default)]
+    pub editor_route: EditorDocumentRoute,
+    #[serde(default)]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CustomDataManifest {
+    #[serde(default = "default_manifest_version")]
+    pub version: u32,
+    #[serde(default)]
+    pub documents: Vec<CustomDocumentEntry>,
+}
+
+impl Default for CustomDataManifest {
+    fn default() -> Self {
+        Self {
+            version: default_manifest_version(),
+            documents: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidationSeverity {
+    #[default]
+    Error,
+    Warning,
+    Info,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValidationIssue {
+    pub severity: ValidationSeverity,
+    pub code: String,
+    #[serde(default)]
+    pub source_kind: Option<DocumentKindId>,
+    #[serde(default)]
+    pub source_id: Option<DocumentId>,
+    #[serde(default)]
+    pub field_path: Option<String>,
+    pub message: String,
+    #[serde(default)]
+    pub related_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LoadedCustomDocument {
+    pub entry: CustomDocumentEntry,
+    #[serde(default)]
+    pub raw_json: String,
+    #[serde(default)]
+    pub document: Option<CustomDocumentEnvelope>,
+    #[serde(default)]
+    pub parse_error: Option<String>,
+    #[serde(default)]
+    pub resolved_route: EditorDocumentRoute,
+}
+
+impl LoadedCustomDocument {
+    pub fn id(&self) -> &str {
+        &self.entry.id
+    }
+
+    pub fn kind(&self) -> &str {
+        &self.entry.kind
+    }
+}
+
+#[derive(Resource, Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LoadedCustomDocuments {
+    #[serde(default)]
+    pub manifest_path: Option<PathBuf>,
+    #[serde(default)]
+    pub manifest: Option<CustomDataManifest>,
+    #[serde(default)]
+    pub documents: Vec<LoadedCustomDocument>,
+    #[serde(default)]
+    pub issues: Vec<ValidationIssue>,
+}
+
+impl LoadedCustomDocuments {
+    pub fn get(&self, kind: &str, id: &str) -> Option<&LoadedCustomDocument> {
+        self.documents
+            .iter()
+            .find(|document| document.entry.kind == kind && document.entry.id == id)
+    }
+
+    pub fn get_mut(&mut self, kind: &str, id: &str) -> Option<&mut LoadedCustomDocument> {
+        self.documents
+            .iter_mut()
+            .find(|document| document.entry.kind == kind && document.entry.id == id)
+    }
+
+    pub fn get_typed<T: DeserializeOwned>(
+        &self,
+        kind: &str,
+        id: &str,
+    ) -> Result<Option<CustomDocument<T>>, serde_json::Error> {
+        let Some(document) = self
+            .get(kind, id)
+            .and_then(|document| document.document.clone())
+        else {
+            return Ok(None);
+        };
+
+        serde_json::from_value(serde_json::to_value(document)?).map(Some)
+    }
+
+    pub fn issues_for(&self, kind: &str, id: &str) -> Vec<&ValidationIssue> {
+        self.issues
+            .iter()
+            .filter(|issue| {
+                issue.source_kind.as_deref() == Some(kind) && issue.source_id.as_deref() == Some(id)
+            })
+            .collect()
+    }
+
+    pub fn available_kinds(&self) -> Vec<String> {
+        let mut kinds: BTreeSet<String> = self
+            .documents
+            .iter()
+            .map(|document| document.entry.kind.clone())
+            .collect();
+        kinds.insert("all".to_string());
+        kinds.into_iter().collect()
+    }
+
+    pub fn has_blocking_errors(&self) -> bool {
+        self.issues
+            .iter()
+            .any(|issue| issue.severity == ValidationSeverity::Error)
+    }
+}
+
+pub type CustomDocumentValidator = Arc<
+    dyn Fn(&LoadedCustomDocument, &LoadedCustomDocuments, &Project, &mut Vec<ValidationIssue>)
+        + Send
+        + Sync,
+>;
+
+#[derive(Clone)]
+pub struct RegisteredCustomDocumentKind {
+    pub kind: DocumentKindId,
+    pub schema_version: u32,
+    pub editor_route: EditorDocumentRoute,
+    pub schema_json: String,
+    pub schema_is_valid_json: bool,
+    pub supports_runtime_preview: bool,
+    pub rust_type_name: &'static str,
+    pub validator: Option<CustomDocumentValidator>,
+}
+
+impl fmt::Debug for RegisteredCustomDocumentKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RegisteredCustomDocumentKind")
+            .field("kind", &self.kind)
+            .field("schema_version", &self.schema_version)
+            .field("editor_route", &self.editor_route)
+            .field("schema_is_valid_json", &self.schema_is_valid_json)
+            .field("supports_runtime_preview", &self.supports_runtime_preview)
+            .field("rust_type_name", &self.rust_type_name)
+            .finish()
+    }
+}
+
+#[derive(Resource, Default, Debug, Clone)]
+pub struct CustomDocumentRegistry {
+    kinds: BTreeMap<DocumentKindId, RegisteredCustomDocumentKind>,
+}
+
+impl CustomDocumentRegistry {
+    pub fn register_kind(&mut self, registration: RegisteredCustomDocumentKind) {
+        self.kinds.insert(registration.kind.clone(), registration);
+    }
+
+    pub fn get(&self, kind: &str) -> Option<&RegisteredCustomDocumentKind> {
+        self.kinds.get(kind)
+    }
+
+    pub fn all(&self) -> impl Iterator<Item = &RegisteredCustomDocumentKind> {
+        self.kinds.values()
+    }
+}
+
+pub struct CustomDocumentRegistration<T> {
+    kind: &'static str,
+    schema_version: u32,
+    editor_route: EditorDocumentRoute,
+    schema_json: &'static str,
+    supports_runtime_preview: bool,
+    validator:
+        Option<fn(&CustomDocument<T>, &LoadedCustomDocuments, &Project, &mut Vec<ValidationIssue>)>,
+    _marker: PhantomData<T>,
+}
+
+impl<T> CustomDocumentRegistration<T> {
+    pub fn new(
+        kind: &'static str,
+        schema_version: u32,
+        editor_route: EditorDocumentRoute,
+        schema_json: &'static str,
+    ) -> Self {
+        Self {
+            kind,
+            schema_version,
+            editor_route,
+            schema_json,
+            supports_runtime_preview: false,
+            validator: None,
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn with_runtime_preview(mut self, supports_runtime_preview: bool) -> Self {
+        self.supports_runtime_preview = supports_runtime_preview;
+        self
+    }
+
+    pub fn with_validator(
+        mut self,
+        validator: fn(
+            &CustomDocument<T>,
+            &LoadedCustomDocuments,
+            &Project,
+            &mut Vec<ValidationIssue>,
+        ),
+    ) -> Self {
+        self.validator = Some(validator);
+        self
+    }
+}
+
+pub trait AppCustomDocumentExt {
+    fn register_custom_document<T>(
+        &mut self,
+        registration: CustomDocumentRegistration<T>,
+    ) -> &mut Self
+    where
+        T: Serialize + DeserializeOwned + Send + Sync + 'static;
+}
+
+impl AppCustomDocumentExt for App {
+    fn register_custom_document<T>(
+        &mut self,
+        registration: CustomDocumentRegistration<T>,
+    ) -> &mut Self
+    where
+        T: Serialize + DeserializeOwned + Send + Sync + 'static,
+    {
+        self.init_resource::<CustomDocumentRegistry>();
+        self.init_resource::<LoadedCustomDocuments>();
+
+        let validator = registration.validator.map(|typed_validator| {
+            Arc::new(
+                move |document: &LoadedCustomDocument,
+                      loaded: &LoadedCustomDocuments,
+                      project: &Project,
+                      issues: &mut Vec<ValidationIssue>| {
+                    let Some(envelope) = document.document.clone() else {
+                        return;
+                    };
+
+                    let value = match serde_json::to_value(envelope) {
+                        Ok(value) => value,
+                        Err(error) => {
+                            issues.push(ValidationIssue {
+                                severity: ValidationSeverity::Error,
+                                code: "typed_validation_serialization_failed".into(),
+                                source_kind: Some(document.entry.kind.clone()),
+                                source_id: Some(document.entry.id.clone()),
+                                field_path: None,
+                                message: format!(
+                                    "Failed to prepare '{}' for typed validation: {}",
+                                    document.entry.id, error
+                                ),
+                                related_refs: Vec::new(),
+                            });
+                            return;
+                        }
+                    };
+
+                    match serde_json::from_value::<CustomDocument<T>>(value) {
+                        Ok(typed_document) => {
+                            typed_validator(&typed_document, loaded, project, issues)
+                        }
+                        Err(error) => issues.push(ValidationIssue {
+                            severity: ValidationSeverity::Error,
+                            code: "typed_validation_deserialize_failed".into(),
+                            source_kind: Some(document.entry.kind.clone()),
+                            source_id: Some(document.entry.id.clone()),
+                            field_path: None,
+                            message: format!(
+                                "Failed to deserialize '{}' into registered Rust type {}: {}",
+                                document.entry.id,
+                                std::any::type_name::<T>(),
+                                error
+                            ),
+                            related_refs: Vec::new(),
+                        }),
+                    }
+                },
+            ) as CustomDocumentValidator
+        });
+
+        let schema_is_valid_json = serde_json::from_str::<Value>(registration.schema_json).is_ok();
+        let registered = RegisteredCustomDocumentKind {
+            kind: registration.kind.to_string(),
+            schema_version: registration.schema_version,
+            editor_route: registration.editor_route,
+            schema_json: registration.schema_json.to_string(),
+            schema_is_valid_json,
+            supports_runtime_preview: registration.supports_runtime_preview,
+            rust_type_name: std::any::type_name::<T>(),
+            validator,
+        };
+
+        self.world_mut()
+            .resource_mut::<CustomDocumentRegistry>()
+            .register_kind(registered);
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PreviewProfilePayload {
+    #[serde(default)]
+    pub scene_id: Option<String>,
+    #[serde(default)]
+    pub story_graph_id: Option<String>,
+    #[serde(default)]
+    pub document_refs: Vec<DocumentRef>,
+}
+
+const PREVIEW_PROFILE_SCHEMA_JSON: &str = r#"{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DJ Engine Preview Profile",
+  "type": "object",
+  "required": ["kind", "id", "payload"],
+  "properties": {
+    "kind": { "const": "preview_profiles" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "label": { "type": "string" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "references": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "scene_id": { "type": ["string", "null"] },
+        "story_graph_id": { "type": ["string", "null"] },
+        "document_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kind", "id"],
+            "properties": {
+              "kind": { "type": "string" },
+              "id": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}"#;
+
+fn preview_profile_validator(
+    document: &CustomDocument<PreviewProfilePayload>,
+    loaded: &LoadedCustomDocuments,
+    project: &Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if let Some(scene_id) = document.payload.scene_id.as_deref() {
+        if project.find_scene(scene_id).is_none() {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "preview_profile_missing_scene".into(),
+                source_kind: Some(document.kind.clone()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("payload.scene_id".into()),
+                message: format!("Preview profile references unknown scene '{}'.", scene_id),
+                related_refs: vec![format!("scene:{scene_id}")],
+            });
+        }
+    }
+
+    if let Some(story_graph_id) = document.payload.story_graph_id.as_deref() {
+        if project.find_story_graph(story_graph_id).is_none() {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "preview_profile_missing_story_graph".into(),
+                source_kind: Some(document.kind.clone()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("payload.story_graph_id".into()),
+                message: format!(
+                    "Preview profile references unknown story graph '{}'.",
+                    story_graph_id
+                ),
+                related_refs: vec![format!("story_graph:{story_graph_id}")],
+            });
+        }
+    }
+
+    for document_ref in &document.payload.document_refs {
+        if loaded.get(&document_ref.kind, &document_ref.id).is_none() {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "preview_profile_missing_document".into(),
+                source_kind: Some(document.kind.clone()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("payload.document_refs".into()),
+                message: format!(
+                    "Preview profile references unknown custom document '{}:{}' .",
+                    document_ref.kind, document_ref.id
+                ),
+                related_refs: vec![format!("{}:{}", document_ref.kind, document_ref.id)],
+            });
+        }
+    }
+}
+
+pub struct DJDataRegistryPlugin;
+
+impl Plugin for DJDataRegistryPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<CustomDocumentRegistry>()
+            .init_resource::<LoadedCustomDocuments>()
+            .register_custom_document(
+                CustomDocumentRegistration::<PreviewProfilePayload>::new(
+                    "preview_profiles",
+                    1,
+                    EditorDocumentRoute::Inspector,
+                    PREVIEW_PROFILE_SCHEMA_JSON,
+                )
+                .with_runtime_preview(true)
+                .with_validator(preview_profile_validator),
+            );
+    }
+}
+
+pub fn default_custom_data_manifest_path(project_root: &Path, project: &Project) -> PathBuf {
+    project_root
+        .join(&project.settings.paths.data)
+        .join("registry.json")
+}
+
+fn default_data_root(project_root: &Path, project: &Project) -> PathBuf {
+    project_root.join(&project.settings.paths.data)
+}
+
+fn sort_loaded_documents(documents: &mut [LoadedCustomDocument]) {
+    documents.sort_by(|left, right| {
+        left.entry
+            .kind
+            .cmp(&right.entry.kind)
+            .then_with(|| left.entry.id.cmp(&right.entry.id))
+    });
+}
+
+pub fn resolve_default_preview_profile(
+    loaded_documents: &LoadedCustomDocuments,
+) -> Option<CustomDocument<PreviewProfilePayload>> {
+    let default_profile = loaded_documents
+        .get_typed::<PreviewProfilePayload>("preview_profiles", "default_preview")
+        .ok()
+        .flatten();
+    if default_profile.is_some() {
+        return default_profile;
+    }
+
+    let preview_ids: Vec<_> = loaded_documents
+        .documents
+        .iter()
+        .filter(|document| document.entry.kind == "preview_profiles")
+        .collect();
+    if preview_ids.len() != 1 {
+        return None;
+    }
+
+    loaded_documents
+        .get_typed::<PreviewProfilePayload>(&preview_ids[0].entry.kind, &preview_ids[0].entry.id)
+        .ok()
+        .flatten()
+}
+
+pub fn load_custom_documents_from_project(
+    mounted_project: &MountedProject,
+    registry: &CustomDocumentRegistry,
+) -> LoadedCustomDocuments {
+    let Some(project_root) = mounted_project.root_path.as_ref() else {
+        return LoadedCustomDocuments::default();
+    };
+    let Some(project) = mounted_project.project.as_ref() else {
+        return LoadedCustomDocuments::default();
+    };
+
+    let manifest_path = default_custom_data_manifest_path(project_root, project);
+    if !manifest_path.exists() {
+        return LoadedCustomDocuments {
+            manifest_path: Some(manifest_path),
+            manifest: Some(CustomDataManifest::default()),
+            documents: Vec::new(),
+            issues: Vec::new(),
+        };
+    }
+
+    let mut loaded = LoadedCustomDocuments {
+        manifest_path: Some(manifest_path.clone()),
+        manifest: None,
+        documents: Vec::new(),
+        issues: Vec::new(),
+    };
+
+    let manifest_source = match std::fs::read_to_string(&manifest_path) {
+        Ok(source) => source,
+        Err(error) => {
+            loaded.issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "custom_manifest_read_failed".into(),
+                source_kind: None,
+                source_id: None,
+                field_path: None,
+                message: format!(
+                    "Failed to read custom document manifest '{}': {}",
+                    manifest_path.display(),
+                    error
+                ),
+                related_refs: Vec::new(),
+            });
+            return loaded;
+        }
+    };
+
+    let manifest = match serde_json::from_str::<CustomDataManifest>(&manifest_source) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            loaded.issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "custom_manifest_parse_failed".into(),
+                source_kind: None,
+                source_id: None,
+                field_path: None,
+                message: format!(
+                    "Failed to parse custom document manifest '{}': {}",
+                    manifest_path.display(),
+                    error
+                ),
+                related_refs: Vec::new(),
+            });
+            return loaded;
+        }
+    };
+
+    let data_root = default_data_root(project_root, project);
+    let mut seen_ids = BTreeSet::new();
+    for entry in &manifest.documents {
+        let key = (entry.kind.clone(), entry.id.clone());
+        if !seen_ids.insert(key.clone()) {
+            loaded.issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "duplicate_custom_document_id".into(),
+                source_kind: Some(key.0),
+                source_id: Some(key.1),
+                field_path: None,
+                message: "Duplicate custom document id found in registry.".into(),
+                related_refs: Vec::new(),
+            });
+        }
+
+        let registration = registry.get(&entry.kind);
+        let resolved_route = registration
+            .map(|registration| registration.editor_route)
+            .unwrap_or(entry.editor_route);
+
+        if let Some(registration) = registration {
+            if !registration.schema_is_valid_json {
+                loaded.issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Error,
+                    code: "invalid_schema_artifact".into(),
+                    source_kind: Some(entry.kind.clone()),
+                    source_id: Some(entry.id.clone()),
+                    field_path: None,
+                    message: format!(
+                        "Registered schema artifact for kind '{}' is not valid JSON.",
+                        entry.kind
+                    ),
+                    related_refs: Vec::new(),
+                });
+            }
+
+            if registration.schema_version != entry.schema_version {
+                loaded.issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Warning,
+                    code: "registry_schema_version_mismatch".into(),
+                    source_kind: Some(entry.kind.clone()),
+                    source_id: Some(entry.id.clone()),
+                    field_path: Some("schema_version".into()),
+                    message: format!(
+                        "Registry entry schema version {} does not match registered version {}.",
+                        entry.schema_version, registration.schema_version
+                    ),
+                    related_refs: Vec::new(),
+                });
+            }
+
+            if registration.editor_route != entry.editor_route {
+                loaded.issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Info,
+                    code: "editor_route_override".into(),
+                    source_kind: Some(entry.kind.clone()),
+                    source_id: Some(entry.id.clone()),
+                    field_path: Some("editor_route".into()),
+                    message: format!(
+                        "Registry route {:?} differs from registered default {:?}.",
+                        entry.editor_route, registration.editor_route
+                    ),
+                    related_refs: Vec::new(),
+                });
+            }
+        } else {
+            loaded.issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "unknown_custom_document_kind".into(),
+                source_kind: Some(entry.kind.clone()),
+                source_id: Some(entry.id.clone()),
+                field_path: Some("kind".into()),
+                message: format!(
+                    "Custom document kind '{}' is not registered with DJ Engine.",
+                    entry.kind
+                ),
+                related_refs: Vec::new(),
+            });
+        }
+
+        let document_path = data_root.join(&entry.path);
+        if !document_path.exists() {
+            loaded.documents.push(LoadedCustomDocument {
+                entry: entry.clone(),
+                raw_json: String::new(),
+                document: None,
+                parse_error: Some(format!(
+                    "Missing custom document file '{}'.",
+                    document_path.display()
+                )),
+                resolved_route,
+            });
+            loaded.issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "custom_document_missing_file".into(),
+                source_kind: Some(entry.kind.clone()),
+                source_id: Some(entry.id.clone()),
+                field_path: Some("path".into()),
+                message: format!(
+                    "Custom document file '{}' could not be found.",
+                    document_path.display()
+                ),
+                related_refs: Vec::new(),
+            });
+            continue;
+        }
+
+        let raw_json = match std::fs::read_to_string(&document_path) {
+            Ok(raw_json) => raw_json,
+            Err(error) => {
+                loaded.documents.push(LoadedCustomDocument {
+                    entry: entry.clone(),
+                    raw_json: String::new(),
+                    document: None,
+                    parse_error: Some(error.to_string()),
+                    resolved_route,
+                });
+                loaded.issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Error,
+                    code: "custom_document_read_failed".into(),
+                    source_kind: Some(entry.kind.clone()),
+                    source_id: Some(entry.id.clone()),
+                    field_path: Some("path".into()),
+                    message: format!(
+                        "Failed to read custom document '{}': {}",
+                        document_path.display(),
+                        error
+                    ),
+                    related_refs: Vec::new(),
+                });
+                continue;
+            }
+        };
+
+        let document = serde_json::from_str::<CustomDocumentEnvelope>(&raw_json);
+        match document {
+            Ok(document) => {
+                loaded.documents.push(LoadedCustomDocument {
+                    entry: entry.clone(),
+                    raw_json,
+                    document: Some(document),
+                    parse_error: None,
+                    resolved_route,
+                });
+            }
+            Err(error) => {
+                loaded.documents.push(LoadedCustomDocument {
+                    entry: entry.clone(),
+                    raw_json,
+                    document: None,
+                    parse_error: Some(error.to_string()),
+                    resolved_route,
+                });
+                loaded.issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Error,
+                    code: "custom_document_parse_failed".into(),
+                    source_kind: Some(entry.kind.clone()),
+                    source_id: Some(entry.id.clone()),
+                    field_path: None,
+                    message: format!(
+                        "Failed to parse custom document '{}': {}",
+                        document_path.display(),
+                        error
+                    ),
+                    related_refs: Vec::new(),
+                });
+            }
+        }
+    }
+
+    loaded.manifest = Some(manifest);
+    sort_loaded_documents(&mut loaded.documents);
+    loaded
+        .issues
+        .extend(validate_loaded_custom_documents(&loaded, project, registry));
+    loaded
+}
+
+pub fn validate_loaded_custom_documents(
+    loaded_documents: &LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+) -> Vec<ValidationIssue> {
+    let mut issues = Vec::new();
+
+    for document in &loaded_documents.documents {
+        let Some(parsed) = document.document.as_ref() else {
+            continue;
+        };
+
+        if parsed.kind != document.entry.kind {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "custom_document_kind_mismatch".into(),
+                source_kind: Some(document.entry.kind.clone()),
+                source_id: Some(document.entry.id.clone()),
+                field_path: Some("kind".into()),
+                message: format!(
+                    "Document kind '{}' does not match registry kind '{}'.",
+                    parsed.kind, document.entry.kind
+                ),
+                related_refs: Vec::new(),
+            });
+        }
+
+        if parsed.id != document.entry.id {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Error,
+                code: "custom_document_id_mismatch".into(),
+                source_kind: Some(document.entry.kind.clone()),
+                source_id: Some(document.entry.id.clone()),
+                field_path: Some("id".into()),
+                message: format!(
+                    "Document id '{}' does not match registry id '{}'.",
+                    parsed.id, document.entry.id
+                ),
+                related_refs: Vec::new(),
+            });
+        }
+
+        if parsed.schema_version != document.entry.schema_version {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "custom_document_schema_version_mismatch".into(),
+                source_kind: Some(document.entry.kind.clone()),
+                source_id: Some(document.entry.id.clone()),
+                field_path: Some("schema_version".into()),
+                message: format!(
+                    "Document schema version {} does not match registry version {}.",
+                    parsed.schema_version, document.entry.schema_version
+                ),
+                related_refs: Vec::new(),
+            });
+        }
+
+        for link in &parsed.references {
+            let related_refs = match &link.target {
+                DocumentLinkTarget::Document { kind, id } => vec![format!("{kind}:{id}")],
+                DocumentLinkTarget::Scene { id } => vec![format!("scene:{id}")],
+                DocumentLinkTarget::StoryGraph { id } => vec![format!("story_graph:{id}")],
+                DocumentLinkTarget::Asset { path } => vec![format!("asset:{path}")],
+            };
+
+            match &link.target {
+                DocumentLinkTarget::Document { kind, id } => {
+                    if loaded_documents.get(kind, id).is_none() {
+                        issues.push(ValidationIssue {
+                            severity: ValidationSeverity::Error,
+                            code: "broken_document_ref".into(),
+                            source_kind: Some(document.entry.kind.clone()),
+                            source_id: Some(document.entry.id.clone()),
+                            field_path: Some(link.field_path.clone()),
+                            message: format!(
+                                "Document reference '{}:{}' could not be resolved.",
+                                kind, id
+                            ),
+                            related_refs,
+                        });
+                    }
+                }
+                DocumentLinkTarget::Scene { id } => {
+                    if project.find_scene(id).is_none() {
+                        issues.push(ValidationIssue {
+                            severity: ValidationSeverity::Error,
+                            code: "broken_scene_ref".into(),
+                            source_kind: Some(document.entry.kind.clone()),
+                            source_id: Some(document.entry.id.clone()),
+                            field_path: Some(link.field_path.clone()),
+                            message: format!("Scene reference '{}' could not be resolved.", id),
+                            related_refs,
+                        });
+                    }
+                }
+                DocumentLinkTarget::StoryGraph { id } => {
+                    if project.find_story_graph(id).is_none() {
+                        issues.push(ValidationIssue {
+                            severity: ValidationSeverity::Error,
+                            code: "broken_story_graph_ref".into(),
+                            source_kind: Some(document.entry.kind.clone()),
+                            source_id: Some(document.entry.id.clone()),
+                            field_path: Some(link.field_path.clone()),
+                            message: format!(
+                                "Story graph reference '{}' could not be resolved.",
+                                id
+                            ),
+                            related_refs,
+                        });
+                    }
+                }
+                DocumentLinkTarget::Asset { path } => {
+                    let asset_path = Path::new(&project.settings.paths.assets).join(path);
+                    if !asset_path.is_absolute() && path.is_empty() {
+                        issues.push(ValidationIssue {
+                            severity: ValidationSeverity::Error,
+                            code: "broken_asset_ref".into(),
+                            source_kind: Some(document.entry.kind.clone()),
+                            source_id: Some(document.entry.id.clone()),
+                            field_path: Some(link.field_path.clone()),
+                            message: "Asset reference path is empty.".into(),
+                            related_refs,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    for registration in registry.all() {
+        if !registration.schema_is_valid_json {
+            continue;
+        }
+    }
+
+    for document in &loaded_documents.documents {
+        let Some(registration) = registry.get(document.kind()) else {
+            continue;
+        };
+        let Some(validator) = registration.validator.as_ref() else {
+            continue;
+        };
+        validator(document, loaded_documents, project, &mut issues);
+    }
+
+    issues
+}
+
+pub fn update_loaded_custom_document_raw_json(
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    kind: &str,
+    id: &str,
+    raw_json: String,
+) {
+    if let Some(document) = loaded_documents.get_mut(kind, id) {
+        document.raw_json = raw_json;
+        match serde_json::from_str::<CustomDocumentEnvelope>(&document.raw_json) {
+            Ok(parsed) => {
+                document.document = Some(parsed);
+                document.parse_error = None;
+            }
+            Err(error) => {
+                document.document = None;
+                document.parse_error = Some(error.to_string());
+            }
+        }
+    }
+
+    loaded_documents.issues = validate_loaded_custom_documents(loaded_documents, project, registry);
+}
+
+pub fn save_loaded_custom_documents(
+    loaded_documents: &LoadedCustomDocuments,
+    root_path: &Path,
+    project: &Project,
+) -> Result<(), DataError> {
+    let data_root = default_data_root(root_path, project);
+    std::fs::create_dir_all(&data_root)?;
+
+    let manifest = loaded_documents
+        .manifest
+        .clone()
+        .unwrap_or_else(CustomDataManifest::default);
+    let manifest_path = loaded_documents
+        .manifest_path
+        .clone()
+        .unwrap_or_else(|| default_custom_data_manifest_path(root_path, project));
+
+    if let Some(parent) = manifest_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&manifest_path, serde_json::to_string_pretty(&manifest)?)?;
+
+    for document in &loaded_documents.documents {
+        let path = data_root.join(&document.entry.path);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = if document.raw_json.trim().is_empty() {
+            serde_json::to_string_pretty(&document.document)?
+        } else {
+            document.raw_json.clone()
+        };
+        std::fs::write(path, content)?;
+    }
+
+    Ok(())
+}
+
+pub fn filter_document_refs_by_kind(
+    loaded_documents: &LoadedCustomDocuments,
+    kind: &str,
+    search_query: &str,
+) -> Vec<DocumentRef> {
+    let normalized_query = search_query.trim().to_lowercase();
+    let mut refs: Vec<_> = loaded_documents
+        .documents
+        .iter()
+        .filter(|document| document.entry.kind == kind)
+        .filter(|document| {
+            normalized_query.is_empty()
+                || document.entry.id.to_lowercase().contains(&normalized_query)
+        })
+        .map(|document| DocumentRef {
+            kind: document.entry.kind.clone(),
+            id: document.entry.id.clone(),
+        })
+        .collect();
+    refs.sort_by(|left, right| left.id.cmp(&right.id));
+    refs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::project::Project;
+
+    const TEST_SCHEMA: &str = r#"{
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object"
+    }"#;
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    struct AbilityPayload {
+        power: u32,
+    }
+
+    fn write_test_project(
+        temp_dir: &tempfile::TempDir,
+        manifest: &CustomDataManifest,
+        documents: &[(&str, &str)],
+    ) -> (Project, MountedProject) {
+        let mut project = Project::new("Custom Data Project");
+        project.add_scene("arena", "scenes/arena.json");
+        project.add_story_graph("opening", "story_graphs/opening.json");
+
+        let root = temp_dir.path();
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::fs::write(
+            root.join("data/registry.json"),
+            serde_json::to_string_pretty(manifest).unwrap(),
+        )
+        .unwrap();
+
+        for (path, content) in documents {
+            let file_path = root.join("data").join(path);
+            if let Some(parent) = file_path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(file_path, content).unwrap();
+        }
+
+        let mounted = MountedProject {
+            root_path: Some(root.to_path_buf()),
+            manifest_path: Some(root.join("project.json")),
+            project: Some(project.clone()),
+        };
+
+        (project, mounted)
+    }
+
+    #[test]
+    fn test_load_custom_documents_from_missing_manifest_returns_empty_resource() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project = Project::new("Missing Manifest");
+        let mounted = MountedProject {
+            root_path: Some(temp_dir.path().to_path_buf()),
+            manifest_path: Some(temp_dir.path().join("project.json")),
+            project: Some(project),
+        };
+        let registry = CustomDocumentRegistry::default();
+
+        let loaded = load_custom_documents_from_project(&mounted, &registry);
+
+        assert!(loaded.documents.is_empty());
+        assert!(loaded.issues.is_empty());
+        assert!(loaded.manifest.is_some());
+    }
+
+    #[test]
+    fn test_load_custom_documents_validates_duplicate_ids_and_broken_refs() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manifest = CustomDataManifest {
+            version: 1,
+            documents: vec![
+                CustomDocumentEntry {
+                    kind: "abilities".into(),
+                    id: "fireball".into(),
+                    path: "abilities/fireball.json".into(),
+                    schema_version: 1,
+                    editor_route: EditorDocumentRoute::Table,
+                    tags: Vec::new(),
+                },
+                CustomDocumentEntry {
+                    kind: "abilities".into(),
+                    id: "fireball".into(),
+                    path: "abilities/fireball_dupe.json".into(),
+                    schema_version: 1,
+                    editor_route: EditorDocumentRoute::Table,
+                    tags: Vec::new(),
+                },
+            ],
+        };
+
+        let fireball = r#"{
+          "kind": "abilities",
+          "id": "fireball",
+          "schema_version": 1,
+          "references": [
+            { "field_path": "payload.upgrade", "type": "document", "kind": "abilities", "id": "missing" }
+          ],
+          "payload": { "power": 10 }
+        }"#;
+        let fireball_dupe = r#"{
+          "kind": "abilities",
+          "id": "fireball",
+          "schema_version": 1,
+          "payload": { "power": 20 }
+        }"#;
+
+        let (project, mounted) = write_test_project(
+            &temp_dir,
+            &manifest,
+            &[
+                ("abilities/fireball.json", fireball),
+                ("abilities/fireball_dupe.json", fireball_dupe),
+            ],
+        );
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(DJDataRegistryPlugin);
+        app.register_custom_document(CustomDocumentRegistration::<AbilityPayload>::new(
+            "abilities",
+            1,
+            EditorDocumentRoute::Table,
+            TEST_SCHEMA,
+        ));
+        let registry = app.world().resource::<CustomDocumentRegistry>().clone();
+
+        let loaded = load_custom_documents_from_project(&mounted, &registry);
+
+        assert_eq!(project.settings.paths.data, "data");
+        assert!(loaded
+            .issues
+            .iter()
+            .any(|issue| issue.code == "duplicate_custom_document_id"));
+        assert!(loaded
+            .issues
+            .iter()
+            .any(|issue| issue.code == "broken_document_ref"));
+    }
+
+    #[test]
+    fn test_resolve_default_preview_profile_prefers_default_id() {
+        let loaded = LoadedCustomDocuments {
+            manifest_path: None,
+            manifest: Some(CustomDataManifest::default()),
+            documents: vec![LoadedCustomDocument {
+                entry: CustomDocumentEntry {
+                    kind: "preview_profiles".into(),
+                    id: "default_preview".into(),
+                    path: "preview_profiles/default_preview.json".into(),
+                    schema_version: 1,
+                    editor_route: EditorDocumentRoute::Inspector,
+                    tags: Vec::new(),
+                },
+                raw_json: r#"{"kind":"preview_profiles","id":"default_preview","schema_version":1,"payload":{"scene_id":"arena","story_graph_id":"opening","document_refs":[]}}"#.into(),
+                document: Some(CustomDocumentEnvelope {
+                    kind: "preview_profiles".into(),
+                    id: "default_preview".into(),
+                    schema_version: 1,
+                    label: None,
+                    tags: Vec::new(),
+                    references: Vec::new(),
+                    payload: serde_json::json!({
+                        "scene_id": "arena",
+                        "story_graph_id": "opening",
+                        "document_refs": []
+                    }),
+                }),
+                parse_error: None,
+                resolved_route: EditorDocumentRoute::Inspector,
+            }],
+            issues: Vec::new(),
+        };
+
+        let profile = resolve_default_preview_profile(&loaded).unwrap();
+        assert_eq!(profile.id, "default_preview");
+        assert_eq!(profile.payload.scene_id.as_deref(), Some("arena"));
+    }
+
+    #[test]
+    fn test_filter_document_refs_by_kind_filters_and_sorts() {
+        let loaded = LoadedCustomDocuments {
+            manifest_path: None,
+            manifest: Some(CustomDataManifest::default()),
+            documents: vec![
+                LoadedCustomDocument {
+                    entry: CustomDocumentEntry {
+                        kind: "abilities".into(),
+                        id: "zeta".into(),
+                        path: "abilities/zeta.json".into(),
+                        schema_version: 1,
+                        editor_route: EditorDocumentRoute::Table,
+                        tags: Vec::new(),
+                    },
+                    raw_json: String::new(),
+                    document: None,
+                    parse_error: None,
+                    resolved_route: EditorDocumentRoute::Table,
+                },
+                LoadedCustomDocument {
+                    entry: CustomDocumentEntry {
+                        kind: "abilities".into(),
+                        id: "alpha".into(),
+                        path: "abilities/alpha.json".into(),
+                        schema_version: 1,
+                        editor_route: EditorDocumentRoute::Table,
+                        tags: Vec::new(),
+                    },
+                    raw_json: String::new(),
+                    document: None,
+                    parse_error: None,
+                    resolved_route: EditorDocumentRoute::Table,
+                },
+            ],
+            issues: Vec::new(),
+        };
+
+        let refs = filter_document_refs_by_kind(&loaded, "abilities", "a");
+        assert_eq!(refs.len(), 2);
+        assert_eq!(refs[0].id, "alpha");
+        assert_eq!(refs[1].id, "zeta");
+    }
+}
