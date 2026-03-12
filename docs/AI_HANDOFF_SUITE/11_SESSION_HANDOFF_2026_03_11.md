@@ -15,6 +15,7 @@ can resume without reconstructing the recent engine/editor cleanup.
 | `cb9e2be` | feat: add preview continue flow and editor dirty tracking |
 | `7555544` | feat: add custom document scaffolding |
 | `da2c5c4` | docs: refresh current onboarding guides |
+| `85f32fe` | feat: add structured custom document editing |
 
 These checkpoints landed on `main` as two intentionally-scoped slices: the
 engine/editor decoupling foundation first, then the mounted-project runtime
@@ -137,6 +138,25 @@ flow, then project-scoped continue/save plus snapshot-based dirty tracking.
 - Reclassified older long-form roadmap/spec docs as historical context rather
   than treating them as the source of truth for the checked-in repo.
 
+### 9. Structured Custom-Document Editing
+
+- Extended the custom-document editor in `engine/src/editor/panels.rs` so the
+  right-side inspector now supports structured editing on top of the raw JSON
+  fallback instead of only metadata plus a large text box.
+- Added structured metadata editing for custom-document `label` and `tags`.
+- Added editable generic reference-link rows with pickers for:
+  - custom document refs
+  - scene refs
+  - story-graph refs
+  - asset paths
+- Added a typed `preview_profiles` editor that can pick startup scene/story
+  targets and compose the custom-document bundle through drop-downs instead of
+  hand-editing JSON.
+- Added reusable data-layer helpers in `engine/src/data/custom.rs` so the editor
+  can safely update parsed envelopes/typed payloads and keep pretty JSON plus
+  validation state in sync.
+- Added focused unit coverage for those structured update helpers.
+
 ---
 
 ## Validation Completed
@@ -174,7 +194,7 @@ Runtime smoke notes:
 ## Current State After This Checkpoint
 
 - Branch: `main`
-- Primary checkpoints: `e9a37a8`, `de5b8ea`, `7d0f291`, `cb9e2be`, `7555544`, `da2c5c4`
+- Primary checkpoints: `e9a37a8`, `de5b8ea`, `7d0f291`, `cb9e2be`, `7555544`, `da2c5c4`, `85f32fe`
 - Local `main` is ahead of `origin/main`.
 - The engine/editor shell is now much less coupled to DoomExe.
 - The engine now has a generic playable preview path for mounted projects that is
@@ -184,6 +204,9 @@ Runtime smoke notes:
 - The engine now has the first scaffolding layer for registry-driven custom game
   data that can sit beside `project.json`, scenes, story graphs, and the legacy
   built-in database.
+- The editor now has its first structured custom-document authoring layer on top
+  of the raw JSON browser, which is an important step toward making the registry
+  system usable for day-to-day authored data work.
 - `engine/src` and `engine/tests` no longer contain DoomExe/hamster sample naming
   in engine-generic code paths.
 - The current onboarding path now points contributors toward the engine-first
@@ -196,9 +219,9 @@ historical docs. That is expected.
 
 ## Best Next Work
 
-1. Expand the custom-document platform from scaffold-level support into richer
-   authoring and extension workflows: typed editors, reference pickers,
-   validators, and better preview-profile UX.
+1. Expand the custom-document platform from the new structured-editor baseline
+   into richer reusable typed editors, table/graph authoring tools, stronger
+   validators, and better document-routing UX.
 2. Expand generic runtime preview capabilities beyond the current
    `Title -> Dialogue -> Overworld` baseline while keeping DoomExe-specific battle,
    continue/save UX, and sample gameplay out of the engine crate.

@@ -10,19 +10,19 @@ branches so branch intent does not get lost between sessions.
 
 | Branch | Checkpoint | Purpose | Status | Next Action |
 |--------|------------|---------|--------|-------------|
-| `main` | `da2c5c4` | Current integration branch | Active. Local `main` now contains the spawner runtime-state slice, manifest-driven editor/project mounting decoupling, engine-first launch defaults, generic sprite-part API cleanup, the mounted-project runtime preview flow, the editor-to-runtime preview handoff, project-scoped continue/dirty-state polish, the custom-document registry/editor/runtime scaffold, and a refreshed current-docs/onboarding pass. | Continue expanding authored-data/editor/runtime flows on top of the custom-document registry layer, using `docs/CURRENT_GAPS.md` as the high-level gap map. |
+| `main` | `85f32fe` | Current integration branch | Active. Local `main` now contains the spawner runtime-state slice, manifest-driven editor/project mounting decoupling, engine-first launch defaults, generic sprite-part API cleanup, the mounted-project runtime preview flow, the editor-to-runtime preview handoff, project-scoped continue/dirty-state polish, the custom-document registry/editor/runtime scaffold, the refreshed current-docs/onboarding pass, and the first structured custom-document editing layer in the editor inspector. | Continue expanding authored-data/editor/runtime flows on top of the custom-document registry layer, with the next focus on richer typed editors, reusable table/graph tooling, and stronger extension seams. |
 | `checkpoint/phase3-phase4-save-crt` | `1d61b7e` | Save/load and CRT checkpoint branch | Parked checkpoint branch. | Keep as recovery/reference point unless resumed for save/load or CRT-specific work. |
 | `feat/phase5-custom-aabb-collision` | `74505d0` | Collision prototype branch | Feature branch exists with custom AABB collision and trigger interaction work. | Revisit when Phase 5 becomes active or when collision decisions need comparison against `main`. |
 | `refactor/phase6-data-api-cleanup` | `7c3602c` | Data/API cleanup refactor branch | Matches `main` tip right now. | Use when Phase 6 data cleanup starts; otherwise leave parked. |
 
 ## Planned Next Work
 
-The immediate follow-up order after the 2026-03-11 custom-document scaffold checkpoint is:
+The immediate follow-up order after the 2026-03-11 structured custom-document editor checkpoint is:
 
-1. Expand the custom-document platform with richer game-side registrations, validators, reference pickers, and editor routes.
+1. Expand the custom-document platform beyond metadata and preview-profile editing into richer typed editors, reusable table/graph tooling, and stronger reference-authoring flows.
 2. Continue generic runtime preview behavior beyond the current `Title -> Dialogue -> Overworld` baseline while keeping DoomExe-specific gameplay systems outside the engine crate.
-3. Continue engine-only cleanup in older prose docs and onboarding material so current guides stay aligned with the engine-first workflow.
-4. Grow editor/runtime extension points for custom project data, preview presets, and future game-specific panel mounting without forking the shell.
+3. Grow editor/runtime extension points for custom project data, preview presets, and future game-specific panel mounting without forking the shell.
+4. Keep current docs aligned with the live engine-first workflow as new authoring/runtime features land.
 
 ## Logging Rules
 
@@ -42,3 +42,4 @@ The immediate follow-up order after the 2026-03-11 custom-document scaffold chec
 - 2026-03-11: Landed integration commit `cb9e2be` (`feat: add preview continue flow and editor dirty tracking`) adding project-scoped runtime preview saves, `Continue`, and snapshot-based dirty tracking plus guarded reloads in the editor shell.
 - 2026-03-11: Landed integration commit `7555544` (`feat: add custom document scaffolding`) adding `data/registry.json` discovery, generic custom document registration/validation, a document browser/editor surface in the engine editor, and preview-profile-driven custom-data loading in `runtime_preview`.
 - 2026-03-11: Landed docs-only commit `da2c5c4` (`docs: refresh current onboarding guides`) aligning current onboarding/handoff docs with the engine-first workflow and adding a high-level current gap map.
+- 2026-03-11: Landed integration commit `85f32fe` (`feat: add structured custom document editing`) adding structured custom-document metadata editing, editable reference-link pickers, and a typed `preview_profiles` editor on top of the raw JSON custom-document browser.
