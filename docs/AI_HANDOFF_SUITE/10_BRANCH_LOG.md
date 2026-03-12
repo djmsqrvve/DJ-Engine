@@ -10,7 +10,7 @@ branches so branch intent does not get lost between sessions.
 
 | Branch | Checkpoint | Purpose | Status | Next Action |
 |--------|------------|---------|--------|-------------|
-| `main` | `de5b8ea` | Current integration branch | Active. Local `main` now contains the spawner runtime-state slice, manifest-driven editor/project mounting decoupling, engine-first launch defaults, generic sprite-part API cleanup, and the new mounted-project runtime preview flow. | Continue engine/editor work on top of the new preview path: editor-to-runtime handoff, richer project boot flows, and more engine-only UX cleanup. |
+| `main` | `7d0f291` | Current integration branch | Active. Local `main` now contains the spawner runtime-state slice, manifest-driven editor/project mounting decoupling, engine-first launch defaults, generic sprite-part API cleanup, the mounted-project runtime preview flow, and the editor-to-runtime preview handoff. | Continue engine/editor work on top of the new handoff path: richer project boot flows, runtime preview expansion, and engine-only UX cleanup. |
 | `checkpoint/phase3-phase4-save-crt` | `1d61b7e` | Save/load and CRT checkpoint branch | Parked checkpoint branch. | Keep as recovery/reference point unless resumed for save/load or CRT-specific work. |
 | `feat/phase5-custom-aabb-collision` | `74505d0` | Collision prototype branch | Feature branch exists with custom AABB collision and trigger interaction work. | Revisit when Phase 5 becomes active or when collision decisions need comparison against `main`. |
 | `refactor/phase6-data-api-cleanup` | `7c3602c` | Data/API cleanup refactor branch | Matches `main` tip right now. | Use when Phase 6 data cleanup starts; otherwise leave parked. |
@@ -19,9 +19,9 @@ branches so branch intent does not get lost between sessions.
 
 The immediate follow-up order after the 2026-03-11 engine preview checkpoint is:
 
-1. Connect the editor shell more intentionally to the new engine-owned runtime preview flow without collapsing the two modes together.
-2. Expand generic runtime preview behavior beyond `Title -> Dialogue -> Overworld` while keeping DoomExe-specific gameplay systems outside the engine crate.
-3. Continue engine-only decoupling in older prose docs and onboarding material outside the already-updated engine-facing docs.
+1. Expand generic runtime preview behavior beyond `Title -> Dialogue -> Overworld` while keeping DoomExe-specific gameplay systems outside the engine crate.
+2. Continue engine-only decoupling in older prose docs and onboarding material outside the already-updated engine-facing docs.
+3. Improve editor/runtime workflow polish on top of the new handoff path: clearer mounted-project status, exit reporting, and future dirty-state UX.
 
 ## Logging Rules
 
@@ -37,3 +37,4 @@ The immediate follow-up order after the 2026-03-11 engine preview checkpoint is:
 - 2026-03-10: Active work is on `main`. Docs-only cleanup is staged separately from unrelated in-progress infra/code changes.
 - 2026-03-11: Landed integration commit `e9a37a8` (`feat: advance engine editor and decoupling work`) covering spawner runtime initialization, project-agnostic editor loading/saving/play, engine-first launch defaults, and generic sprite-part API naming.
 - 2026-03-11: Landed integration commit `de5b8ea` (`feat: add mounted project runtime preview`) covering the shared `MountedProject` path, the `runtime_preview` binary, `make preview`, generic `Title -> Dialogue -> Overworld` preview flow, and the story-graph advance fix required to complete that loop.
+- 2026-03-11: Landed integration commit `7d0f291` (`feat: hand off editor play to runtime preview`) so the editor now auto-saves mounted projects, launches the separate `runtime_preview` process via `Run Project`, tracks preview lifecycle state, and keeps graph preview as a Story Graph-only editor tool.

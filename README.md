@@ -37,6 +37,11 @@ make game          # Optional: run the sample DoomExe game
 make test
 ```
 
+Inside the editor, the primary top-bar action is now `Run Project`, which saves
+the mounted project and launches the separate `runtime_preview` process. The
+old in-editor graph preview remains available as `Preview Graph` inside the
+Story Graph view.
+
 The workspace toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml), so `rustup` will automatically select the validated Rust version for local development and CI.
 
 ## Codespaces

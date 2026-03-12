@@ -26,3 +26,6 @@ This crate is the reusable engine layer for DJ Engine projects.
 - `cargo run -p dj_engine --bin dj_engine` launches the editor shell.
 - `cargo run -p dj_engine --bin runtime_preview -- --project <dir|project.json>` launches the engine-owned playable preview flow for a mounted project.
 - `make dev` launches the editor, and `make preview PROJECT=<dir|project.json>` launches the runtime preview.
+- Inside the editor, `Run Project` now auto-saves the mounted project and hands
+  off to the separate `runtime_preview` process, while `Preview Graph` remains
+  an editor-only Story Graph tool.

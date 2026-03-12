@@ -11,10 +11,12 @@ can resume without reconstructing the recent engine/editor cleanup.
 |--------|---------|
 | `e9a37a8` | feat: advance engine editor and decoupling work |
 | `de5b8ea` | feat: add mounted project runtime preview |
+| `7d0f291` | feat: hand off editor play to runtime preview |
 
 These checkpoints landed on `main` as two intentionally-scoped slices: the
 engine/editor decoupling foundation first, then the mounted-project runtime
-preview path built on top of it.
+preview path, then the editor-to-runtime handoff built on top of that preview
+flow.
 
 ---
 
@@ -70,6 +72,23 @@ preview path built on top of it.
   `StoryInputEvent::Advance` progresses past dialogue nodes instead of stalling
   in `WaitingForInput`.
 
+### 5. Editor-to-Runtime Preview Handoff
+
+- Replaced the editor shell’s primary top-bar action with `Run Project`, which
+  auto-saves the mounted project and launches the separate `runtime_preview`
+  process.
+- Renamed the in-editor preview state from `EditorState::Playing` to
+  `EditorState::GraphPreview` so editor state no longer implies full project
+  runtime.
+- Added editor-side runtime preview lifecycle tracking for launch, running,
+  stopping, failure, and exit status messaging.
+- Kept the lightweight in-editor graph preview as a Story Graph-only tool under
+  `Preview Graph` / `Stop Graph Preview`.
+- Changed editor save helpers to return `Result<(), DataError>` so runtime
+  launch can make a real go/no-go decision instead of only logging failures.
+- Added command-resolution coverage for sibling `runtime_preview` binaries and
+  dev-build `cargo run` fallback behavior.
+
 ---
 
 ## Validation Completed
@@ -82,6 +101,7 @@ cargo fmt --all --check
 RUSTC_WRAPPER= CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo check --workspace
 RUSTC_WRAPPER= CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo test -p dj_engine
 RUSTC_WRAPPER= CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo test -p doomexe
+RUSTC_WRAPPER= CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 timeout 20s cargo run -p dj_engine --bin dj_engine -- --test-mode
 RUSTC_WRAPPER= CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo run -p dj_engine --bin dj_engine -- --test-mode --project /tmp/dj_engine_editor_smoke_20260311
 RUSTC_WRAPPER= CARGO_TARGET_DIR=/home/dj/.cargo-targets/dj_engine_bevy18 cargo run -p dj_engine --bin runtime_preview -- --test-mode --project /tmp/dj_engine_runtime_preview_smoke_20260311
 timeout 20s make dev
@@ -92,6 +112,8 @@ timeout 20s make game
 Runtime smoke notes:
 
 - `make dev` launched the engine editor successfully and was stopped by timeout.
+- `cargo run -p dj_engine --bin dj_engine -- --test-mode` launched the editor
+  successfully after the handoff change and exited cleanly.
 - `runtime_preview --test-mode` mounted the temp project, progressed through the
   preview loop, and exited successfully.
 - `make preview` launched the runtime preview successfully and was stopped by timeout.
@@ -104,11 +126,13 @@ Runtime smoke notes:
 ## Current State After This Checkpoint
 
 - Branch: `main`
-- Primary checkpoints: `e9a37a8`, `de5b8ea`
+- Primary checkpoints: `e9a37a8`, `de5b8ea`, `7d0f291`
 - Local `main` is ahead of `origin/main`.
 - The engine/editor shell is now much less coupled to DoomExe.
 - The engine now has a generic playable preview path for mounted projects that is
   separate from the editor shell and separate from DoomExe’s own crate-specific flow.
+- The editor shell now launches that preview path intentionally instead of
+  treating full project runtime as an in-editor state transition.
 - `engine/src` and `engine/tests` no longer contain DoomExe/hamster sample naming
   in engine-generic code paths.
 
@@ -119,10 +143,10 @@ historical docs. That is expected.
 
 ## Best Next Work
 
-1. Decide how the editor should hand off into the new runtime preview path
-   without collapsing editor mode and runtime mode into one state machine.
-2. Expand generic runtime preview capabilities from the current
+1. Expand generic runtime preview capabilities from the current
    `Title -> Dialogue -> Overworld` baseline while keeping DoomExe-specific battle,
    continue/save UX, and sample gameplay out of the engine crate.
-3. Continue the decoupling pass through older docs in `docs/` that still describe
+2. Continue the decoupling pass through older docs in `docs/` that still describe
    the repo as DoomExe-first or still mention old hamster-era engine APIs.
+3. Improve editor/runtime workflow polish on top of the new handoff path:
+   mounted-project clarity, richer preview exit reporting, and future dirty-state UX.
