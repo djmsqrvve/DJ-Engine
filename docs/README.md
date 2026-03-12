@@ -12,6 +12,8 @@ Use these first when you need the current repo shape rather than historical desi
 | [Getting Started](GETTING_STARTED.md) | Current setup, validation, and runtime launch commands | New contributors |
 | [Architecture](ARCHITECTURE.md) | Current engine/editor/runtime/custom-document architecture | Contributors |
 | [Current Gaps](CURRENT_GAPS.md) | High-level near-, mid-, and long-term gap map for the current engine state | Contributors and planners |
+| [Current Priorities](CURRENT_PRIORITIES.md) | Detailed near- and mid-term execution priorities for the next engine slices | Contributors and planners |
+| [Long-Term Goals](LONG_TERM_GOALS.md) | Longer-horizon engine goals, guardrails, and proof points | Contributors and planners |
 | [Testing Guide](TESTING.md) | Current validation commands and test structure | Contributors |
 | [Project Structure](PROJECT_STRUCTURE.md) | Current workspace layout and mounted-project shape | Everyone |
 | [Code Style](CODE_STYLE.md) | Coding standards and conventions | Contributors |

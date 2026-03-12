@@ -132,6 +132,8 @@ flow, then project-scoped continue/save plus snapshot-based dirty tracking.
   preview path, custom-document scaffold, and current launch surface.
 - Added `docs/CURRENT_GAPS.md` as a high-level near-, mid-, and long-term gap
   map for the current engine state.
+- Added `docs/CURRENT_PRIORITIES.md` and `docs/LONG_TERM_GOALS.md` so current
+  execution priorities and long-horizon engine goals live in separate clearer docs.
 - Reclassified older long-form roadmap/spec docs as historical context rather
   than treating them as the source of truth for the checked-in repo.
 
@@ -203,4 +205,6 @@ historical docs. That is expected.
 3. Improve editor/runtime extension seams so future games can mount custom
    panels, preview presets, and runtime data consumers without forking the shell.
 4. Use `docs/CURRENT_GAPS.md` as the short current planning map while older
-   long-form roadmap/spec docs remain historical context.
+   long-form roadmap/spec docs remain historical context, and use
+   `docs/CURRENT_PRIORITIES.md` plus `docs/LONG_TERM_GOALS.md` for the more
+   detailed planning layers.
