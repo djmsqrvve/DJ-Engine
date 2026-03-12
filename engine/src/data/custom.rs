@@ -272,14 +272,16 @@ impl CustomDocumentRegistry {
     }
 }
 
+pub type TypedDocumentValidator<T> =
+    fn(&CustomDocument<T>, &LoadedCustomDocuments, &Project, &mut Vec<ValidationIssue>);
+
 pub struct CustomDocumentRegistration<T> {
     kind: &'static str,
     schema_version: u32,
     editor_route: EditorDocumentRoute,
     schema_json: &'static str,
     supports_runtime_preview: bool,
-    validator:
-        Option<fn(&CustomDocument<T>, &LoadedCustomDocuments, &Project, &mut Vec<ValidationIssue>)>,
+    validator: Option<TypedDocumentValidator<T>>,
     _marker: PhantomData<T>,
 }
 
@@ -306,15 +308,7 @@ impl<T> CustomDocumentRegistration<T> {
         self
     }
 
-    pub fn with_validator(
-        mut self,
-        validator: fn(
-            &CustomDocument<T>,
-            &LoadedCustomDocuments,
-            &Project,
-            &mut Vec<ValidationIssue>,
-        ),
-    ) -> Self {
+    pub fn with_validator(mut self, validator: TypedDocumentValidator<T>) -> Self {
         self.validator = Some(validator);
         self
     }
@@ -958,12 +952,6 @@ pub fn validate_loaded_custom_documents(
         }
     }
 
-    for registration in registry.all() {
-        if !registration.schema_is_valid_json {
-            continue;
-        }
-    }
-
     for document in &loaded_documents.documents {
         let Some(registration) = registry.get(document.kind()) else {
             continue;
@@ -1056,10 +1044,7 @@ pub fn save_loaded_custom_documents(
     let data_root = default_data_root(root_path, project);
     std::fs::create_dir_all(&data_root)?;
 
-    let manifest = loaded_documents
-        .manifest
-        .clone()
-        .unwrap_or_else(CustomDataManifest::default);
+    let manifest = loaded_documents.manifest.clone().unwrap_or_default();
     let manifest_path = loaded_documents
         .manifest_path
         .clone()
