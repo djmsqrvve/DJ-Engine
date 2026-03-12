@@ -141,7 +141,7 @@ The engine remains understandable:
 The DJ multiverse includes a Helix timeline with multiple game variants (Helix2000,
 potential Helix MMORPG, etc.) that may run on different engines or languages.
 `helix_standardization` (`~/dev/helix/helix_standardization`) is the shared data
-standard across all of them: ~7,800 entities, 22 JSON schemas, 284 categories
+standard across all of them: ~10,800 entities, 22 JSON schemas, 285 categories
 covering abilities, items, mobs, quests, zones, equipment, mounts, currencies,
 and more.
 
