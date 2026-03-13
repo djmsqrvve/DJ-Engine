@@ -14,9 +14,10 @@ DJ Engine now has:
 - project-scoped preview saves and continue flow
 - snapshot-based editor dirty tracking and guarded reloads
 - a registry-driven custom-document scaffold under `data/registry.json`
-- structured metadata editing, reference-link pickers, and a table editor with
+- structured metadata editing, reference-link pickers, a table editor with
   inline top-level scalar editing for record-heavy document kinds (abilities,
-  items, mobs)
+  items, mobs), and a recursive property inspector for nested object/array
+  payload fields
 
 That gives the repo a solid reusable foundation. The biggest remaining gaps are
 no longer about basic launchability; they are about authoring depth, extension
@@ -36,8 +37,9 @@ Use this file as the one-page summary, then go deeper here:
 Short version:
 
 - Custom-document authoring now supports structured editing, table browsing,
-  inline top-level scalar table edits, and field-targeted validation cues, but
-  still lacks nested property editing and graph-style authoring tools.
+  inline top-level scalar table edits, field-targeted validation cues, and
+  recursive nested property editing in the inspector. The remaining authoring
+  gap is graph-style editing for relationship-heavy document kinds.
 - Runtime preview is still a baseline playable loop.
 - Editor/runtime extension points need another pass.
 - Current docs are much cleaner now, but some older planning/spec artifacts are

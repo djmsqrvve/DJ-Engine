@@ -5,7 +5,9 @@
 mod extensions;
 pub(crate) mod panels;
 mod plugin;
+mod property_widgets;
 pub(crate) mod scene_io;
+mod table;
 pub(crate) mod types;
 pub mod validation;
 pub(crate) mod views;

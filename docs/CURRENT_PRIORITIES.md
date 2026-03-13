@@ -26,16 +26,20 @@ Current state:
   filterable, sortable table view for record-heavy kinds (e.g. 306 abilities)
   with inline editing for top-level string/number/bool payload fields plus
   shared inspector fallback for deeper edits
+- The inspector now has a recursive property editor for nested payload fields
+  (objects, arrays, localized strings, scalars) using
+  `update_loaded_custom_document_nested_value`, replacing raw-JSON-only editing
+  for most payload shapes
+- Table editor code is extracted into its own module (`editor/table.rs`)
 
 Gap:
 
-- Nested/object/list editing is still inspector/raw-JSON heavy
+- Graph-style editing for relationship-heavy document kinds is still missing
 - Validation targeting is better at the field/cell level now, but not yet a
   complete authoring experience for every editor surface
 
 What the engine needs next:
 
-- reusable nested property editing beyond top-level scalar fields
 - broader field-level validation messages pointing directly at the broken field
 - friendlier save/load/reload flow for custom documents
 - graph editing for relationship-heavy document kinds

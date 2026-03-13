@@ -28,14 +28,14 @@ pub use custom::{
     default_custom_data_manifest_path, filter_document_refs_by_kind,
     load_custom_documents_from_project, resolve_default_preview_profile,
     save_loaded_custom_documents, update_loaded_custom_document_envelope,
-    update_loaded_custom_document_label, update_loaded_custom_document_raw_json,
-    update_loaded_custom_document_top_level_scalar, update_loaded_custom_document_typed,
-    validate_loaded_custom_documents, AppCustomDocumentExt, CustomDataManifest, CustomDocument,
-    CustomDocumentEntry, CustomDocumentRegistration, CustomDocumentRegistry,
-    CustomDocumentScalarValue, CustomDocumentUpdateError, DJDataRegistryPlugin, DocumentId,
-    DocumentKindId, DocumentLink, DocumentLinkTarget, DocumentRef, EditorDocumentRoute,
-    LoadedCustomDocument, LoadedCustomDocuments, PreviewProfilePayload, ValidationIssue,
-    ValidationSeverity,
+    update_loaded_custom_document_label, update_loaded_custom_document_nested_value,
+    update_loaded_custom_document_raw_json, update_loaded_custom_document_top_level_scalar,
+    update_loaded_custom_document_typed, validate_loaded_custom_documents, AppCustomDocumentExt,
+    CustomDataManifest, CustomDocument, CustomDocumentEntry, CustomDocumentRegistration,
+    CustomDocumentRegistry, CustomDocumentScalarValue, CustomDocumentUpdateError,
+    DJDataRegistryPlugin, DocumentId, DocumentKindId, DocumentLink, DocumentLinkTarget,
+    DocumentRef, EditorDocumentRoute, LoadedCustomDocument, LoadedCustomDocuments,
+    PreviewProfilePayload, ValidationIssue, ValidationSeverity,
 };
 pub use database::{Database, EnemyRow, ItemRow, LootTableRow, NpcRow, QuestRow, TowerRow};
 pub use loader::{load_database, load_project, load_scene, load_story_graph, DataError};

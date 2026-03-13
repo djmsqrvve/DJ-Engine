@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 use dj_engine::data::{
     load_custom_documents_from_project, load_project, save_loaded_custom_documents,
-    update_loaded_custom_document_label, update_loaded_custom_document_top_level_scalar,
-    CustomDocumentRegistry, CustomDocumentScalarValue,
+    update_loaded_custom_document_label, update_loaded_custom_document_nested_value,
+    update_loaded_custom_document_top_level_scalar, CustomDocumentRegistry,
+    CustomDocumentScalarValue,
 };
 use dj_engine::project_mount::MountedProject;
 use dj_engine_helix::{
@@ -202,4 +203,86 @@ fn imported_helix_project_supports_edit_save_reload_round_trip() {
         index.mob("felguard").unwrap().payload.get("level"),
         Some(&json!(12))
     );
+}
+
+#[test]
+fn imported_helix_project_supports_nested_edit_round_trip() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let helix_dist = temp_dir.path().join("dist");
+    write_sample_helix_dist(&helix_dist);
+
+    let project_path = temp_dir.path().join("mounted_project");
+    import_helix_project(&helix_dist, &project_path).unwrap();
+
+    let manifest_path = project_path.join("project.json");
+    let project = load_project(&manifest_path).unwrap();
+    let mounted = MountedProject {
+        root_path: Some(project_path.clone()),
+        manifest_path: Some(manifest_path),
+        project: Some(project.clone()),
+    };
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(HelixDataPlugin);
+
+    let registry = app.world().resource::<CustomDocumentRegistry>().clone();
+    let mut loaded_documents = load_custom_documents_from_project(&mounted, &registry);
+
+    // Nested object field: update felguard's name.en
+    update_loaded_custom_document_nested_value(
+        &mut loaded_documents,
+        &project,
+        &registry,
+        HELIX_MOB_KIND,
+        "felguard",
+        "name.en",
+        json!("Fel Overlord"),
+    )
+    .unwrap();
+
+    // Nested numeric field: update felguard's stats.health
+    update_loaded_custom_document_nested_value(
+        &mut loaded_documents,
+        &project,
+        &registry,
+        HELIX_MOB_KIND,
+        "felguard",
+        "stats.health",
+        json!(200),
+    )
+    .unwrap();
+
+    // Array-of-objects field: update felguard's loot[0].chance
+    update_loaded_custom_document_nested_value(
+        &mut loaded_documents,
+        &project,
+        &registry,
+        HELIX_MOB_KIND,
+        "felguard",
+        "loot[0].chance",
+        json!(0.75),
+    )
+    .unwrap();
+
+    save_loaded_custom_documents(&loaded_documents, &project_path, &project).unwrap();
+
+    let reloaded = load_custom_documents_from_project(&mounted, &registry);
+    let mob = reloaded.get(HELIX_MOB_KIND, "felguard").unwrap();
+    let payload = &mob.document.as_ref().unwrap().payload;
+
+    assert_eq!(payload["name"]["en"], json!("Fel Overlord"));
+    assert_eq!(payload["stats"]["health"], json!(200));
+    assert_eq!(payload["stats"]["damage"], json!(12)); // unchanged
+    assert_eq!(payload["loot"][0]["chance"], json!(0.75));
+    assert_eq!(payload["loot"][1]["chance"], json!(0.5)); // unchanged
+
+    // Verify index still works after nested edits.
+    app.insert_resource(reloaded);
+    app.update();
+
+    let index = app.world().resource::<HelixDocumentIndex>();
+    let indexed_mob = index.mob("felguard").unwrap();
+    assert_eq!(indexed_mob.payload["name"]["en"], json!("Fel Overlord"));
+    assert_eq!(indexed_mob.payload["stats"]["health"], json!(200));
 }

@@ -278,6 +278,26 @@ pub enum CustomDocumentUpdateError {
         actual: &'static str,
     },
 
+    #[error("Nested path '{path}' could not be resolved in the document payload.")]
+    NestedPathNotFound { path: String },
+
+    #[error("Index {index} is out of bounds (array length {length}) at path '{path}'.")]
+    IndexOutOfBounds {
+        path: String,
+        index: usize,
+        length: usize,
+    },
+
+    #[error("Value at '{path}' is {expected} but replacement is {actual}.")]
+    NestedTypeMismatch {
+        path: String,
+        expected: &'static str,
+        actual: &'static str,
+    },
+
+    #[error("String value exceeds maximum length of {max_length} characters for field '{field}'.")]
+    StringTooLong { field: String, max_length: usize },
+
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 }
@@ -1192,6 +1212,181 @@ pub fn update_loaded_custom_document_top_level_scalar(
     .map_err(Into::into)
 }
 
+/// Maximum string length for field values set through the mutation helpers.
+const MAX_STRING_VALUE_LENGTH: usize = 4096;
+
+#[derive(Debug)]
+enum PathSegment {
+    Key(String),
+    Index(usize),
+}
+
+fn parse_field_path(path: &str) -> Result<Vec<PathSegment>, CustomDocumentUpdateError> {
+    if path.is_empty() {
+        return Err(CustomDocumentUpdateError::NestedPathNotFound {
+            path: path.to_string(),
+        });
+    }
+
+    let mut segments = Vec::new();
+    let mut remainder = path;
+
+    while !remainder.is_empty() {
+        if remainder.starts_with('[') {
+            let close = remainder.find(']').ok_or_else(|| {
+                CustomDocumentUpdateError::NestedPathNotFound {
+                    path: path.to_string(),
+                }
+            })?;
+            let index_str = &remainder[1..close];
+            let index = index_str.parse::<usize>().map_err(|_| {
+                CustomDocumentUpdateError::NestedPathNotFound {
+                    path: path.to_string(),
+                }
+            })?;
+            segments.push(PathSegment::Index(index));
+            remainder = &remainder[close + 1..];
+            if remainder.starts_with('.') {
+                remainder = &remainder[1..];
+            }
+        } else {
+            let end = remainder
+                .find(|c: char| c == '.' || c == '[')
+                .unwrap_or(remainder.len());
+            let key = &remainder[..end];
+            if key.is_empty() {
+                return Err(CustomDocumentUpdateError::NestedPathNotFound {
+                    path: path.to_string(),
+                });
+            }
+            segments.push(PathSegment::Key(key.to_string()));
+            remainder = &remainder[end..];
+            if remainder.starts_with('.') {
+                remainder = &remainder[1..];
+            }
+        }
+    }
+
+    if segments.is_empty() {
+        return Err(CustomDocumentUpdateError::NestedPathNotFound {
+            path: path.to_string(),
+        });
+    }
+
+    Ok(segments)
+}
+
+fn resolve_mut_path<'a>(
+    root: &'a mut Value,
+    segments: &[PathSegment],
+    full_path: &str,
+) -> Result<&'a mut Value, CustomDocumentUpdateError> {
+    let mut current = root;
+    for segment in segments {
+        match segment {
+            PathSegment::Key(key) => {
+                current = current
+                    .as_object_mut()
+                    .and_then(|obj| obj.get_mut(key))
+                    .ok_or_else(|| CustomDocumentUpdateError::NestedPathNotFound {
+                        path: full_path.to_string(),
+                    })?;
+            }
+            PathSegment::Index(index) => {
+                let arr = current.as_array_mut().ok_or_else(|| {
+                    CustomDocumentUpdateError::NestedPathNotFound {
+                        path: full_path.to_string(),
+                    }
+                })?;
+                let length = arr.len();
+                current =
+                    arr.get_mut(*index)
+                        .ok_or(CustomDocumentUpdateError::IndexOutOfBounds {
+                            path: full_path.to_string(),
+                            index: *index,
+                            length,
+                        })?;
+            }
+        }
+    }
+    Ok(current)
+}
+
+fn json_type_name(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "bool",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
+}
+
+/// Update a nested value within a custom document's payload using dot/bracket path notation.
+///
+/// Supports paths like `"stats.health"`, `"name.en"`, `"abilities[0]"`, `"loot[0].chance"`.
+/// The replacement value's JSON type must match the existing value's type.
+pub fn update_loaded_custom_document_nested_value(
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    kind: &str,
+    id: &str,
+    field_path: &str,
+    value: Value,
+) -> Result<bool, CustomDocumentUpdateError> {
+    let segments = parse_field_path(field_path)?;
+
+    // Validate string length
+    if let Value::String(s) = &value {
+        if s.len() > MAX_STRING_VALUE_LENGTH {
+            return Err(CustomDocumentUpdateError::StringTooLong {
+                field: field_path.to_string(),
+                max_length: MAX_STRING_VALUE_LENGTH,
+            });
+        }
+    }
+
+    // First pass: validate the path exists and type matches (read-only).
+    {
+        let Some(document) = loaded_documents
+            .get(kind, id)
+            .and_then(|d| d.document.as_ref())
+        else {
+            return Ok(false);
+        };
+
+        let mut payload_clone = document.payload.clone();
+        let existing = resolve_mut_path(&mut payload_clone, &segments, field_path)?;
+        let existing_type = json_type_name(existing);
+        let new_type = json_type_name(&value);
+        if existing_type != new_type {
+            return Err(CustomDocumentUpdateError::NestedTypeMismatch {
+                path: field_path.to_string(),
+                expected: existing_type,
+                actual: new_type,
+            });
+        }
+    }
+
+    // Second pass: apply the mutation.
+    let segments = parse_field_path(field_path)?;
+    update_loaded_custom_document_envelope(
+        loaded_documents,
+        project,
+        registry,
+        kind,
+        id,
+        move |document| {
+            if let Ok(target) = resolve_mut_path(&mut document.payload, &segments, field_path) {
+                *target = value.clone();
+            }
+        },
+    )
+    .map_err(Into::into)
+}
+
 pub fn save_loaded_custom_documents(
     loaded_documents: &LoadedCustomDocuments,
     root_path: &Path,
@@ -1779,6 +1974,200 @@ mod tests {
         assert!(matches!(
             array_error,
             CustomDocumentUpdateError::NonScalarField { .. }
+        ));
+    }
+
+    fn make_nested_document() -> LoadedCustomDocuments {
+        make_scalar_document(
+            serde_json::json!({
+                "name": { "en": "Fireball", "ja": "ファイアボール" },
+                "stats": { "power": 10, "cost": 5 },
+                "abilities": ["fire_blast", "ember"],
+                "loot": [
+                    { "item": "gem", "chance": 0.5 },
+                    { "item": "potion", "chance": 1.0 }
+                ],
+                "enabled": true
+            }),
+            r#"{"kind":"abilities","id":"fireball","schema_version":1,"label":"Fireball","payload":{"name":{"en":"Fireball","ja":"ファイアボール"},"stats":{"power":10,"cost":5},"abilities":["fire_blast","ember"],"loot":[{"item":"gem","chance":0.5},{"item":"potion","chance":1.0}],"enabled":true}}"#,
+        )
+    }
+
+    #[test]
+    fn test_nested_update_object_field() {
+        let mut loaded = make_nested_document();
+        let project = Project::new("Nested");
+        let registry = CustomDocumentRegistry::default();
+
+        assert!(update_loaded_custom_document_nested_value(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "stats.power",
+            serde_json::json!(150),
+        )
+        .unwrap());
+
+        let payload = &loaded
+            .get("abilities", "fireball")
+            .unwrap()
+            .document
+            .as_ref()
+            .unwrap()
+            .payload;
+        assert_eq!(payload["stats"]["power"], serde_json::json!(150));
+        assert_eq!(payload["stats"]["cost"], serde_json::json!(5));
+    }
+
+    #[test]
+    fn test_nested_update_localized_string() {
+        let mut loaded = make_nested_document();
+        let project = Project::new("Nested");
+        let registry = CustomDocumentRegistry::default();
+
+        assert!(update_loaded_custom_document_nested_value(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "name.en",
+            serde_json::json!("Meteor"),
+        )
+        .unwrap());
+
+        let payload = &loaded
+            .get("abilities", "fireball")
+            .unwrap()
+            .document
+            .as_ref()
+            .unwrap()
+            .payload;
+        assert_eq!(payload["name"]["en"], serde_json::json!("Meteor"));
+        assert_eq!(payload["name"]["ja"], serde_json::json!("ファイアボール"));
+    }
+
+    #[test]
+    fn test_nested_update_array_element() {
+        let mut loaded = make_nested_document();
+        let project = Project::new("Nested");
+        let registry = CustomDocumentRegistry::default();
+
+        assert!(update_loaded_custom_document_nested_value(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "abilities[0]",
+            serde_json::json!("icebolt"),
+        )
+        .unwrap());
+
+        let payload = &loaded
+            .get("abilities", "fireball")
+            .unwrap()
+            .document
+            .as_ref()
+            .unwrap()
+            .payload;
+        assert_eq!(payload["abilities"][0], serde_json::json!("icebolt"));
+        assert_eq!(payload["abilities"][1], serde_json::json!("ember"));
+    }
+
+    #[test]
+    fn test_nested_update_array_of_objects_field() {
+        let mut loaded = make_nested_document();
+        let project = Project::new("Nested");
+        let registry = CustomDocumentRegistry::default();
+
+        assert!(update_loaded_custom_document_nested_value(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "loot[0].chance",
+            serde_json::json!(0.8),
+        )
+        .unwrap());
+
+        let payload = &loaded
+            .get("abilities", "fireball")
+            .unwrap()
+            .document
+            .as_ref()
+            .unwrap()
+            .payload;
+        assert_eq!(payload["loot"][0]["chance"], serde_json::json!(0.8));
+        assert_eq!(payload["loot"][1]["chance"], serde_json::json!(1.0));
+    }
+
+    #[test]
+    fn test_nested_update_rejects_path_not_found() {
+        let mut loaded = make_nested_document();
+        let project = Project::new("Nested");
+        let registry = CustomDocumentRegistry::default();
+
+        let err = update_loaded_custom_document_nested_value(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "stats.nonexistent",
+            serde_json::json!(1),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            CustomDocumentUpdateError::NestedPathNotFound { .. }
+        ));
+    }
+
+    #[test]
+    fn test_nested_update_rejects_index_out_of_bounds() {
+        let mut loaded = make_nested_document();
+        let project = Project::new("Nested");
+        let registry = CustomDocumentRegistry::default();
+
+        let err = update_loaded_custom_document_nested_value(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "abilities[99]",
+            serde_json::json!("nope"),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            CustomDocumentUpdateError::IndexOutOfBounds { .. }
+        ));
+    }
+
+    #[test]
+    fn test_nested_update_rejects_type_mismatch() {
+        let mut loaded = make_nested_document();
+        let project = Project::new("Nested");
+        let registry = CustomDocumentRegistry::default();
+
+        let err = update_loaded_custom_document_nested_value(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "stats.power",
+            serde_json::json!("not a number"),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            CustomDocumentUpdateError::NestedTypeMismatch { .. }
         ));
     }
 }
