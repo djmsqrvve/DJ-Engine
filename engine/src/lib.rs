@@ -55,6 +55,7 @@ pub mod prelude {
     pub use crate::runtime_preview::{
         bootstrap_mounted_project, parse_runtime_preview_cli_args, PreviewPlayer,
         PreviewPlayerController, PreviewState, RuntimePreviewCliOptions, RuntimePreviewPlugin,
+        RuntimePreviewProfileOverride,
     };
     pub use crate::save::{
         has_save, has_save_scoped, load_game, load_game_scoped, save_game, save_game_scoped,

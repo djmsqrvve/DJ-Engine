@@ -56,8 +56,11 @@ helix-import:
 	@cargo run -p dj_engine_helix --bin helix_import -- --helix-dist "$(HELIX_DIST)" --project "$(PROJECT)"
 
 helix-editor:
-	@if [ -n "$(PROJECT)" ]; then \
-		cargo run -p dj_engine_helix --bin helix_editor -- --project "$(PROJECT)"; \
+	@HELIX_ARGS=""; \
+	if [ -n "$(PROJECT)" ]; then HELIX_ARGS="$$HELIX_ARGS --project $(PROJECT)"; fi; \
+	if [ -n "$(HELIX_DIST)" ]; then HELIX_ARGS="$$HELIX_ARGS --helix-dist $(HELIX_DIST)"; fi; \
+	if [ -n "$$HELIX_ARGS" ]; then \
+		cargo run -p dj_engine_helix --bin helix_editor -- $$HELIX_ARGS; \
 	else \
 		cargo run -p dj_engine_helix --bin helix_editor; \
 	fi

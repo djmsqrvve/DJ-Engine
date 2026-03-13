@@ -656,6 +656,16 @@ pub fn resolve_default_preview_profile(
         .flatten()
 }
 
+pub fn resolve_preview_profile_by_id(
+    loaded_documents: &LoadedCustomDocuments,
+    profile_id: &str,
+) -> Option<CustomDocument<PreviewProfilePayload>> {
+    loaded_documents
+        .get_typed::<PreviewProfilePayload>("preview_profiles", profile_id)
+        .ok()
+        .flatten()
+}
+
 pub fn load_custom_documents_from_project(
     mounted_project: &MountedProject,
     registry: &CustomDocumentRegistry,

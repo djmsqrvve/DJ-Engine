@@ -3,6 +3,7 @@ use bevy::window::WindowResolution;
 use dj_engine::prelude::*;
 use dj_engine::runtime_preview::{
     bootstrap_mounted_project, parse_runtime_preview_cli_args, RuntimePreviewPlugin,
+    RuntimePreviewProfileOverride,
 };
 
 fn main() {
@@ -56,6 +57,12 @@ fn main() {
     )
     .add_plugins(DJEnginePlugin::default())
     .add_plugins(RuntimePreviewPlugin::new(cli.test_mode));
+
+    if let Some(profile_id) = cli.preview_profile {
+        app.insert_resource(RuntimePreviewProfileOverride {
+            profile_id: Some(profile_id),
+        });
+    }
 
     app.run();
 }

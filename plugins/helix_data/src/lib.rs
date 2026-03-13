@@ -3,9 +3,13 @@ use dj_engine::data::{
     AppCustomDocumentExt, CustomDocument, CustomDocumentRegistration, DJDataRegistryPlugin,
     DocumentLink, EditorDocumentRoute, LoadedCustomDocuments, ValidationIssue, ValidationSeverity,
 };
-use dj_engine::editor::{AppEditorExtensionExt, RegisteredPreviewPreset, RegisteredToolbarAction};
+use dj_engine::editor::{
+    AppEditorExtensionExt, RegisteredPreviewPreset, RegisteredToolbarAction, ToolbarActionQueue,
+};
+use dj_engine::project_mount::MountedProject;
 use serde_json::Value;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 pub mod importer;
 
@@ -18,6 +22,13 @@ pub const HELIX_ABILITY_KIND: &str = "helix_abilities";
 pub const HELIX_ITEM_KIND: &str = "helix_items";
 pub const HELIX_MOB_KIND: &str = "helix_mobs";
 pub const HELIX_IMPORT_PREVIEW_ID: &str = "helix_import_preview";
+
+/// Configuration for the Helix import pipeline. Set `helix_dist_path` to enable
+/// in-editor re-import via the "Re-import Helix Data" toolbar action.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct HelixImportConfig {
+    pub helix_dist_path: Option<PathBuf>,
+}
 
 const HELIX_ABILITY_SCHEMA_JSON: &str = r#"{
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -191,7 +202,14 @@ impl Plugin for HelixDataPlugin {
                 )
                 .with_validator(validate_helix_mob_document),
             )
-            .add_systems(Update, refresh_helix_document_index_system)
+            .init_resource::<HelixImportConfig>()
+            .add_systems(
+                Update,
+                (
+                    refresh_helix_document_index_system,
+                    handle_helix_toolbar_actions_system,
+                ),
+            )
             .register_toolbar_action(RegisteredToolbarAction {
                 action_id: "helix_reimport".into(),
                 title: "Re-import Helix Data".into(),
@@ -214,6 +232,71 @@ fn refresh_helix_document_index_system(
     }
 
     index.rebuild_from_loaded_documents(&loaded_documents);
+}
+
+fn handle_helix_toolbar_actions_system(
+    action_queue: Option<ResMut<ToolbarActionQueue>>,
+    config: Option<Res<HelixImportConfig>>,
+    mounted_project: Option<Res<MountedProject>>,
+    registry: Option<Res<dj_engine::data::CustomDocumentRegistry>>,
+    mut loaded_documents: ResMut<LoadedCustomDocuments>,
+    mut index: ResMut<HelixDocumentIndex>,
+) {
+    let Some(mut action_queue) = action_queue else {
+        return;
+    };
+    let Some(config) = config else {
+        return;
+    };
+    let Some(mounted_project) = mounted_project else {
+        return;
+    };
+    let Some(registry) = registry else {
+        return;
+    };
+
+    let had_reimport = action_queue
+        .pending
+        .iter()
+        .any(|a| a.action_id == "helix_reimport");
+    action_queue
+        .pending
+        .retain(|a| a.action_id != "helix_reimport");
+
+    if !had_reimport {
+        return;
+    }
+
+    let Some(helix_dist) = config.helix_dist_path.as_ref() else {
+        warn!(
+            "Helix re-import requested but no helix_dist_path configured. \
+             Set HelixImportConfig.helix_dist_path or pass --helix-dist to the editor."
+        );
+        return;
+    };
+
+    let Some(manifest_path) = mounted_project.manifest_path.as_ref() else {
+        warn!("Helix re-import requested but no project is mounted.");
+        return;
+    };
+
+    info!("Re-importing Helix data from {:?}...", helix_dist);
+    match importer::import_helix_project(helix_dist, manifest_path) {
+        Ok(summary) => {
+            info!(
+                "Helix re-import complete: {} abilities, {} items, {} mobs ({} skipped)",
+                summary.abilities, summary.items, summary.mobs, summary.skipped_files
+            );
+            // Reload custom documents so the editor picks up the new data.
+            let fresh =
+                dj_engine::data::load_custom_documents_from_project(&mounted_project, &registry);
+            *loaded_documents = fresh;
+            index.rebuild_from_loaded_documents(&loaded_documents);
+        }
+        Err(error) => {
+            error!("Helix re-import failed: {error}");
+        }
+    }
 }
 
 fn validate_helix_ability_document(

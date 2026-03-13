@@ -282,11 +282,13 @@ fn workspace_root() -> PathBuf {
 
 fn resolve_runtime_preview_command(
     manifest_path: &Path,
+    preview_profile: Option<&str>,
 ) -> Result<ResolvedRuntimePreviewCommand, RuntimePreviewLaunchError> {
     let current_exe = std::env::current_exe().ok();
     resolve_runtime_preview_command_from_mode(
         current_exe.as_deref(),
         manifest_path,
+        preview_profile,
         cfg!(debug_assertions),
     )
 }
@@ -294,17 +296,26 @@ fn resolve_runtime_preview_command(
 fn resolve_runtime_preview_command_from_mode(
     current_exe: Option<&Path>,
     manifest_path: &Path,
+    preview_profile: Option<&str>,
     allow_dev_fallback: bool,
 ) -> Result<ResolvedRuntimePreviewCommand, RuntimePreviewLaunchError> {
+    let mut extra_args = Vec::new();
+    if let Some(profile_id) = preview_profile {
+        extra_args.push("--preview-profile".into());
+        extra_args.push(profile_id.to_string());
+    }
+
     if let Some(current_exe) = current_exe {
         let sibling_path = runtime_preview_sibling_path(current_exe);
         if sibling_path.is_file() {
+            let mut args = vec![
+                "--project".into(),
+                manifest_path.as_os_str().to_string_lossy().into_owned(),
+            ];
+            args.extend(extra_args);
             return Ok(ResolvedRuntimePreviewCommand {
                 program: sibling_path,
-                args: vec![
-                    "--project".into(),
-                    manifest_path.as_os_str().to_string_lossy().into_owned(),
-                ],
+                args,
                 current_dir: None,
             });
         }
@@ -321,18 +332,20 @@ fn resolve_runtime_preview_command_from_mode(
         ));
     }
 
+    let mut args = vec![
+        "run".into(),
+        "-p".into(),
+        "dj_engine".into(),
+        "--bin".into(),
+        "runtime_preview".into(),
+        "--".into(),
+        "--project".into(),
+        manifest_path.as_os_str().to_string_lossy().into_owned(),
+    ];
+    args.extend(extra_args);
     Ok(ResolvedRuntimePreviewCommand {
         program: PathBuf::from("cargo"),
-        args: vec![
-            "run".into(),
-            "-p".into(),
-            "dj_engine".into(),
-            "--bin".into(),
-            "runtime_preview".into(),
-            "--".into(),
-            "--project".into(),
-            manifest_path.as_os_str().to_string_lossy().into_owned(),
-        ],
+        args,
         current_dir: Some(workspace_root()),
     })
 }
@@ -539,7 +552,21 @@ pub(crate) fn launch_runtime_preview_from_editor(world: &mut World) {
         );
     }
 
-    let command = match resolve_runtime_preview_command(&manifest_path) {
+    // Resolve the preview profile from the selected preset (if any).
+    let preview_profile = {
+        let selected = world.resource::<super::extensions::SelectedPreviewPreset>();
+        let registry = world.resource::<EditorExtensionRegistry>();
+        selected.preset_id.as_ref().and_then(|preset_id| {
+            registry
+                .preview_presets
+                .iter()
+                .find(|p| &p.preset_id == preset_id)
+                .and_then(|p| p.profile_id.clone())
+        })
+    };
+
+    let command = match resolve_runtime_preview_command(&manifest_path, preview_profile.as_deref())
+    {
         Ok(command) => command,
         Err(error) => {
             let message = format!("Preview failed: {error}");
@@ -780,6 +807,7 @@ mod tests {
         let command = resolve_runtime_preview_command_from_mode(
             Some(&current_exe),
             Path::new("/tmp/project.json"),
+            None,
             false,
         )
         .unwrap();
@@ -794,6 +822,7 @@ mod tests {
         let command = resolve_runtime_preview_command_from_mode(
             Some(Path::new("/tmp/dj_engine")),
             Path::new("/tmp/project.json"),
+            None,
             true,
         )
         .unwrap();
@@ -816,11 +845,39 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_runtime_preview_command_passes_preview_profile() {
+        let command = resolve_runtime_preview_command_from_mode(
+            Some(Path::new("/tmp/dj_engine")),
+            Path::new("/tmp/project.json"),
+            Some("helix_import_preview"),
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(
+            command.args,
+            vec![
+                "run",
+                "-p",
+                "dj_engine",
+                "--bin",
+                "runtime_preview",
+                "--",
+                "--project",
+                "/tmp/project.json",
+                "--preview-profile",
+                "helix_import_preview"
+            ]
+        );
+    }
+
+    #[test]
     fn test_resolve_runtime_preview_command_returns_structured_error_without_fallback() {
         let current_exe = Path::new("/tmp/dj_engine");
         let error = resolve_runtime_preview_command_from_mode(
             Some(current_exe),
             Path::new("/tmp/project.json"),
+            None,
             false,
         )
         .unwrap_err();

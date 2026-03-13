@@ -42,6 +42,7 @@ pub enum PreviewState {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RuntimePreviewCliOptions {
     pub project_path: Option<PathBuf>,
+    pub preview_profile: Option<String>,
     pub test_mode: bool,
 }
 
@@ -58,6 +59,12 @@ pub fn parse_runtime_preview_cli_args(
             "--project" => {
                 if index + 1 < args.len() {
                     options.project_path = Some(PathBuf::from(&args[index + 1]));
+                    index += 1;
+                }
+            }
+            "--preview-profile" => {
+                if index + 1 < args.len() {
+                    options.preview_profile = Some(args[index + 1].clone());
                     index += 1;
                 }
             }
@@ -215,6 +222,13 @@ enum ContinuePreviewError {
     Save(#[from] SaveError),
 }
 
+/// Override for the preview profile, set via `--preview-profile <id>`.
+/// When set, the runtime preview uses this profile instead of the default.
+#[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
+pub struct RuntimePreviewProfileOverride {
+    pub profile_id: Option<String>,
+}
+
 pub struct RuntimePreviewPlugin {
     pub test_mode: bool,
 }
@@ -244,6 +258,7 @@ impl Plugin for RuntimePreviewPlugin {
             .init_resource::<TitleMenuState>()
             .init_resource::<PreviewStatus>()
             .init_resource::<PreviewStartupContent>()
+            .init_resource::<RuntimePreviewProfileOverride>()
             .init_resource::<DialoguePresentation>()
             .init_resource::<GraphExecutor>()
             .init_resource::<StoryFlags>()
@@ -374,6 +389,7 @@ fn follow_camera_translation(current_camera: Vec3, target: Vec3) -> Vec3 {
 fn load_preview_startup_content(
     mounted_project: &MountedProject,
     loaded_custom_documents: &LoadedCustomDocuments,
+    profile_override: Option<&str>,
 ) -> Result<PreviewStartupContent, DataError> {
     let Some(root_path) = mounted_project.root_path.as_ref() else {
         return Ok(PreviewStartupContent::default());
@@ -382,7 +398,9 @@ fn load_preview_startup_content(
         return Ok(PreviewStartupContent::default());
     };
 
-    let preview_profile = resolve_default_preview_profile(loaded_custom_documents);
+    let preview_profile = profile_override
+        .and_then(|id| crate::data::resolve_preview_profile_by_id(loaded_custom_documents, id))
+        .or_else(|| resolve_default_preview_profile(loaded_custom_documents));
 
     let scene_ref = preview_profile
         .as_ref()
@@ -607,6 +625,7 @@ fn prepare_runtime_preview_system(
     mut loaded_custom_documents: ResMut<LoadedCustomDocuments>,
     mut startup_content: ResMut<PreviewStartupContent>,
     mut status: ResMut<PreviewStatus>,
+    profile_override: Res<RuntimePreviewProfileOverride>,
 ) {
     if mounted_project.manifest_path.is_none() {
         status.message =
@@ -625,7 +644,11 @@ fn prepare_runtime_preview_system(
     *loaded_custom_documents = load_custom_documents_from_project(&mounted_project, &registry);
     let has_blocking_errors = loaded_custom_documents.has_blocking_errors();
 
-    match load_preview_startup_content(&mounted_project, &loaded_custom_documents) {
+    match load_preview_startup_content(
+        &mounted_project,
+        &loaded_custom_documents,
+        profile_override.profile_id.as_deref(),
+    ) {
         Ok(content) => {
             *startup_content = content;
             status.message = if has_blocking_errors {
