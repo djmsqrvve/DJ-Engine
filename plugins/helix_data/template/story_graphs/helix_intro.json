@@ -1,0 +1,20 @@
+{
+  "id": "helix_intro",
+  "name": "Helix Intro",
+  "root_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "data": {
+        "type": "start",
+        "next_node_id": "end"
+      }
+    },
+    {
+      "id": "end",
+      "data": {
+        "type": "end"
+      }
+    }
+  ]
+}

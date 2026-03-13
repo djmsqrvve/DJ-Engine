@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use dj_engine::data::{LoadedCustomDocuments, Project};
+use dj_engine::data::{
+    AppCustomDocumentExt, CustomDocumentRegistration, EditorDocumentRoute, LoadedCustomDocuments,
+    Project,
+};
 use dj_engine::editor::EditorExtensionRegistry;
 use dj_engine::editor::{
     BrowserTab, EditorDirtyState, EditorPlugin, EditorSnapshotBaseline, EditorState, EditorUiState,
@@ -98,4 +101,76 @@ fn test_editor_plugin_structure() {
 
     let plugin = EditorPlugin;
     assert!(std::any::type_name_of_val(&plugin).contains("EditorPlugin"));
+}
+
+#[test]
+fn test_table_route_resolves_from_registry() {
+    use dj_engine::data::{
+        load_custom_documents_from_project, CustomDocumentRegistry, DJDataRegistryPlugin,
+    };
+
+    const TEST_SCHEMA: &str = r#"{"type":"object"}"#;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_plugins(DJDataRegistryPlugin);
+    app.register_custom_document(CustomDocumentRegistration::<serde_json::Value>::new(
+        "table_test_kind",
+        1,
+        EditorDocumentRoute::Table,
+        TEST_SCHEMA,
+    ));
+
+    let registry = app.world().resource::<CustomDocumentRegistry>().clone();
+    let registered = registry.get("table_test_kind").unwrap();
+    assert_eq!(registered.editor_route, EditorDocumentRoute::Table);
+
+    // Verify that loading resolves the route from registry, not from the entry.
+    let temp_dir = tempfile::tempdir().unwrap();
+    let project_root = temp_dir.path();
+    let data_dir = project_root.join("data").join("table_test_kind");
+    std::fs::create_dir_all(&data_dir).unwrap();
+    std::fs::write(
+        data_dir.join("alpha.json"),
+        r#"{"kind":"table_test_kind","id":"alpha","schema_version":1,"payload":{"value":1}}"#,
+    )
+    .unwrap();
+
+    let manifest = dj_engine::data::CustomDataManifest {
+        version: 1,
+        documents: vec![dj_engine::data::CustomDocumentEntry {
+            kind: "table_test_kind".into(),
+            id: "alpha".into(),
+            path: "table_test_kind/alpha.json".into(),
+            schema_version: 1,
+            editor_route: EditorDocumentRoute::Inspector, // entry says Inspector
+            tags: Vec::new(),
+        }],
+    };
+
+    let manifest_path = project_root.join("data").join("registry.json");
+    std::fs::write(
+        &manifest_path,
+        serde_json::to_string_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
+
+    let project = Project::new("Table Route Test");
+    let project_manifest_path = project_root.join("project.json");
+    std::fs::write(
+        &project_manifest_path,
+        serde_json::to_string_pretty(&project).unwrap(),
+    )
+    .unwrap();
+
+    let mounted = dj_engine::editor::MountedProject {
+        root_path: Some(project_root.to_path_buf()),
+        manifest_path: Some(project_manifest_path),
+        project: Some(project),
+    };
+
+    let loaded = load_custom_documents_from_project(&mounted, &registry);
+    let doc = loaded.get("table_test_kind", "alpha").unwrap();
+    // Registry overrides entry: resolved_route should be Table, not Inspector.
+    assert_eq!(doc.resolved_route, EditorDocumentRoute::Table);
 }

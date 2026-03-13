@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "engine",
     "games/dev/doomexe",
+    "plugins/helix_data",
     "tools/asset_generator"
 ]
 default-members = ["engine"]

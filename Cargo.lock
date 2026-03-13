@@ -2449,6 +2449,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dj_engine_helix"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "dj_engine",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "dlib"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

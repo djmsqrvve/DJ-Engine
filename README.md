@@ -34,6 +34,8 @@ cd dj_engine
 
 make dev           # Launch the engine editor
 make preview PROJECT=/path/to/project   # Launch manifest-driven runtime preview
+make helix-import HELIX_DIST=/path/to/helix/dist PROJECT=/tmp/helix_project
+make helix-preview PROJECT=/tmp/helix_project
 make game          # Optional: run the sample DoomExe game
 make test
 ```
@@ -73,6 +75,9 @@ make dev              # Launch the engine editor
 make engine           # Alias for make editor
 make editor           # Launch the engine editor
 make preview PROJECT=/path/to/project  # Launch runtime preview for a project manifest
+make helix-import HELIX_DIST=/path/to/helix/dist PROJECT=/tmp/helix_project
+make helix-editor PROJECT=/tmp/helix_project
+make helix-preview PROJECT=/tmp/helix_project
 make game             # Run the sample DoomExe game
 make doom             # Alias for make game
 make minimal          # Run minimal rendering binary
@@ -96,6 +101,7 @@ make clean            # Remove build artifacts
 dj_engine/
 ├── engine/                 # Core engine library
 ├── games/dev/doomexe/      # Sample game project
+├── plugins/helix_data/     # Helix data bridge plugin and import tooling
 ├── tools/asset_generator/  # Asset processing utilities
 ├── docs/                   # Project and engine documentation
 └── Makefile                # Unified command interface

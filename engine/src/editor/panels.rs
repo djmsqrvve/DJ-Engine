@@ -9,7 +9,7 @@ use crate::data::{
     filter_document_refs_by_kind, update_loaded_custom_document_envelope,
     update_loaded_custom_document_raw_json, update_loaded_custom_document_typed,
     CustomDocumentRegistry, DocumentLink, DocumentLinkTarget, DocumentRef, EditorDocumentRoute,
-    LoadedCustomDocuments, PreviewProfilePayload, Project,
+    LoadedCustomDocument, LoadedCustomDocuments, PreviewProfilePayload, Project,
 };
 use crate::diagnostics::console::ConsoleLogStore;
 use crate::editor::extensions::EditorExtensionRegistry;
@@ -22,6 +22,7 @@ use crate::story_graph::GraphExecutor;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32, RichText};
 use bevy_inspector_egui::bevy_inspector;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
@@ -617,6 +618,463 @@ fn draw_preview_profile_editor(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TableSortColumn {
+    Id,
+    Label,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TableSortDirection {
+    Ascending,
+    Descending,
+}
+
+#[derive(Resource, Debug, Clone)]
+pub struct TableEditorState {
+    filter_text: String,
+    sort_column: TableSortColumn,
+    sort_direction: TableSortDirection,
+    selected_row: Option<DocumentRef>,
+    last_kind: String,
+}
+
+impl Default for TableEditorState {
+    fn default() -> Self {
+        Self {
+            filter_text: String::new(),
+            sort_column: TableSortColumn::Id,
+            sort_direction: TableSortDirection::Ascending,
+            selected_row: None,
+            last_kind: String::new(),
+        }
+    }
+}
+
+fn discover_payload_columns(documents: &[&LoadedCustomDocument], max_sample: usize) -> Vec<String> {
+    let mut columns = BTreeSet::new();
+    for document in documents.iter().take(max_sample) {
+        if let Some(parsed) = &document.document {
+            if let Some(object) = parsed.payload.as_object() {
+                for key in object.keys() {
+                    columns.insert(key.clone());
+                }
+            }
+        }
+    }
+    columns.into_iter().collect()
+}
+
+fn payload_cell_text(document: &LoadedCustomDocument, column: &str) -> String {
+    document
+        .document
+        .as_ref()
+        .and_then(|parsed| parsed.payload.get(column))
+        .map(|value| match value {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Bool(b) => b.to_string(),
+            serde_json::Value::Null => String::new(),
+            serde_json::Value::Object(map) => {
+                // For localized name objects, show "en" value
+                map.get("en")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string)
+                    .unwrap_or_else(|| format!("{{...{} keys}}", map.len()))
+            }
+            serde_json::Value::Array(arr) => format!("[...{} items]", arr.len()),
+        })
+        .unwrap_or_default()
+}
+
+fn draw_table_editor(
+    ui: &mut egui::Ui,
+    loaded_documents: &LoadedCustomDocuments,
+    _registry: &CustomDocumentRegistry,
+    kind: &str,
+    table_state: &mut TableEditorState,
+) {
+    if table_state.last_kind != kind {
+        table_state.filter_text.clear();
+        table_state.selected_row = None;
+        table_state.last_kind = kind.to_string();
+    }
+
+    let issue_count = loaded_documents
+        .issues
+        .iter()
+        .filter(|issue| issue.source_kind.as_deref() == Some(kind))
+        .count();
+
+    ui.label(
+        RichText::new(format!("{kind} (table)"))
+            .strong()
+            .color(COLOR_PRIMARY),
+    );
+
+    if issue_count > 0 {
+        ui.colored_label(
+            COLOR_SECONDARY,
+            format!("{issue_count} validation issue(s)"),
+        );
+    }
+
+    ui.horizontal(|ui| {
+        ui.label("Filter:");
+        ui.text_edit_singleline(&mut table_state.filter_text);
+    });
+
+    let normalized_filter = table_state.filter_text.trim().to_lowercase();
+
+    let mut rows: Vec<&LoadedCustomDocument> = loaded_documents
+        .documents
+        .iter()
+        .filter(|document| document.entry.kind == kind)
+        .filter(|document| {
+            if normalized_filter.is_empty() {
+                return true;
+            }
+            if document
+                .entry
+                .id
+                .to_lowercase()
+                .contains(&normalized_filter)
+            {
+                return true;
+            }
+            if let Some(parsed) = &document.document {
+                if let Some(label) = &parsed.label {
+                    if label.to_lowercase().contains(&normalized_filter) {
+                        return true;
+                    }
+                }
+                for tag in &parsed.tags {
+                    if tag.to_lowercase().contains(&normalized_filter) {
+                        return true;
+                    }
+                }
+            }
+            false
+        })
+        .collect();
+
+    match (table_state.sort_column, table_state.sort_direction) {
+        (TableSortColumn::Id, TableSortDirection::Ascending) => {
+            rows.sort_by(|a, b| a.entry.id.cmp(&b.entry.id));
+        }
+        (TableSortColumn::Id, TableSortDirection::Descending) => {
+            rows.sort_by(|a, b| b.entry.id.cmp(&a.entry.id));
+        }
+        (TableSortColumn::Label, TableSortDirection::Ascending) => {
+            rows.sort_by(|a, b| {
+                let label_a = a
+                    .document
+                    .as_ref()
+                    .and_then(|d| d.label.as_deref())
+                    .unwrap_or("");
+                let label_b = b
+                    .document
+                    .as_ref()
+                    .and_then(|d| d.label.as_deref())
+                    .unwrap_or("");
+                label_a.cmp(label_b)
+            });
+        }
+        (TableSortColumn::Label, TableSortDirection::Descending) => {
+            rows.sort_by(|a, b| {
+                let label_a = a
+                    .document
+                    .as_ref()
+                    .and_then(|d| d.label.as_deref())
+                    .unwrap_or("");
+                let label_b = b
+                    .document
+                    .as_ref()
+                    .and_then(|d| d.label.as_deref())
+                    .unwrap_or("");
+                label_b.cmp(label_a)
+            });
+        }
+    }
+
+    let total = loaded_documents
+        .documents
+        .iter()
+        .filter(|d| d.entry.kind == kind)
+        .count();
+    ui.label(format!("{} of {} documents", rows.len(), total,));
+    ui.add_space(4.0);
+
+    let payload_columns = discover_payload_columns(&rows, 20);
+
+    fn sort_arrow(state: &TableEditorState, col: TableSortColumn) -> &'static str {
+        if state.sort_column == col {
+            match state.sort_direction {
+                TableSortDirection::Ascending => " ^",
+                TableSortDirection::Descending => " v",
+            }
+        } else {
+            ""
+        }
+    }
+
+    let id_header = format!("id{}", sort_arrow(table_state, TableSortColumn::Id));
+    let label_header = format!("label{}", sort_arrow(table_state, TableSortColumn::Label));
+
+    // Fixed columns: id, label. Then up to 6 payload columns.
+    let visible_payload_columns: Vec<&str> = payload_columns
+        .iter()
+        .filter(|c| *c != "id" && *c != "name")
+        .take(6)
+        .map(String::as_str)
+        .collect();
+
+    let total_columns = 2 + visible_payload_columns.len();
+
+    let mut clicked_sort: Option<TableSortColumn> = None;
+
+    egui::ScrollArea::both()
+        .max_height(ui.available_height() * 0.6)
+        .show(ui, |ui| {
+            egui::Grid::new("table_editor_grid")
+                .num_columns(total_columns)
+                .striped(true)
+                .min_col_width(60.0)
+                .show(ui, |ui| {
+                    // Header row
+                    if ui.selectable_label(false, &id_header).clicked() {
+                        clicked_sort = Some(TableSortColumn::Id);
+                    }
+                    if ui.selectable_label(false, &label_header).clicked() {
+                        clicked_sort = Some(TableSortColumn::Label);
+                    }
+                    for col in &visible_payload_columns {
+                        ui.label(RichText::new(*col).strong());
+                    }
+                    ui.end_row();
+
+                    // Data rows
+                    for document in &rows {
+                        let row_ref = DocumentRef {
+                            kind: document.entry.kind.clone(),
+                            id: document.entry.id.clone(),
+                        };
+                        let is_selected = table_state.selected_row.as_ref() == Some(&row_ref);
+
+                        if ui
+                            .selectable_label(is_selected, &document.entry.id)
+                            .clicked()
+                        {
+                            table_state.selected_row = Some(row_ref.clone());
+                        }
+
+                        let label = document
+                            .document
+                            .as_ref()
+                            .and_then(|d| d.label.as_deref())
+                            .unwrap_or("");
+                        if ui.selectable_label(is_selected, label).clicked() {
+                            table_state.selected_row = Some(row_ref.clone());
+                        }
+
+                        for col in &visible_payload_columns {
+                            let text = payload_cell_text(document, col);
+                            let truncated = if text.len() > 32 {
+                                format!("{}...", &text[..29])
+                            } else {
+                                text
+                            };
+                            if ui.selectable_label(is_selected, truncated).clicked() {
+                                table_state.selected_row = Some(row_ref.clone());
+                            }
+                        }
+                        ui.end_row();
+                    }
+                });
+        });
+
+    if let Some(col) = clicked_sort {
+        if table_state.sort_column == col {
+            table_state.sort_direction = match table_state.sort_direction {
+                TableSortDirection::Ascending => TableSortDirection::Descending,
+                TableSortDirection::Descending => TableSortDirection::Ascending,
+            };
+        } else {
+            table_state.sort_column = col;
+            table_state.sort_direction = TableSortDirection::Ascending;
+        }
+    }
+}
+
+fn draw_document_inspector(
+    ui: &mut egui::Ui,
+    world: &mut World,
+    selected_ref: &DocumentRef,
+    project: Option<&Project>,
+    registry: &CustomDocumentRegistry,
+    extensions: &EditorExtensionRegistry,
+) {
+    world.resource_scope::<LoadedCustomDocuments, _>(|_, mut loaded_documents| {
+        let Some(document) = loaded_documents
+            .get(&selected_ref.kind, &selected_ref.id)
+            .cloned()
+        else {
+            ui.label(
+                RichText::new("Selected custom document could not be found.")
+                    .italics()
+                    .color(Color32::RED),
+            );
+            return;
+        };
+
+        ui.label(RichText::new(format!("{}:{}", selected_ref.kind, selected_ref.id)).strong());
+        ui.separator();
+        ui.label(format!("Route: {:?}", document.resolved_route));
+        ui.label(format!("Registry Path: {}", document.entry.path));
+        ui.label(format!("Schema Version: {}", document.entry.schema_version));
+        ui.label(format!(
+            "Issue Count: {}",
+            loaded_documents
+                .issues_for(&selected_ref.kind, &selected_ref.id)
+                .len()
+        ));
+
+        if let Some(parse_error) = &document.parse_error {
+            ui.colored_label(Color32::RED, format!("Parse Error: {}", parse_error));
+        }
+
+        if !document.entry.tags.is_empty() {
+            ui.label(format!("Tags: {}", document.entry.tags.join(", ")));
+        }
+
+        let mut structured_error = None;
+        if let Some(project) = project {
+            draw_generic_document_metadata_editor(
+                ui,
+                &mut loaded_documents,
+                project,
+                registry,
+                selected_ref,
+                &document,
+                &mut structured_error,
+            );
+            draw_document_links_editor(
+                ui,
+                &mut loaded_documents,
+                project,
+                registry,
+                selected_ref,
+                &document,
+                &mut structured_error,
+            );
+            if document.kind() == "preview_profiles" {
+                draw_preview_profile_editor(
+                    ui,
+                    &mut loaded_documents,
+                    project,
+                    registry,
+                    selected_ref,
+                    &mut structured_error,
+                );
+            }
+        }
+
+        if let Some(structured_error) = structured_error {
+            ui.colored_label(Color32::RED, structured_error);
+        }
+
+        if document.resolved_route == EditorDocumentRoute::CustomPanel {
+            let matching_panels: Vec<_> = extensions
+                .custom_panels
+                .iter()
+                .filter(|panel| panel.kind == selected_ref.kind)
+                .collect();
+            ui.separator();
+            ui.label(RichText::new("Registered Custom Panels").strong());
+            if matching_panels.is_empty() {
+                ui.label(
+                    RichText::new("No custom panels registered for this kind yet.")
+                        .italics()
+                        .color(Color32::GRAY),
+                );
+            } else {
+                for panel in matching_panels {
+                    ui.label(format!("• {} ({})", panel.title, panel.panel_id));
+                }
+            }
+        }
+
+        if let Some(parsed) = &document.document {
+            if !parsed.references.is_empty() {
+                ui.separator();
+                ui.label(RichText::new("References").strong());
+                for link in &parsed.references {
+                    let target = match &link.target {
+                        DocumentLinkTarget::Document { kind, id } => {
+                            format!("document {}:{}", kind, id)
+                        }
+                        DocumentLinkTarget::Scene { id } => format!("scene {}", id),
+                        DocumentLinkTarget::StoryGraph { id } => {
+                            format!("story graph {}", id)
+                        }
+                        DocumentLinkTarget::Asset { path } => format!("asset {}", path),
+                    };
+                    ui.label(format!("{} -> {}", link.field_path, target));
+                }
+            }
+        }
+
+        let reference_suggestions =
+            filter_document_refs_by_kind(&loaded_documents, &selected_ref.kind, "");
+        if !reference_suggestions.is_empty() {
+            ui.separator();
+            ui.label(RichText::new("Same-Kind Reference Suggestions").strong());
+            for document_ref in reference_suggestions.into_iter().take(6) {
+                ui.label(format!("{}:{}", document_ref.kind, document_ref.id));
+            }
+        }
+
+        ui.separator();
+        ui.label(RichText::new("Raw Document").strong());
+        let mut raw_json = document.raw_json.clone();
+        let response = ui.add(
+            egui::TextEdit::multiline(&mut raw_json)
+                .desired_width(f32::INFINITY)
+                .desired_rows(20),
+        );
+        if response.changed() {
+            if let Some(project) = project {
+                update_loaded_custom_document_raw_json(
+                    &mut loaded_documents,
+                    project,
+                    registry,
+                    &selected_ref.kind,
+                    &selected_ref.id,
+                    raw_json,
+                );
+            } else if let Some(selected) =
+                loaded_documents.get_mut(&selected_ref.kind, &selected_ref.id)
+            {
+                selected.raw_json = raw_json;
+            }
+        }
+
+        let issues = loaded_documents.issues_for(&selected_ref.kind, &selected_ref.id);
+        if !issues.is_empty() {
+            ui.separator();
+            ui.label(RichText::new("Validation Issues").strong());
+            for issue in issues {
+                let color = match issue.severity {
+                    crate::data::ValidationSeverity::Error => Color32::RED,
+                    crate::data::ValidationSeverity::Warning => COLOR_SECONDARY,
+                    crate::data::ValidationSeverity::Info => Color32::GRAY,
+                };
+                ui.colored_label(color, format!("{}: {}", issue.code, issue.message));
+            }
+        }
+    });
+}
+
 pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
     let has_mounted_project = world.resource::<MountedProject>().manifest_path.is_some();
     let has_loaded_project = world.resource::<MountedProject>().project.is_some();
@@ -1143,172 +1601,56 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
             .cloned()
             .unwrap_or_default();
 
-        world.resource_scope::<LoadedCustomDocuments, _>(|_, mut loaded_documents| {
-            let Some(document) = loaded_documents
-                .get(&selected_custom_document.kind, &selected_custom_document.id)
-                .cloned()
-            else {
-                ui.label(
-                    RichText::new("Selected custom document could not be found.")
-                        .italics()
-                        .color(Color32::RED),
-                );
-                return;
-            };
+        // Check if this kind uses Table route.
+        let kind_uses_table = registry
+            .get(&selected_custom_document.kind)
+            .map(|reg| reg.editor_route == EditorDocumentRoute::Table)
+            .unwrap_or(false);
 
-            ui.label(
-                RichText::new(format!(
-                    "{}:{}",
-                    selected_custom_document.kind, selected_custom_document.id
-                ))
-                .strong(),
-            );
-            ui.separator();
-            ui.label(format!("Route: {:?}", document.resolved_route));
-            ui.label(format!("Registry Path: {}", document.entry.path));
-            ui.label(format!("Schema Version: {}", document.entry.schema_version));
-            ui.label(format!(
-                "Issue Count: {}",
-                loaded_documents
-                    .issues_for(&selected_custom_document.kind, &selected_custom_document.id)
-                    .len()
-            ));
-
-            if let Some(parse_error) = &document.parse_error {
-                ui.colored_label(Color32::RED, format!("Parse Error: {}", parse_error));
+        if kind_uses_table {
+            if !world.contains_resource::<TableEditorState>() {
+                world.insert_resource(TableEditorState::default());
             }
-
-            if !document.entry.tags.is_empty() {
-                ui.label(format!("Tags: {}", document.entry.tags.join(", ")));
-            }
-
-            let mut structured_error = None;
-            if let Some(project) = project.as_ref() {
-                draw_generic_document_metadata_editor(
-                    ui,
-                    &mut loaded_documents,
-                    project,
-                    &registry,
-                    &selected_custom_document,
-                    &document,
-                    &mut structured_error,
-                );
-                draw_document_links_editor(
-                    ui,
-                    &mut loaded_documents,
-                    project,
-                    &registry,
-                    &selected_custom_document,
-                    &document,
-                    &mut structured_error,
-                );
-                if document.kind() == "preview_profiles" {
-                    draw_preview_profile_editor(
+            world.resource_scope::<TableEditorState, _>(|world, mut table_state| {
+                world.resource_scope::<LoadedCustomDocuments, _>(|_, loaded_documents| {
+                    draw_table_editor(
                         ui,
-                        &mut loaded_documents,
-                        project,
-                        &registry,
-                        &selected_custom_document,
-                        &mut structured_error,
-                    );
-                }
-            }
-
-            if let Some(structured_error) = structured_error {
-                ui.colored_label(Color32::RED, structured_error);
-            }
-
-            if document.resolved_route == EditorDocumentRoute::CustomPanel {
-                let matching_panels: Vec<_> = extensions
-                    .custom_panels
-                    .iter()
-                    .filter(|panel| panel.kind == selected_custom_document.kind)
-                    .collect();
-                ui.separator();
-                ui.label(RichText::new("Registered Custom Panels").strong());
-                if matching_panels.is_empty() {
-                    ui.label(
-                        RichText::new("No custom panels registered for this kind yet.")
-                            .italics()
-                            .color(Color32::GRAY),
-                    );
-                } else {
-                    for panel in matching_panels {
-                        ui.label(format!("• {} ({})", panel.title, panel.panel_id));
-                    }
-                }
-            }
-
-            if let Some(parsed) = &document.document {
-                if !parsed.references.is_empty() {
-                    ui.separator();
-                    ui.label(RichText::new("References").strong());
-                    for link in &parsed.references {
-                        let target = match &link.target {
-                            DocumentLinkTarget::Document { kind, id } => {
-                                format!("document {}:{}", kind, id)
-                            }
-                            DocumentLinkTarget::Scene { id } => format!("scene {}", id),
-                            DocumentLinkTarget::StoryGraph { id } => {
-                                format!("story graph {}", id)
-                            }
-                            DocumentLinkTarget::Asset { path } => format!("asset {}", path),
-                        };
-                        ui.label(format!("{} -> {}", link.field_path, target));
-                    }
-                }
-            }
-
-            let reference_suggestions =
-                filter_document_refs_by_kind(&loaded_documents, &selected_custom_document.kind, "");
-            if !reference_suggestions.is_empty() {
-                ui.separator();
-                ui.label(RichText::new("Same-Kind Reference Suggestions").strong());
-                for document_ref in reference_suggestions.into_iter().take(6) {
-                    ui.label(format!("{}:{}", document_ref.kind, document_ref.id));
-                }
-            }
-
-            ui.separator();
-            ui.label(RichText::new("Raw Document").strong());
-            let mut raw_json = document.raw_json.clone();
-            let response = ui.add(
-                egui::TextEdit::multiline(&mut raw_json)
-                    .desired_width(f32::INFINITY)
-                    .desired_rows(20),
-            );
-            if response.changed() {
-                if let Some(project) = project.as_ref() {
-                    update_loaded_custom_document_raw_json(
-                        &mut loaded_documents,
-                        project,
+                        &loaded_documents,
                         &registry,
                         &selected_custom_document.kind,
-                        &selected_custom_document.id,
-                        raw_json,
+                        &mut table_state,
                     );
-                } else if let Some(selected) = loaded_documents
-                    .get_mut(&selected_custom_document.kind, &selected_custom_document.id)
-                {
-                    selected.raw_json = raw_json;
-                }
+                });
+            });
+
+            // Show inspector for the table's selected row below the table.
+            let inspect_ref = world
+                .get_resource::<TableEditorState>()
+                .and_then(|state| state.selected_row.clone());
+
+            if let Some(inspect_ref) = inspect_ref {
+                ui.separator();
+                draw_document_inspector(
+                    ui,
+                    world,
+                    &inspect_ref,
+                    project.as_ref(),
+                    &registry,
+                    &extensions,
+                );
             }
 
-            let issues = loaded_documents
-                .issues_for(&selected_custom_document.kind, &selected_custom_document.id);
-            if !issues.is_empty() {
-                ui.separator();
-                ui.label(RichText::new("Validation Issues").strong());
-                for issue in issues {
-                    let color = match issue.severity {
-                        crate::data::ValidationSeverity::Error => Color32::RED,
-                        crate::data::ValidationSeverity::Warning => COLOR_SECONDARY,
-                        crate::data::ValidationSeverity::Info => Color32::GRAY,
-                    };
-                    ui.colored_label(color, format!("{}: {}", issue.code, issue.message));
-                }
-            }
-        });
+            return;
+        }
+
+        draw_document_inspector(
+            ui,
+            world,
+            &selected_custom_document,
+            project.as_ref(),
+            &registry,
+            &extensions,
+        );
         return;
     }
 

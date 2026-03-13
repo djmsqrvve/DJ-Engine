@@ -96,6 +96,9 @@ Then run the same validation commands shown above.
 ```bash
 make dev                           # Launch the engine editor
 make preview PROJECT=/path/to/project  # Launch runtime preview for a mounted project
+make helix-import HELIX_DIST=/path/to/helix/dist PROJECT=/tmp/helix_project
+make helix-editor PROJECT=/tmp/helix_project
+make helix-preview PROJECT=/tmp/helix_project
 make game                          # Run the sample DoomExe game
 make doom                          # Alias for make game
 make minimal                       # Run the minimal rendering binary
@@ -133,6 +136,7 @@ data/
 dj_engine/
 ├── engine/                 # Core engine/editor/runtime crate
 ├── games/dev/doomexe/      # Optional sample game
+├── plugins/helix_data/     # Helix data bridge plugin and import tooling
 ├── tools/asset_generator/  # Asset processing tool
 ├── docs/                   # Documentation and handoff notes
 └── Makefile                # Unified command surface

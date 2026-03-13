@@ -1,0 +1,53 @@
+{
+  "id": "helix_preview_template",
+  "name": "Helix Preview Template",
+  "version": "0.1.0",
+  "settings": {
+    "platforms": [
+      "pc"
+    ],
+    "default_resolution": {
+      "width": 1280,
+      "height": 720
+    },
+    "target_fps": 60,
+    "vsync": true,
+    "pixel_perfect": true,
+    "input_profile": "jrpg",
+    "localization": {
+      "languages": [
+        "en"
+      ],
+      "default_language": "en"
+    },
+    "paths": {
+      "scenes": "scenes",
+      "story_graphs": "story_graphs",
+      "database": "database",
+      "assets": "assets",
+      "data": "data"
+    },
+    "startup": {
+      "default_scene_id": "helix_preview",
+      "default_story_graph_id": "helix_intro",
+      "entry_script": null
+    },
+    "autosave": {
+      "enabled": true,
+      "interval_seconds": 300,
+      "max_backups": 10
+    }
+  },
+  "scenes": [
+    {
+      "id": "helix_preview",
+      "path": "scenes/helix_preview.json"
+    }
+  ],
+  "story_graphs": [
+    {
+      "id": "helix_intro",
+      "path": "story_graphs/helix_intro.json"
+    }
+  ]
+}

@@ -20,18 +20,24 @@ Current state:
 
 - The engine can discover custom documents from `data/registry.json`
 - It can validate them structurally
-- The editor can browse them and edit raw JSON
+- The editor can browse them, edit structured metadata (label, tags), manage
+  reference links through pickers, and fall back to raw JSON
+- Document kinds registered with `EditorDocumentRoute::Table` render a
+  filterable, sortable table view for browsing record-heavy kinds (e.g. 306
+  abilities) with click-to-inspect for individual documents
 
 Gap:
 
-- Authoring is still too low-level for day-to-day use
+- Table editing is read-only browsing with inspector fallback; inline cell
+  editing is not yet supported
+- Field-level validation targeting is still coarse
 
 What the engine needs next:
 
-- typed editors for common document shapes
-- reference-aware pickers instead of manual string editing
-- clearer validation messages and field targeting
+- inline cell editing in the table view for common scalar fields
+- field-level validation messages pointing directly at the broken field
 - friendlier save/load/reload flow for custom documents
+- graph editing for relationship-heavy document kinds
 
 Why this matters:
 

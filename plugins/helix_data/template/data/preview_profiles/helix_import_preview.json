@@ -1,0 +1,15 @@
+{
+  "kind": "preview_profiles",
+  "id": "helix_import_preview",
+  "schema_version": 1,
+  "label": "Helix Import Preview",
+  "tags": [
+    "source:helix_import"
+  ],
+  "references": [],
+  "payload": {
+    "scene_id": "helix_preview",
+    "story_graph_id": "helix_intro",
+    "document_refs": []
+  }
+}

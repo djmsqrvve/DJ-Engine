@@ -1,6 +1,6 @@
 # DJ Engine - Unified Command Interface
 
-.PHONY: help check build test lint fmt format-fix clean dev engine editor preview game doom minimal quality-check guardrail
+.PHONY: help check build test lint fmt format-fix clean dev engine editor preview game doom minimal quality-check guardrail helix-import helix-editor helix-preview
 
 # Ensure rustup toolchain takes precedence over system cargo/rustc
 export PATH := $(HOME)/.cargo/bin:$(PATH)
@@ -17,6 +17,9 @@ help:
 	@echo "  make engine       Alias for 'make editor'"
 	@echo "  make editor       Launch the engine editor"
 	@echo "  make preview      Launch runtime preview (PROJECT=<dir|project.json>)"
+	@echo "  make helix-import Import Helix dist into a mounted project (HELIX_DIST=<dir> PROJECT=<dir|project.json>)"
+	@echo "  make helix-editor Launch the Helix editor wrapper (PROJECT=<dir|project.json> optional)"
+	@echo "  make helix-preview Launch the Helix runtime preview wrapper (PROJECT=<dir|project.json>)"
 	@echo "  make game         Run the sample DoomExe game"
 	@echo "  make doom         Alias for 'make game'"
 	@echo "  make minimal      Run minimal rendering binary"
@@ -46,6 +49,22 @@ editor:
 preview:
 	@test -n "$(PROJECT)" || (echo "PROJECT is required: make preview PROJECT=<dir|project.json>"; exit 1)
 	@cargo run -p dj_engine --bin runtime_preview -- --project "$(PROJECT)"
+
+helix-import:
+	@test -n "$(HELIX_DIST)" || (echo "HELIX_DIST is required: make helix-import HELIX_DIST=<dir> PROJECT=<dir|project.json>"; exit 1)
+	@test -n "$(PROJECT)" || (echo "PROJECT is required: make helix-import HELIX_DIST=<dir> PROJECT=<dir|project.json>"; exit 1)
+	@cargo run -p dj_engine_helix --bin helix_import -- --helix-dist "$(HELIX_DIST)" --project "$(PROJECT)"
+
+helix-editor:
+	@if [ -n "$(PROJECT)" ]; then \
+		cargo run -p dj_engine_helix --bin helix_editor -- --project "$(PROJECT)"; \
+	else \
+		cargo run -p dj_engine_helix --bin helix_editor; \
+	fi
+
+helix-preview:
+	@test -n "$(PROJECT)" || (echo "PROJECT is required: make helix-preview PROJECT=<dir|project.json>"; exit 1)
+	@cargo run -p dj_engine_helix --bin helix_runtime_preview -- --project "$(PROJECT)"
 
 game:
 	@cargo run -p doomexe --bin doomexe
