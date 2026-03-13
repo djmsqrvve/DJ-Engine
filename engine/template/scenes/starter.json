@@ -1,0 +1,17 @@
+{
+  "id": "starter",
+  "name": "Starter Scene",
+  "scene_type": "jrpg",
+  "size_tiles": { "width": 20, "height": 15 },
+  "tile_size": { "width": 32, "height": 32 },
+  "background_color": [12, 12, 18, 255],
+  "default_spawn": {
+    "player": { "x": 320.0, "y": 240.0, "z": 10.0 },
+    "camera": { "x": 320.0, "y": 240.0, "z": 999.0 }
+  },
+  "layers": [
+    { "id": "ground", "name": "Ground", "z_order": 0 },
+    { "id": "objects", "name": "Objects", "z_order": 10 }
+  ],
+  "entities": []
+}

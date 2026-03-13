@@ -1805,7 +1805,8 @@ fn draw_welcome_screen(ui: &mut egui::Ui, world: &mut World) {
             )
             .clicked()
         {
-            match crate::project_mount::create_default_project() {
+            let project_dir = crate::project_mount::default_project_dir();
+            match crate::project_mount::create_new_project("Default Project", &project_dir) {
                 Ok(mount) => {
                     let mut mounted = world.resource_mut::<MountedProject>();
                     mounted.root_path = mount.root_path;

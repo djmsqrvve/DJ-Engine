@@ -246,6 +246,63 @@ pub fn auto_discover_or_create_project() -> Result<MountedProject, DataError> {
     create_default_project()
 }
 
+const TEMPLATE_SCENE_JSON: &str = include_str!("../template/scenes/starter.json");
+const TEMPLATE_STORY_GRAPH_JSON: &str = include_str!("../template/story_graphs/intro.json");
+
+/// Create a new game project with a working starter scene and story graph.
+///
+/// The project is immediately playable in the editor and runtime preview.
+pub fn create_new_project(name: &str, project_dir: &Path) -> Result<MountedProject, DataError> {
+    if project_dir.join("project.json").exists() {
+        return Err(DataError::InvalidProject(format!(
+            "A project already exists at {:?}",
+            project_dir
+        )));
+    }
+
+    fs::create_dir_all(project_dir).map_err(|e| {
+        DataError::InvalidProject(format!(
+            "Failed to create project directory {:?}: {}",
+            project_dir, e
+        ))
+    })?;
+
+    let mut project = Project::new(name);
+    project.add_scene("starter", "scenes/starter.json");
+    project.add_story_graph("intro", "story_graphs/intro.json");
+    project.settings.startup.default_scene_id = Some("starter".into());
+    project.settings.startup.default_story_graph_id = Some("intro".into());
+
+    // Create directory structure.
+    loader::save_project_structure(&project, project_dir)?;
+
+    // Write the manifest.
+    let manifest_path = project_dir.join("project.json");
+    loader::save_project(&project, &manifest_path)?;
+
+    // Write starter content files.
+    let scene_path = project_dir.join("scenes/starter.json");
+    fs::write(&scene_path, TEMPLATE_SCENE_JSON)
+        .map_err(|e| DataError::InvalidProject(format!("Failed to write starter scene: {}", e)))?;
+
+    let story_graph_path = project_dir.join("story_graphs/intro.json");
+    fs::write(&story_graph_path, TEMPLATE_STORY_GRAPH_JSON).map_err(|e| {
+        DataError::InvalidProject(format!("Failed to write starter story graph: {}", e))
+    })?;
+
+    info!(
+        "Created new project '{}' at {:?}",
+        name,
+        manifest_path.display()
+    );
+
+    Ok(MountedProject {
+        root_path: Some(project_dir.to_path_buf()),
+        manifest_path: Some(manifest_path),
+        project: None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -383,5 +440,48 @@ mod tests {
             resolve_custom_data_manifest_path(&mounted_project),
             Some(PathBuf::from("/tmp/data_project/custom_data/registry.json"))
         );
+    }
+
+    #[test]
+    fn test_create_new_project_scaffolds_playable_project() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("my_game");
+
+        let mount = create_new_project("My Game", &project_dir).unwrap();
+        assert!(mount.manifest_path.is_some());
+
+        // Manifest exists and loads.
+        let manifest_path = project_dir.join("project.json");
+        assert!(manifest_path.is_file());
+        let project = loader::load_project(&manifest_path).unwrap();
+        assert_eq!(project.name, "My Game");
+        assert_eq!(
+            project.settings.startup.default_scene_id.as_deref(),
+            Some("starter")
+        );
+        assert_eq!(
+            project.settings.startup.default_story_graph_id.as_deref(),
+            Some("intro")
+        );
+
+        // Scene and story graph files exist.
+        assert!(project_dir.join("scenes/starter.json").is_file());
+        assert!(project_dir.join("story_graphs/intro.json").is_file());
+
+        // Directory structure was created.
+        assert!(project_dir.join("assets").is_dir());
+        assert!(project_dir.join("data").is_dir());
+        assert!(project_dir.join("database").is_dir());
+    }
+
+    #[test]
+    fn test_create_new_project_rejects_existing_project() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("existing");
+        fs::create_dir_all(&project_dir).unwrap();
+        fs::write(project_dir.join("project.json"), "{}").unwrap();
+
+        let result = create_new_project("Existing", &project_dir);
+        assert!(result.is_err());
     }
 }

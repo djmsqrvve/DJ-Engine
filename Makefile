@@ -1,6 +1,6 @@
 # DJ Engine - Unified Command Interface
 
-.PHONY: help check build test lint fmt format-fix clean dev engine editor preview game doom minimal quality-check guardrail helix-import helix-editor helix-preview
+.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom minimal quality-check guardrail helix-import helix-editor helix-preview
 
 # Ensure rustup toolchain takes precedence over system cargo/rustc
 export PATH := $(HOME)/.cargo/bin:$(PATH)
@@ -16,6 +16,7 @@ help:
 	@echo "  make dev          Launch the engine editor"
 	@echo "  make engine       Alias for 'make editor'"
 	@echo "  make editor       Launch the engine editor"
+	@echo "  make new-game     Create a new game project (NAME=<name> DIR=<path> optional)"
 	@echo "  make preview      Launch runtime preview (PROJECT=<dir|project.json>)"
 	@echo "  make helix-import Import Helix dist into a mounted project (HELIX_DIST=<dir> PROJECT=<dir|project.json>)"
 	@echo "  make helix-editor Launch the Helix editor wrapper (PROJECT=<dir|project.json> optional)"
@@ -45,6 +46,14 @@ engine: editor
 
 editor:
 	@cargo run -p dj_engine --bin dj_engine
+
+new-game:
+	@test -n "$(NAME)" || (echo "NAME is required: make new-game NAME=\"My Game\" [DIR=<path>]"; exit 1)
+	@if [ -n "$(DIR)" ]; then \
+		cargo run -p dj_engine --bin project_init -- "$(NAME)" --dir "$(DIR)"; \
+	else \
+		cargo run -p dj_engine --bin project_init -- "$(NAME)"; \
+	fi
 
 preview:
 	@test -n "$(PROJECT)" || (echo "PROJECT is required: make preview PROJECT=<dir|project.json>"; exit 1)

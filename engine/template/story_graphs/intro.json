@@ -1,0 +1,29 @@
+{
+  "id": "intro",
+  "name": "Intro",
+  "root_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "data": {
+        "type": "start",
+        "next_node_id": "welcome"
+      }
+    },
+    {
+      "id": "welcome",
+      "data": {
+        "type": "dialogue",
+        "speaker": "Narrator",
+        "text": { "en": "Welcome to your new game. This is a starter project." },
+        "next_node_id": "end"
+      }
+    },
+    {
+      "id": "end",
+      "data": {
+        "type": "end"
+      }
+    }
+  ]
+}
