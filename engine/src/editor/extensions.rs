@@ -28,6 +28,26 @@ pub struct RegisteredPreviewPreset {
     pub profile_id: Option<String>,
 }
 
+/// Fired when the user clicks a registered toolbar action in the editor.
+/// Game plugins read this resource each frame to handle pending actions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToolbarActionFired {
+    pub action_id: String,
+}
+
+/// Queue of toolbar actions fired this frame. Game plugins drain this
+/// each frame in an `Update` system to handle their custom actions.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct ToolbarActionQueue {
+    pub pending: Vec<ToolbarActionFired>,
+}
+
+/// Tracks which preview preset the user has selected (if any).
+#[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
+pub struct SelectedPreviewPreset {
+    pub preset_id: Option<String>,
+}
+
 #[derive(Resource, Default, Debug, Clone)]
 pub struct EditorExtensionRegistry {
     pub custom_panels: Vec<RegisteredCustomEditorPanel>,

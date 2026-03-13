@@ -7,7 +7,9 @@ use super::types::{
 use crate::data::{DJDataRegistryPlugin, LoadedCustomDocuments};
 use crate::diagnostics::console::ConsoleLogStore;
 use crate::editor::extensions::EditorExtensionRegistry;
-use crate::project_mount::{normalize_project_path, MountedProject};
+use crate::project_mount::{
+    auto_discover_or_create_project, normalize_project_path, MountedProject,
+};
 use bevy::prelude::*;
 use bevy_egui::{
     egui::{self, CornerRadius, Stroke},
@@ -82,23 +84,40 @@ impl Plugin for EditorPlugin {
         }
 
         let cli = parse_editor_cli_args(std::env::args());
-        let mut mounted_project = MountedProject::default();
-
-        if let Some(path) = cli.project_path.as_deref() {
+        let mounted_project = if let Some(path) = cli.project_path.as_deref() {
             match normalize_project_path(path) {
                 Ok((root_path, manifest_path)) => {
                     info!("CLI: Mounted project manifest {:?}", manifest_path);
-                    mounted_project.root_path = Some(root_path);
-                    mounted_project.manifest_path = Some(manifest_path);
+                    MountedProject {
+                        root_path: Some(root_path),
+                        manifest_path: Some(manifest_path),
+                        project: None,
+                    }
                 }
                 Err(error) => {
                     warn!(
                         "CLI: Failed to normalize project path {:?}: {}",
                         path, error
                     );
+                    MountedProject::default()
                 }
             }
-        }
+        } else {
+            // No CLI project: auto-discover or create a default.
+            match auto_discover_or_create_project() {
+                Ok(mount) => {
+                    info!(
+                        "Auto-mount: {:?}",
+                        mount.manifest_path.as_deref().unwrap_or(Path::new(""))
+                    );
+                    mount
+                }
+                Err(error) => {
+                    warn!("Auto-mount failed: {}", error);
+                    MountedProject::default()
+                }
+            }
+        };
 
         app.init_state::<EditorState>()
             .insert_resource(mounted_project)
@@ -112,6 +131,8 @@ impl Plugin for EditorPlugin {
             .init_resource::<RuntimePreviewLaunchState>()
             .init_resource::<LoadedCustomDocuments>()
             .init_resource::<EditorExtensionRegistry>()
+            .init_resource::<super::extensions::SelectedPreviewPreset>()
+            .init_resource::<super::extensions::ToolbarActionQueue>()
             .add_systems(Startup, super::scene_io::load_initial_project_system)
             .add_systems(EguiPrimaryContextPass, configure_visuals_system)
             .add_systems(EguiPrimaryContextPass, super::editor_ui_system)

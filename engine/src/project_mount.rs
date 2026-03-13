@@ -2,6 +2,7 @@ use crate::data::loader;
 use crate::data::project::{Project, SceneRef, StoryGraphRef};
 use crate::data::DataError;
 use bevy::prelude::*;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Resource holding the currently mounted project for editor/runtime flows.
@@ -141,6 +142,110 @@ pub fn ensure_default_project_refs(project: &mut Project) {
     }
 }
 
+/// Discover `project.json` files under `root`, recursively up to `max_depth`.
+pub fn discover_projects_in_directory(root: &Path, max_depth: usize) -> Vec<PathBuf> {
+    let mut results = Vec::new();
+    discover_projects_recursive(root, max_depth, 0, &mut results);
+    results.sort();
+    results
+}
+
+fn discover_projects_recursive(
+    dir: &Path,
+    max_depth: usize,
+    current_depth: usize,
+    results: &mut Vec<PathBuf>,
+) {
+    let manifest = dir.join("project.json");
+    if manifest.is_file() {
+        results.push(manifest);
+        // Don't recurse into a project directory — it won't contain nested projects.
+        return;
+    }
+
+    if current_depth >= max_depth {
+        return;
+    }
+
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if path.is_dir() {
+            // Skip hidden directories and common non-project dirs.
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if name.starts_with('.') || name == "target" || name == "node_modules" {
+                continue;
+            }
+            discover_projects_recursive(&path, max_depth, current_depth + 1, results);
+        }
+    }
+}
+
+/// Returns the workspace root (parent of the engine crate).
+pub fn workspace_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("engine crate should live inside the workspace root")
+        .to_path_buf()
+}
+
+/// Default project directory inside the workspace.
+pub fn default_project_dir() -> PathBuf {
+    workspace_root().join("projects").join("default")
+}
+
+/// Create a new default project on disk and return its mount info.
+/// Creates the directory structure and saves a minimal `project.json`.
+pub fn create_default_project() -> Result<MountedProject, DataError> {
+    let project_dir = default_project_dir();
+    fs::create_dir_all(&project_dir).map_err(|e| {
+        DataError::InvalidProject(format!(
+            "Failed to create default project directory {:?}: {}",
+            project_dir, e
+        ))
+    })?;
+
+    let mut project = Project::new("Default Project");
+    ensure_default_project_refs(&mut project);
+
+    let manifest_path = project_dir.join("project.json");
+    loader::save_project(&project, &manifest_path)?;
+
+    info!("Created default project at {:?}", manifest_path.display());
+
+    Ok(MountedProject {
+        root_path: Some(project_dir),
+        manifest_path: Some(manifest_path),
+        project: None, // Will be loaded by the startup system.
+    })
+}
+
+/// Auto-discover or create a project. Returns mount info for the best candidate.
+///
+/// Priority:
+/// 1. Discover existing projects under the workspace root (depth 3).
+/// 2. If none found, create a default project at `projects/default/`.
+pub fn auto_discover_or_create_project() -> Result<MountedProject, DataError> {
+    let root = workspace_root();
+    let discovered = discover_projects_in_directory(&root, 3);
+
+    if let Some(manifest_path) = discovered.first() {
+        let (root_path, manifest_path) = normalize_project_path(manifest_path)?;
+        info!("Auto-discovered project at {:?}", manifest_path.display());
+        return Ok(MountedProject {
+            root_path: Some(root_path),
+            manifest_path: Some(manifest_path),
+            project: None,
+        });
+    }
+
+    info!("No projects found in workspace, creating default project");
+    create_default_project()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,6 +297,75 @@ mod tests {
                 .map(|project| project.name.as_str()),
             Some("Mounted Project")
         );
+    }
+
+    #[test]
+    fn test_discover_projects_finds_nested_manifests() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_a = temp_dir.path().join("projects").join("alpha");
+        let project_b = temp_dir.path().join("projects").join("beta");
+        fs::create_dir_all(&project_a).unwrap();
+        fs::create_dir_all(&project_b).unwrap();
+        fs::write(project_a.join("project.json"), "{}").unwrap();
+        fs::write(project_b.join("project.json"), "{}").unwrap();
+
+        let discovered = discover_projects_in_directory(temp_dir.path(), 3);
+        assert_eq!(discovered.len(), 2);
+        assert!(discovered.iter().any(|p| p.ends_with("alpha/project.json")));
+        assert!(discovered.iter().any(|p| p.ends_with("beta/project.json")));
+    }
+
+    #[test]
+    fn test_discover_projects_respects_max_depth() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let deep = temp_dir.path().join("a").join("b").join("c").join("d");
+        fs::create_dir_all(&deep).unwrap();
+        fs::write(deep.join("project.json"), "{}").unwrap();
+
+        // Depth 2 should not reach a/b/c/d (that's depth 4).
+        let discovered = discover_projects_in_directory(temp_dir.path(), 2);
+        assert!(discovered.is_empty());
+
+        // Depth 4 should find it.
+        let discovered = discover_projects_in_directory(temp_dir.path(), 4);
+        assert_eq!(discovered.len(), 1);
+    }
+
+    #[test]
+    fn test_discover_projects_skips_hidden_and_target_dirs() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let hidden = temp_dir.path().join(".hidden");
+        let target = temp_dir.path().join("target");
+        let visible = temp_dir.path().join("visible");
+        fs::create_dir_all(&hidden).unwrap();
+        fs::create_dir_all(&target).unwrap();
+        fs::create_dir_all(&visible).unwrap();
+        fs::write(hidden.join("project.json"), "{}").unwrap();
+        fs::write(target.join("project.json"), "{}").unwrap();
+        fs::write(visible.join("project.json"), "{}").unwrap();
+
+        let discovered = discover_projects_in_directory(temp_dir.path(), 2);
+        assert_eq!(discovered.len(), 1);
+        assert!(discovered[0].to_string_lossy().contains("visible"));
+    }
+
+    #[test]
+    fn test_create_default_project_creates_manifest_on_disk() {
+        // We can't test create_default_project directly since it writes to the
+        // workspace. Instead test the underlying logic with a temp dir.
+        let temp_dir = tempfile::tempdir().unwrap();
+        let project_dir = temp_dir.path().join("projects").join("default");
+        fs::create_dir_all(&project_dir).unwrap();
+
+        let mut project = Project::new("Default Project");
+        ensure_default_project_refs(&mut project);
+
+        let manifest_path = project_dir.join("project.json");
+        loader::save_project(&project, &manifest_path).unwrap();
+
+        assert!(manifest_path.is_file());
+        let loaded = loader::load_project(&manifest_path).unwrap();
+        assert_eq!(loaded.name, "Default Project");
     }
 
     #[test]

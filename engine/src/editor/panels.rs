@@ -1074,6 +1074,86 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
             }
         }
 
+        // Tools menu: registered toolbar actions from game plugins.
+        {
+            let extensions = world.resource::<EditorExtensionRegistry>().clone();
+            if !extensions.toolbar_actions.is_empty() {
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
+
+                ui.menu_button("Tools", |ui| {
+                    for action in &extensions.toolbar_actions {
+                        if ui.button(&action.title).clicked() {
+                            world
+                                .resource_mut::<super::extensions::ToolbarActionQueue>()
+                                .pending
+                                .push(super::extensions::ToolbarActionFired {
+                                    action_id: action.action_id.clone(),
+                                });
+                            let message = format!("Toolbar action fired: {}", action.action_id);
+                            log_console(world, &message);
+                            info!("{message}");
+                            ui.close();
+                        }
+                    }
+                });
+            }
+        }
+
+        // Preview preset selector: registered presets from game plugins.
+        {
+            let extensions = world.resource::<EditorExtensionRegistry>().clone();
+            if extensions.preview_presets.len() > 1 {
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
+
+                let current_preset = world
+                    .resource::<super::extensions::SelectedPreviewPreset>()
+                    .preset_id
+                    .clone();
+                let current_label = current_preset
+                    .as_ref()
+                    .and_then(|id| {
+                        extensions
+                            .preview_presets
+                            .iter()
+                            .find(|p| &p.preset_id == id)
+                    })
+                    .map(|p| p.title.as_str())
+                    .unwrap_or("Default");
+
+                egui::ComboBox::from_id_salt("preview_preset_selector")
+                    .selected_text(format!("Preset: {current_label}"))
+                    .show_ui(ui, |ui| {
+                        let mut selected = current_preset.clone();
+                        if ui
+                            .selectable_value(&mut selected, None, "Default")
+                            .changed()
+                        {
+                            world
+                                .resource_mut::<super::extensions::SelectedPreviewPreset>()
+                                .preset_id = None;
+                        }
+                        for preset in &extensions.preview_presets {
+                            if ui
+                                .selectable_value(
+                                    &mut selected,
+                                    Some(preset.preset_id.clone()),
+                                    &preset.title,
+                                )
+                                .changed()
+                            {
+                                world
+                                    .resource_mut::<super::extensions::SelectedPreviewPreset>()
+                                    .preset_id = Some(preset.preset_id.clone());
+                            }
+                        }
+                    });
+            }
+        }
+
         ui.add_space(10.0);
         ui.separator();
 
@@ -1628,8 +1708,14 @@ fn collect_asset_entries_recursive(
 }
 
 pub(crate) fn draw_central_panel(ui: &mut egui::Ui, world: &mut World) {
-    let ui_state = world.resource::<EditorUiState>();
+    let has_loaded_project = world.resource::<MountedProject>().project.is_some();
 
+    if !has_loaded_project {
+        draw_welcome_screen(ui, world);
+        return;
+    }
+
+    let ui_state = world.resource::<EditorUiState>();
     match ui_state.current_view {
         EditorView::Level => {
             let state = world.resource::<State<EditorState>>().get();
@@ -1645,4 +1731,103 @@ pub(crate) fn draw_central_panel(ui: &mut egui::Ui, world: &mut World) {
             draw_story_graph(ui, world);
         }
     }
+}
+
+fn draw_welcome_screen(ui: &mut egui::Ui, world: &mut World) {
+    ui.vertical_centered(|ui| {
+        ui.add_space(60.0);
+        ui.label(
+            RichText::new("DJ ENGINE")
+                .color(COLOR_PRIMARY)
+                .strong()
+                .size(32.0),
+        );
+        ui.add_space(10.0);
+        ui.label(
+            RichText::new("No project loaded")
+                .color(Color32::GRAY)
+                .italics()
+                .size(16.0),
+        );
+        ui.add_space(30.0);
+
+        // Discover projects in the workspace.
+        let workspace = crate::project_mount::workspace_root();
+        let discovered = crate::project_mount::discover_projects_in_directory(&workspace, 3);
+
+        if !discovered.is_empty() {
+            ui.label(RichText::new("Discovered Projects").strong().size(14.0));
+            ui.add_space(8.0);
+            for manifest_path in &discovered {
+                let display_path = manifest_path
+                    .strip_prefix(&workspace)
+                    .unwrap_or(manifest_path);
+                let label = display_path
+                    .parent()
+                    .unwrap_or(display_path)
+                    .display()
+                    .to_string();
+                if ui
+                    .button(
+                        RichText::new(format!("Open {label}"))
+                            .color(COLOR_PRIMARY)
+                            .size(14.0),
+                    )
+                    .clicked()
+                {
+                    if let Ok((root_path, manifest_path)) =
+                        crate::project_mount::normalize_project_path(manifest_path)
+                    {
+                        let mut mounted = world.resource_mut::<MountedProject>();
+                        mounted.root_path = Some(root_path);
+                        mounted.manifest_path = Some(manifest_path);
+                        mounted.project = None;
+                        drop(mounted);
+                        super::plugin::request_project_action(
+                            world,
+                            PendingProjectAction::LoadMountedProject,
+                        );
+                    }
+                }
+            }
+            ui.add_space(20.0);
+        }
+
+        ui.separator();
+        ui.add_space(10.0);
+
+        if ui
+            .button(
+                RichText::new("Create New Project")
+                    .color(COLOR_PRIMARY)
+                    .strong()
+                    .size(14.0),
+            )
+            .clicked()
+        {
+            match crate::project_mount::create_default_project() {
+                Ok(mount) => {
+                    let mut mounted = world.resource_mut::<MountedProject>();
+                    mounted.root_path = mount.root_path;
+                    mounted.manifest_path = mount.manifest_path;
+                    mounted.project = None;
+                    drop(mounted);
+                    super::plugin::request_project_action(
+                        world,
+                        PendingProjectAction::LoadMountedProject,
+                    );
+                }
+                Err(error) => {
+                    log_console(world, format!("Failed to create project: {error}"));
+                }
+            }
+        }
+
+        ui.add_space(10.0);
+        ui.label(
+            RichText::new("Or launch with: --project <dir|project.json>")
+                .color(Color32::GRAY)
+                .italics(),
+        );
+    });
 }

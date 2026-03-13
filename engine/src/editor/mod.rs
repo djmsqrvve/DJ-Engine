@@ -16,6 +16,7 @@ pub use crate::project_mount::MountedProject;
 pub use extensions::{
     AppEditorExtensionExt, EditorExtensionRegistry, RegisteredCustomEditorPanel,
     RegisteredPreviewPreset, RegisteredToolbarAction, RegisteredValidationView,
+    SelectedPreviewPreset, ToolbarActionFired, ToolbarActionQueue,
 };
 pub use plugin::EditorPlugin;
 pub use types::ActiveStoryGraph;

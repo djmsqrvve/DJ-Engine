@@ -41,7 +41,11 @@ Short version:
   recursive nested property editing in the inspector. The remaining authoring
   gap is graph-style editing for relationship-heavy document kinds.
 - Runtime preview is still a baseline playable loop.
-- Editor/runtime extension points need another pass.
+- Editor extension seams now have working toolbar action dispatch (resource
+  queue), preview preset selection, and custom panel registration. The Helix
+  data plugin registers a toolbar action and preview preset as the first
+  real consumer. Remaining gap is wiring action handlers (e.g. re-import)
+  and custom panel draw callbacks.
 - Current docs are much cleaner now, but some older planning/spec artifacts are
   still historical rather than fully reconciled with the present repo shape.
 

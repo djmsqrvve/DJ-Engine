@@ -3,11 +3,11 @@ use dj_engine::data::{
     AppCustomDocumentExt, CustomDocumentRegistration, EditorDocumentRoute, LoadedCustomDocuments,
     Project,
 };
-use dj_engine::editor::EditorExtensionRegistry;
 use dj_engine::editor::{
     BrowserTab, EditorDirtyState, EditorPlugin, EditorSnapshotBaseline, EditorState, EditorUiState,
     EditorView, MountedProject, RuntimePreviewLaunchPhase, RuntimePreviewLaunchState,
 };
+use dj_engine::editor::{EditorExtensionRegistry, SelectedPreviewPreset, ToolbarActionQueue};
 
 #[test]
 fn test_editor_initialization_and_state() {
@@ -173,4 +173,55 @@ fn test_table_route_resolves_from_registry() {
     let doc = loaded.get("table_test_kind", "alpha").unwrap();
     // Registry overrides entry: resolved_route should be Table, not Inspector.
     assert_eq!(doc.resolved_route, EditorDocumentRoute::Table);
+}
+
+#[test]
+fn test_extension_registry_toolbar_actions_and_presets() {
+    use dj_engine::editor::{
+        AppEditorExtensionExt, RegisteredPreviewPreset, RegisteredToolbarAction,
+    };
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.init_resource::<EditorExtensionRegistry>();
+    app.init_resource::<ToolbarActionQueue>();
+    app.init_resource::<SelectedPreviewPreset>();
+
+    // Register toolbar actions and presets (like HelixDataPlugin does).
+    app.register_toolbar_action(RegisteredToolbarAction {
+        action_id: "helix_reimport".into(),
+        title: "Re-import Helix Data".into(),
+        kind_filter: None,
+    });
+    app.register_preview_preset(RegisteredPreviewPreset {
+        preset_id: "helix_default".into(),
+        title: "Helix Default".into(),
+        profile_id: Some("helix_import_preview".into()),
+    });
+
+    let registry = app.world().resource::<EditorExtensionRegistry>();
+    assert_eq!(registry.toolbar_actions.len(), 1);
+    assert_eq!(registry.toolbar_actions[0].action_id, "helix_reimport");
+    assert_eq!(registry.preview_presets.len(), 1);
+    assert_eq!(registry.preview_presets[0].preset_id, "helix_default");
+
+    // Simulate toolbar action dispatch via resource queue.
+    app.world_mut()
+        .resource_mut::<ToolbarActionQueue>()
+        .pending
+        .push(dj_engine::editor::ToolbarActionFired {
+            action_id: "helix_reimport".into(),
+        });
+
+    let queue = app.world().resource::<ToolbarActionQueue>();
+    assert_eq!(queue.pending.len(), 1);
+    assert_eq!(queue.pending[0].action_id, "helix_reimport");
+
+    // Simulate preset selection.
+    app.world_mut()
+        .resource_mut::<SelectedPreviewPreset>()
+        .preset_id = Some("helix_default".into());
+
+    let selected = app.world().resource::<SelectedPreviewPreset>();
+    assert_eq!(selected.preset_id.as_deref(), Some("helix_default"));
 }

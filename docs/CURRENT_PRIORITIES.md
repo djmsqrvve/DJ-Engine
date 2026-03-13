@@ -65,17 +65,29 @@ Current state:
 
 - The editor shell now has the right direction
 - It can carry project state, custom docs, dirty tracking, and runtime handoff
+- `EditorExtensionRegistry` supports toolbar actions, preview presets, custom
+  panels, and validation views
+- `ToolbarActionQueue` resource replaces Bevy events for action dispatch
+- `SelectedPreviewPreset` resource tracks the user's preset choice
+- The Helix data plugin registers a "Re-import Helix Data" toolbar action and
+  a "Helix Default" preview preset as the first real consumer
+- The editor top menu renders a Tools dropdown (when actions are registered) and
+  a preset selector ComboBox (when >1 preset is registered)
 
 Gap:
 
-- Extension points for game-specific tools are still early
+- Toolbar action handlers are not yet wired — the queue is populated but no
+  system drains it to perform work (e.g. actually re-running the Helix import)
+- Custom panel draw callbacks are metadata-only; registered panels don't yet
+  render game-provided UI
+- Preview preset selection doesn't yet influence runtime preview launch arguments
 
 What the engine needs next:
 
-- custom panel registration that feels first-class
-- custom toolbar actions for mounted games/tools
-- better document routing beyond the current raw browser/editor surface
-- preview presets that can be selected from richer authored context
+- wire toolbar action handlers so game plugins can respond to queued actions
+- custom panel draw callbacks that run game-provided UI inside the shell
+- preview preset selection that feeds into runtime preview launch flow
+- broader coverage of the extension API (multiple games, multiple action types)
 
 Why this matters:
 
@@ -85,8 +97,8 @@ Why this matters:
 Success looks like:
 
 - a game can mount a custom panel beside the engine shell
-- a game can register custom document routes cleanly
-- preview launch behavior can be customized without engine-core branches
+- a game can register and handle custom toolbar actions end-to-end
+- preview launch behavior can be customized via preset selection
 
 ### 3. Expand runtime preview beyond the current baseline loop
 

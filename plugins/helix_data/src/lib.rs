@@ -3,6 +3,7 @@ use dj_engine::data::{
     AppCustomDocumentExt, CustomDocument, CustomDocumentRegistration, DJDataRegistryPlugin,
     DocumentLink, EditorDocumentRoute, LoadedCustomDocuments, ValidationIssue, ValidationSeverity,
 };
+use dj_engine::editor::{AppEditorExtensionExt, RegisteredPreviewPreset, RegisteredToolbarAction};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -190,7 +191,17 @@ impl Plugin for HelixDataPlugin {
                 )
                 .with_validator(validate_helix_mob_document),
             )
-            .add_systems(Update, refresh_helix_document_index_system);
+            .add_systems(Update, refresh_helix_document_index_system)
+            .register_toolbar_action(RegisteredToolbarAction {
+                action_id: "helix_reimport".into(),
+                title: "Re-import Helix Data".into(),
+                kind_filter: None,
+            })
+            .register_preview_preset(RegisteredPreviewPreset {
+                preset_id: "helix_default".into(),
+                title: "Helix Default".into(),
+                profile_id: Some(HELIX_IMPORT_PREVIEW_ID.into()),
+            });
     }
 }
 

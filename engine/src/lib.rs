@@ -86,7 +86,9 @@ pub mod prelude {
         EditorDocumentRoute, LoadedCustomDocuments, PreviewProfilePayload, ValidationIssue,
         ValidationSeverity,
     };
-    pub use crate::editor::AppEditorExtensionExt;
+    pub use crate::editor::{
+        AppEditorExtensionExt, SelectedPreviewPreset, ToolbarActionFired, ToolbarActionQueue,
+    };
     pub use crate::rendering::{
         CrtConfig, DisplayCamera, MainCamera, OffscreenTarget, GAME_HEIGHT, GAME_WIDTH,
     };
