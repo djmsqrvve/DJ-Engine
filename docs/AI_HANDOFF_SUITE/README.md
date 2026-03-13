@@ -1,9 +1,9 @@
 # DJ Engine AI Handoff Suite
 
-Last updated: 2026-03-11
+Last updated: 2026-03-13
 Canonical repo: `/home/dj/dev/engines/DJ-Engine`
 Branch at audit time: `main`
-Latest code checkpoint in this suite: `9369061`
+Latest stable code checkpoint in this suite: `c3a11a2`
 Remote state at audit time: local `main` and `origin/main` only
 
 This folder is the current handoff set for future AI agents working in this
@@ -23,11 +23,12 @@ Use this suite in the following order:
 8. `07_AGENT_WORKFLOW.md`
 9. `08_SESSION_HANDOFF_2026_03_09.md`
 10. `09_SESSION_HANDOFF_2026_03_10.md`
-11. `11_SESSION_HANDOFF_2026_03_11.md`  ← **START HERE if resuming from 2026-03-11**
-12. `10_BRANCH_LOG.md`
-13. `PLAN.md`
-14. `PROMPT.md`
-15. `AUDIT_REQUEST.md`
+11. `11_SESSION_HANDOFF_2026_03_11.md`
+12. `12_SESSION_HANDOFF_2026_03_13.md`  ← **START HERE if resuming from the Helix/table-editing checkpoint**
+13. `10_BRANCH_LOG.md`
+14. `PLAN.md`
+15. `PROMPT.md`
+16. `AUDIT_REQUEST.md`
 
 Source-of-truth rules:
 

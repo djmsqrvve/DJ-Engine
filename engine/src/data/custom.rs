@@ -9,6 +9,7 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use thiserror::Error;
 
 pub type DocumentKindId = String;
 pub type DocumentId = String;
@@ -220,6 +221,65 @@ impl LoadedCustomDocuments {
             .iter()
             .any(|issue| issue.severity == ValidationSeverity::Error)
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CustomDocumentScalarValue {
+    String(String),
+    Number(serde_json::Number),
+    Bool(bool),
+}
+
+impl CustomDocumentScalarValue {
+    pub fn from_json_value(value: &Value) -> Option<Self> {
+        match value {
+            Value::String(value) => Some(Self::String(value.clone())),
+            Value::Number(value) => Some(Self::Number(value.clone())),
+            Value::Bool(value) => Some(Self::Bool(*value)),
+            _ => None,
+        }
+    }
+
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            Self::String(_) => "string",
+            Self::Number(_) => "number",
+            Self::Bool(_) => "bool",
+        }
+    }
+
+    pub fn to_json_value(&self) -> Value {
+        match self {
+            Self::String(value) => Value::String(value.clone()),
+            Self::Number(value) => Value::Number(value.clone()),
+            Self::Bool(value) => Value::Bool(*value),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum CustomDocumentUpdateError {
+    #[error("Payload field path '{0}' must point to a top-level payload field.")]
+    InvalidFieldPath(String),
+
+    #[error("Custom document payload must remain a JSON object for table editing.")]
+    PayloadNotObject,
+
+    #[error("Payload field '{0}' was not found.")]
+    MissingField(String),
+
+    #[error("Payload field '{field}' is not a string, number, or bool scalar.")]
+    NonScalarField { field: String },
+
+    #[error("Payload field '{field}' expected a {expected} value but received {actual}.")]
+    ScalarTypeMismatch {
+        field: String,
+        expected: &'static str,
+        actual: &'static str,
+    },
+
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
 }
 
 pub type CustomDocumentValidator = Arc<
@@ -1036,6 +1096,102 @@ where
     Ok(true)
 }
 
+pub fn update_loaded_custom_document_label(
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    kind: &str,
+    id: &str,
+    label: Option<String>,
+) -> Result<bool, CustomDocumentUpdateError> {
+    let normalized = label.and_then(|label| {
+        let trimmed = label.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    });
+
+    update_loaded_custom_document_envelope(
+        loaded_documents,
+        project,
+        registry,
+        kind,
+        id,
+        move |document| {
+            document.label = normalized.clone();
+        },
+    )
+    .map_err(Into::into)
+}
+
+pub fn update_loaded_custom_document_top_level_scalar(
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: &Project,
+    registry: &CustomDocumentRegistry,
+    kind: &str,
+    id: &str,
+    field_name: &str,
+    value: CustomDocumentScalarValue,
+) -> Result<bool, CustomDocumentUpdateError> {
+    if field_name.trim().is_empty()
+        || field_name.contains('.')
+        || field_name.contains('[')
+        || field_name.contains(']')
+    {
+        return Err(CustomDocumentUpdateError::InvalidFieldPath(
+            field_name.to_string(),
+        ));
+    }
+
+    let Some(document) = loaded_documents
+        .get(kind, id)
+        .and_then(|document| document.document.as_ref())
+    else {
+        return Ok(false);
+    };
+
+    let Some(payload) = document.payload.as_object() else {
+        return Err(CustomDocumentUpdateError::PayloadNotObject);
+    };
+
+    let Some(existing_value) = payload.get(field_name) else {
+        return Err(CustomDocumentUpdateError::MissingField(
+            field_name.to_string(),
+        ));
+    };
+
+    let Some(existing_scalar) = CustomDocumentScalarValue::from_json_value(existing_value) else {
+        return Err(CustomDocumentUpdateError::NonScalarField {
+            field: field_name.to_string(),
+        });
+    };
+
+    if std::mem::discriminant(&existing_scalar) != std::mem::discriminant(&value) {
+        return Err(CustomDocumentUpdateError::ScalarTypeMismatch {
+            field: field_name.to_string(),
+            expected: existing_scalar.kind_name(),
+            actual: value.kind_name(),
+        });
+    }
+
+    let field_name = field_name.to_string();
+    update_loaded_custom_document_envelope(
+        loaded_documents,
+        project,
+        registry,
+        kind,
+        id,
+        move |document| {
+            if let Some(payload) = document.payload.as_object_mut() {
+                payload.insert(field_name.clone(), value.to_json_value());
+            }
+        },
+    )
+    .map_err(Into::into)
+}
+
 pub fn save_loaded_custom_documents(
     loaded_documents: &LoadedCustomDocuments,
     root_path: &Path,
@@ -1449,5 +1605,180 @@ mod tests {
             .issues
             .iter()
             .any(|issue| issue.code == "preview_profile_missing_document"));
+    }
+
+    fn make_scalar_document(payload: serde_json::Value, raw_json: &str) -> LoadedCustomDocuments {
+        LoadedCustomDocuments {
+            manifest_path: None,
+            manifest: Some(CustomDataManifest::default()),
+            documents: vec![LoadedCustomDocument {
+                entry: CustomDocumentEntry {
+                    kind: "abilities".into(),
+                    id: "fireball".into(),
+                    path: "abilities/fireball.json".into(),
+                    schema_version: 1,
+                    editor_route: EditorDocumentRoute::Table,
+                    tags: Vec::new(),
+                },
+                raw_json: raw_json.into(),
+                document: Some(CustomDocument {
+                    kind: "abilities".into(),
+                    id: "fireball".into(),
+                    schema_version: 1,
+                    label: Some("Fireball".into()),
+                    tags: Vec::new(),
+                    references: Vec::new(),
+                    payload,
+                }),
+                parse_error: None,
+                resolved_route: EditorDocumentRoute::Table,
+            }],
+            issues: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn test_update_loaded_custom_document_label_normalizes_and_refreshes_json() {
+        let mut loaded = make_scalar_document(
+            serde_json::json!({
+                "power": 10,
+                "name": "Fireball"
+            }),
+            r#"{"kind":"abilities","id":"fireball","schema_version":1,"label":"Fireball","payload":{"power":10,"name":"Fireball"}}"#,
+        );
+        let project = Project::new("Label Update");
+        let registry = CustomDocumentRegistry::default();
+
+        let updated = update_loaded_custom_document_label(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            Some("  Ember Burst  ".into()),
+        )
+        .unwrap();
+
+        assert!(updated);
+        let updated_document = loaded.get("abilities", "fireball").unwrap();
+        assert_eq!(
+            updated_document.document.as_ref().unwrap().label.as_deref(),
+            Some("Ember Burst")
+        );
+        assert!(updated_document
+            .raw_json
+            .contains("\"label\": \"Ember Burst\""));
+        assert!(updated_document.parse_error.is_none());
+    }
+
+    #[test]
+    fn test_update_loaded_custom_document_top_level_scalar_updates_string_number_and_bool() {
+        let mut loaded = make_scalar_document(
+            serde_json::json!({
+                "name": "Fireball",
+                "power": 10,
+                "enabled": true
+            }),
+            r#"{"kind":"abilities","id":"fireball","schema_version":1,"label":"Fireball","payload":{"name":"Fireball","power":10,"enabled":true}}"#,
+        );
+        let project = Project::new("Scalar Update");
+        let registry = CustomDocumentRegistry::default();
+
+        assert!(update_loaded_custom_document_top_level_scalar(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "name",
+            CustomDocumentScalarValue::String("Inferno".into()),
+        )
+        .unwrap());
+        assert!(update_loaded_custom_document_top_level_scalar(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "power",
+            CustomDocumentScalarValue::Number(serde_json::Number::from(25)),
+        )
+        .unwrap());
+        assert!(update_loaded_custom_document_top_level_scalar(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "enabled",
+            CustomDocumentScalarValue::Bool(false),
+        )
+        .unwrap());
+
+        let updated = loaded.get("abilities", "fireball").unwrap();
+        let payload = &updated.document.as_ref().unwrap().payload;
+        assert_eq!(payload.get("name"), Some(&serde_json::json!("Inferno")));
+        assert_eq!(payload.get("power"), Some(&serde_json::json!(25)));
+        assert_eq!(payload.get("enabled"), Some(&serde_json::json!(false)));
+        assert!(updated.raw_json.contains("\"power\": 25"));
+    }
+
+    #[test]
+    fn test_update_loaded_custom_document_top_level_scalar_rejects_nested_or_non_scalar_fields() {
+        let mut loaded = make_scalar_document(
+            serde_json::json!({
+                "name": "Fireball",
+                "stats": { "power": 10 },
+                "tags": ["fire"]
+            }),
+            r#"{"kind":"abilities","id":"fireball","schema_version":1,"label":"Fireball","payload":{"name":"Fireball","stats":{"power":10},"tags":["fire"]}}"#,
+        );
+        let project = Project::new("Scalar Rejection");
+        let registry = CustomDocumentRegistry::default();
+
+        let nested_error = update_loaded_custom_document_top_level_scalar(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "stats.power",
+            CustomDocumentScalarValue::Number(serde_json::Number::from(12)),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            nested_error,
+            CustomDocumentUpdateError::InvalidFieldPath(_)
+        ));
+
+        let object_error = update_loaded_custom_document_top_level_scalar(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "stats",
+            CustomDocumentScalarValue::String("bad".into()),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            object_error,
+            CustomDocumentUpdateError::NonScalarField { .. }
+        ));
+
+        let array_error = update_loaded_custom_document_top_level_scalar(
+            &mut loaded,
+            &project,
+            &registry,
+            "abilities",
+            "fireball",
+            "tags",
+            CustomDocumentScalarValue::String("bad".into()),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            array_error,
+            CustomDocumentUpdateError::NonScalarField { .. }
+        ));
     }
 }

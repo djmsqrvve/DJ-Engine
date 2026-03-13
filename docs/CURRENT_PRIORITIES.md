@@ -23,19 +23,20 @@ Current state:
 - The editor can browse them, edit structured metadata (label, tags), manage
   reference links through pickers, and fall back to raw JSON
 - Document kinds registered with `EditorDocumentRoute::Table` render a
-  filterable, sortable table view for browsing record-heavy kinds (e.g. 306
-  abilities) with click-to-inspect for individual documents
+  filterable, sortable table view for record-heavy kinds (e.g. 306 abilities)
+  with inline editing for top-level string/number/bool payload fields plus
+  shared inspector fallback for deeper edits
 
 Gap:
 
-- Table editing is read-only browsing with inspector fallback; inline cell
-  editing is not yet supported
-- Field-level validation targeting is still coarse
+- Nested/object/list editing is still inspector/raw-JSON heavy
+- Validation targeting is better at the field/cell level now, but not yet a
+  complete authoring experience for every editor surface
 
 What the engine needs next:
 
-- inline cell editing in the table view for common scalar fields
-- field-level validation messages pointing directly at the broken field
+- reusable nested property editing beyond top-level scalar fields
+- broader field-level validation messages pointing directly at the broken field
 - friendlier save/load/reload flow for custom documents
 - graph editing for relationship-heavy document kinds
 
@@ -51,7 +52,8 @@ Success looks like:
 - a contributor can create or update a custom document without hand-editing most
   references
 - the editor can point directly at the broken field when validation fails
-- common document kinds can be edited through reusable UI instead of only raw JSON
+- common document kinds can be edited through reusable UI instead of dropping
+  back to raw JSON for most day-to-day changes
 
 ### 2. Strengthen the editor extension seam
 

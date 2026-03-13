@@ -78,11 +78,12 @@ pub mod prelude {
 
     // Re-export commonly used rendering items
     pub use crate::data::{
-        update_loaded_custom_document_envelope, update_loaded_custom_document_typed,
+        update_loaded_custom_document_envelope, update_loaded_custom_document_label,
+        update_loaded_custom_document_top_level_scalar, update_loaded_custom_document_typed,
         AppCustomDocumentExt, CustomDataManifest, CustomDocument, CustomDocumentEntry,
-        CustomDocumentRegistration, CustomDocumentRegistry, DJDataRegistryPlugin, DocumentRef,
-        EditorDocumentRoute, LoadedCustomDocuments, PreviewProfilePayload, ValidationIssue,
-        ValidationSeverity,
+        CustomDocumentRegistration, CustomDocumentRegistry, CustomDocumentScalarValue,
+        CustomDocumentUpdateError, DJDataRegistryPlugin, DocumentRef, EditorDocumentRoute,
+        LoadedCustomDocuments, PreviewProfilePayload, ValidationIssue, ValidationSeverity,
     };
     pub use crate::editor::AppEditorExtensionExt;
     pub use crate::rendering::{

@@ -7,9 +7,11 @@ use super::types::{
 use super::views::{draw_grid, draw_story_graph};
 use crate::data::{
     filter_document_refs_by_kind, update_loaded_custom_document_envelope,
-    update_loaded_custom_document_raw_json, update_loaded_custom_document_typed,
-    CustomDocumentRegistry, DocumentLink, DocumentLinkTarget, DocumentRef, EditorDocumentRoute,
-    LoadedCustomDocument, LoadedCustomDocuments, PreviewProfilePayload, Project,
+    update_loaded_custom_document_label, update_loaded_custom_document_raw_json,
+    update_loaded_custom_document_top_level_scalar, update_loaded_custom_document_typed,
+    CustomDocumentRegistry, CustomDocumentScalarValue, DocumentLink, DocumentLinkTarget,
+    DocumentRef, EditorDocumentRoute, LoadedCustomDocument, LoadedCustomDocuments,
+    PreviewProfilePayload, Project, ValidationIssue, ValidationSeverity,
 };
 use crate::diagnostics::console::ConsoleLogStore;
 use crate::editor::extensions::EditorExtensionRegistry;
@@ -22,7 +24,7 @@ use crate::story_graph::GraphExecutor;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32, RichText};
 use bevy_inspector_egui::bevy_inspector;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
@@ -153,6 +155,87 @@ fn apply_typed_update<T, F>(
     }
 }
 
+fn validation_issue_color(severity: ValidationSeverity) -> Color32 {
+    match severity {
+        ValidationSeverity::Error => Color32::RED,
+        ValidationSeverity::Warning => COLOR_SECONDARY,
+        ValidationSeverity::Info => Color32::GRAY,
+    }
+}
+
+fn field_path_matches(issue: &ValidationIssue, field_path: &str) -> bool {
+    let Some(issue_path) = issue.field_path.as_deref() else {
+        return false;
+    };
+    issue_path == field_path
+        || issue_path.starts_with(&format!("{field_path}."))
+        || issue_path.starts_with(&format!("{field_path}["))
+}
+
+fn document_field_issues<'a>(
+    loaded_documents: &'a LoadedCustomDocuments,
+    selected: &DocumentRef,
+    field_path: &str,
+) -> Vec<&'a ValidationIssue> {
+    loaded_documents
+        .issues_for(&selected.kind, &selected.id)
+        .into_iter()
+        .filter(|issue| field_path_matches(issue, field_path))
+        .collect()
+}
+
+fn first_document_field_issue<'a>(
+    loaded_documents: &'a LoadedCustomDocuments,
+    selected: &DocumentRef,
+    field_path: &str,
+) -> Option<&'a ValidationIssue> {
+    document_field_issues(loaded_documents, selected, field_path)
+        .into_iter()
+        .max_by_key(|issue| match issue.severity {
+            ValidationSeverity::Error => 3,
+            ValidationSeverity::Warning => 2,
+            ValidationSeverity::Info => 1,
+        })
+}
+
+fn draw_field_issues(
+    ui: &mut egui::Ui,
+    loaded_documents: &LoadedCustomDocuments,
+    selected: &DocumentRef,
+    field_path: &str,
+) {
+    for issue in document_field_issues(loaded_documents, selected, field_path) {
+        ui.colored_label(
+            validation_issue_color(issue.severity),
+            format!("{}: {}", issue.code, issue.message),
+        );
+    }
+}
+
+fn prioritize_document_issues<'a>(
+    mut issues: Vec<&'a ValidationIssue>,
+    prioritized_field_path: Option<&str>,
+) -> Vec<&'a ValidationIssue> {
+    issues.sort_by_key(|issue| {
+        let prioritized_rank = match prioritized_field_path {
+            Some(field_path) if field_path_matches(issue, field_path) => 0,
+            _ if issue.field_path.is_some() => 1,
+            _ => 2,
+        };
+        let severity_rank = match issue.severity {
+            ValidationSeverity::Error => 0,
+            ValidationSeverity::Warning => 1,
+            ValidationSeverity::Info => 2,
+        };
+        (
+            prioritized_rank,
+            severity_rank,
+            issue.field_path.as_deref().unwrap_or(""),
+        )
+    });
+    issues
+}
+
 fn draw_generic_document_metadata_editor(
     ui: &mut egui::Ui,
     loaded_documents: &mut LoadedCustomDocuments,
@@ -172,23 +255,18 @@ fn draw_generic_document_metadata_editor(
     let mut label = parsed.label.clone().unwrap_or_default();
     ui.label("Label");
     if ui.text_edit_singleline(&mut label).changed() {
-        let normalized = label.trim();
-        let value = if normalized.is_empty() {
-            None
-        } else {
-            Some(normalized.to_string())
-        };
-        apply_envelope_update(
+        if let Err(error) = update_loaded_custom_document_label(
             loaded_documents,
             project,
             registry,
-            selected,
-            structured_error,
-            move |document| {
-                document.label = value;
-            },
-        );
+            &selected.kind,
+            &selected.id,
+            Some(label.clone()),
+        ) {
+            *structured_error = Some(format!("Failed to update label: {error}"));
+        }
     }
+    draw_field_issues(ui, loaded_documents, selected, "label");
 
     let mut tags = parsed.tags.join(", ");
     ui.label("Tags (comma separated)");
@@ -210,6 +288,7 @@ fn draw_generic_document_metadata_editor(
             },
         );
     }
+    draw_field_issues(ui, loaded_documents, selected, "tags");
 }
 
 fn draw_document_links_editor(
@@ -493,6 +572,7 @@ fn draw_preview_profile_editor(
             },
         );
     }
+    draw_field_issues(ui, loaded_documents, selected, "payload.scene_id");
 
     let mut story_graph_id = document.payload.story_graph_id.clone().unwrap_or_default();
     ui.horizontal(|ui| {
@@ -531,6 +611,7 @@ fn draw_preview_profile_editor(
             },
         );
     }
+    draw_field_issues(ui, loaded_documents, selected, "payload.story_graph_id");
 
     ui.label(RichText::new("Custom Document Bundle").strong());
     let available_kinds = available_document_kinds(loaded_documents);
@@ -616,6 +697,7 @@ fn draw_preview_profile_editor(
             },
         );
     }
+    draw_field_issues(ui, loaded_documents, selected, "payload.document_refs");
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -630,25 +712,130 @@ enum TableSortDirection {
     Descending,
 }
 
-#[derive(Resource, Debug, Clone)]
-pub struct TableEditorState {
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum TableCellField {
+    Label,
+    Payload(String),
+}
+
+impl TableCellField {
+    fn display_name(&self) -> String {
+        match self {
+            Self::Label => "label".into(),
+            Self::Payload(field_name) => field_name.clone(),
+        }
+    }
+
+    fn field_path(&self) -> String {
+        match self {
+            Self::Label => "label".into(),
+            Self::Payload(field_name) => format!("payload.{field_name}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TableCellRef {
+    row: DocumentRef,
+    field: TableCellField,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ActiveTableCellEdit {
+    cell: TableCellRef,
+    draft_text: String,
+    scalar: Option<CustomDocumentScalarValue>,
+    error_message: Option<String>,
+    focus_requested: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TableCommitFeedback {
+    row: DocumentRef,
+    field_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TableKindState {
     filter_text: String,
     sort_column: TableSortColumn,
     sort_direction: TableSortDirection,
     selected_row: Option<DocumentRef>,
-    last_kind: String,
+    last_commit: Option<TableCommitFeedback>,
 }
 
-impl Default for TableEditorState {
+impl Default for TableKindState {
     fn default() -> Self {
         Self {
             filter_text: String::new(),
             sort_column: TableSortColumn::Id,
             sort_direction: TableSortDirection::Ascending,
             selected_row: None,
-            last_kind: String::new(),
+            last_commit: None,
         }
     }
+}
+
+#[derive(Resource, Debug, Clone, Default)]
+pub struct TableEditorState {
+    kind_states: BTreeMap<String, TableKindState>,
+    active_edit: Option<ActiveTableCellEdit>,
+}
+
+impl TableEditorState {
+    fn active_field_path_for(&self, selected: &DocumentRef) -> Option<String> {
+        self.active_edit.as_ref().and_then(|edit| {
+            if edit.cell.row == *selected {
+                Some(edit.cell.field.field_path())
+            } else {
+                None
+            }
+        })
+    }
+}
+
+fn loaded_document_exists(
+    loaded_documents: &LoadedCustomDocuments,
+    document_ref: &DocumentRef,
+) -> bool {
+    loaded_documents
+        .get(&document_ref.kind, &document_ref.id)
+        .is_some()
+}
+
+fn reconcile_table_kind_state(
+    kind_state: &mut TableKindState,
+    loaded_documents: &LoadedCustomDocuments,
+    kind: &str,
+    preferred_row: Option<&DocumentRef>,
+) {
+    if kind_state
+        .selected_row
+        .as_ref()
+        .is_some_and(|selected_row| {
+            selected_row.kind != kind || !loaded_document_exists(loaded_documents, selected_row)
+        })
+    {
+        kind_state.selected_row = None;
+    }
+
+    if kind_state.selected_row.is_none() {
+        if let Some(preferred_row) = preferred_row.filter(|preferred_row| {
+            preferred_row.kind == kind && loaded_document_exists(loaded_documents, preferred_row)
+        }) {
+            kind_state.selected_row = Some(preferred_row.clone());
+        }
+    }
+}
+
+fn active_edit_is_valid_for_kind(
+    active_edit: &Option<ActiveTableCellEdit>,
+    loaded_documents: &LoadedCustomDocuments,
+    kind: &str,
+) -> bool {
+    active_edit.as_ref().is_some_and(|edit| {
+        edit.cell.row.kind == kind && loaded_document_exists(loaded_documents, &edit.cell.row)
+    })
 }
 
 fn discover_payload_columns(documents: &[&LoadedCustomDocument], max_sample: usize) -> Vec<String> {
@@ -687,17 +874,246 @@ fn payload_cell_text(document: &LoadedCustomDocument, column: &str) -> String {
         .unwrap_or_default()
 }
 
+fn payload_scalar_value(
+    document: &LoadedCustomDocument,
+    column: &str,
+) -> Option<CustomDocumentScalarValue> {
+    document
+        .document
+        .as_ref()
+        .and_then(|parsed| parsed.payload.get(column))
+        .and_then(CustomDocumentScalarValue::from_json_value)
+}
+
+fn scalar_value_text(value: &CustomDocumentScalarValue) -> String {
+    match value {
+        CustomDocumentScalarValue::String(value) => value.clone(),
+        CustomDocumentScalarValue::Number(value) => value.to_string(),
+        CustomDocumentScalarValue::Bool(value) => value.to_string(),
+    }
+}
+
+fn parse_scalar_draft(
+    draft_text: &str,
+    original: &CustomDocumentScalarValue,
+) -> Result<CustomDocumentScalarValue, String> {
+    match original {
+        CustomDocumentScalarValue::String(_) => {
+            Ok(CustomDocumentScalarValue::String(draft_text.to_string()))
+        }
+        CustomDocumentScalarValue::Number(original_number) => {
+            let trimmed = draft_text.trim();
+            if trimmed.is_empty() {
+                return Err("Number fields cannot be blank.".into());
+            }
+
+            if original_number.is_i64() {
+                trimmed
+                    .parse::<i64>()
+                    .map(serde_json::Number::from)
+                    .map(CustomDocumentScalarValue::Number)
+                    .map_err(|error| format!("Invalid integer: {error}"))
+            } else if original_number.is_u64() {
+                trimmed
+                    .parse::<u64>()
+                    .map(serde_json::Number::from)
+                    .map(CustomDocumentScalarValue::Number)
+                    .map_err(|error| format!("Invalid unsigned integer: {error}"))
+            } else {
+                let parsed = trimmed
+                    .parse::<f64>()
+                    .map_err(|error| format!("Invalid decimal number: {error}"))?;
+                serde_json::Number::from_f64(parsed)
+                    .map(CustomDocumentScalarValue::Number)
+                    .ok_or_else(|| "Number must be finite.".into())
+            }
+        }
+        CustomDocumentScalarValue::Bool(_) => match draft_text.trim().to_lowercase().as_str() {
+            "true" => Ok(CustomDocumentScalarValue::Bool(true)),
+            "false" => Ok(CustomDocumentScalarValue::Bool(false)),
+            _ => Err("Bool fields must be 'true' or 'false'.".into()),
+        },
+    }
+}
+
+fn begin_table_cell_edit(
+    active_edit: &mut Option<ActiveTableCellEdit>,
+    row: &DocumentRef,
+    field: TableCellField,
+    draft_text: String,
+    scalar: Option<CustomDocumentScalarValue>,
+) {
+    *active_edit = Some(ActiveTableCellEdit {
+        cell: TableCellRef {
+            row: row.clone(),
+            field,
+        },
+        draft_text,
+        scalar,
+        error_message: None,
+        focus_requested: true,
+    });
+}
+
+fn draw_table_display_cell(
+    ui: &mut egui::Ui,
+    text: impl Into<String>,
+    selected: bool,
+    issue: Option<&ValidationIssue>,
+    hover_hint: Option<&str>,
+) -> egui::Response {
+    let mut label = RichText::new(text.into());
+    if let Some(issue) = issue {
+        label = label.color(validation_issue_color(issue.severity));
+    }
+
+    let response = ui.selectable_label(selected, label);
+    let mut hover_lines = Vec::new();
+    if let Some(issue) = issue {
+        hover_lines.push(format!("{}: {}", issue.code, issue.message));
+    }
+    if let Some(hover_hint) = hover_hint {
+        hover_lines.push(hover_hint.to_string());
+    }
+
+    if hover_lines.is_empty() {
+        response
+    } else {
+        response.on_hover_text(hover_lines.join("\n"))
+    }
+}
+
+fn draw_table_active_editor(
+    ui: &mut egui::Ui,
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: Option<&Project>,
+    registry: &CustomDocumentRegistry,
+    row_ref: &DocumentRef,
+    field: &TableCellField,
+    active_edit: &mut Option<ActiveTableCellEdit>,
+    last_commit: &mut Option<TableCommitFeedback>,
+) {
+    let Some(edit) = active_edit.as_mut() else {
+        return;
+    };
+    if edit.cell.row != *row_ref || edit.cell.field != *field {
+        return;
+    }
+
+    let field_path = field.field_path();
+    let field_issue = first_document_field_issue(loaded_documents, row_ref, &field_path).cloned();
+
+    let editor_response = ui.scope(|ui| {
+        if let Some(issue) = &field_issue {
+            ui.visuals_mut().override_text_color = Some(validation_issue_color(issue.severity));
+        }
+        ui.add(
+            egui::TextEdit::singleline(&mut edit.draft_text)
+                .desired_width(f32::INFINITY)
+                .id_salt(format!(
+                    "table_edit:{}:{}:{}",
+                    row_ref.kind,
+                    row_ref.id,
+                    field.display_name()
+                )),
+        )
+    });
+
+    let mut response = editor_response.inner;
+    if let Some(issue) = &field_issue {
+        response = response.on_hover_text(format!("{}: {}", issue.code, issue.message));
+    }
+    if edit.focus_requested {
+        response.request_focus();
+        edit.focus_requested = false;
+    }
+
+    let escape_pressed =
+        response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Escape));
+    if escape_pressed {
+        *active_edit = None;
+        return;
+    }
+
+    let enter_pressed =
+        response.has_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter));
+    if !(enter_pressed || response.lost_focus()) {
+        return;
+    }
+
+    let Some(project) = project else {
+        edit.error_message = Some("Mounted project is required for table edits.".into());
+        return;
+    };
+
+    let result: Result<(), String> = match field {
+        TableCellField::Label => update_loaded_custom_document_label(
+            loaded_documents,
+            project,
+            registry,
+            &row_ref.kind,
+            &row_ref.id,
+            Some(edit.draft_text.clone()),
+        )
+        .map(|_| ())
+        .map_err(|error| error.to_string()),
+        TableCellField::Payload(field_name) => {
+            let Some(original_scalar) = edit.scalar.as_ref() else {
+                edit.error_message =
+                    Some("Only scalar payload fields are editable in the table.".into());
+                return;
+            };
+            match parse_scalar_draft(&edit.draft_text, original_scalar) {
+                Ok(parsed_scalar) => update_loaded_custom_document_top_level_scalar(
+                    loaded_documents,
+                    project,
+                    registry,
+                    &row_ref.kind,
+                    &row_ref.id,
+                    field_name,
+                    parsed_scalar,
+                )
+                .map(|_| ())
+                .map_err(|error| error.to_string()),
+                Err(error) => Err(error),
+            }
+        }
+    };
+
+    match result {
+        Ok(()) => {
+            *last_commit = Some(TableCommitFeedback {
+                row: row_ref.clone(),
+                field_label: field.display_name(),
+            });
+            *active_edit = None;
+        }
+        Err(error) => {
+            edit.error_message = Some(error);
+        }
+    }
+}
+
 fn draw_table_editor(
     ui: &mut egui::Ui,
-    loaded_documents: &LoadedCustomDocuments,
-    _registry: &CustomDocumentRegistry,
+    loaded_documents: &mut LoadedCustomDocuments,
+    project: Option<&Project>,
+    registry: &CustomDocumentRegistry,
     kind: &str,
+    preferred_row: Option<&DocumentRef>,
     table_state: &mut TableEditorState,
 ) {
-    if table_state.last_kind != kind {
-        table_state.filter_text.clear();
-        table_state.selected_row = None;
-        table_state.last_kind = kind.to_string();
+    let mut kind_state = table_state
+        .kind_states
+        .get(kind)
+        .cloned()
+        .unwrap_or_default();
+    let mut active_edit = table_state.active_edit.clone();
+
+    reconcile_table_kind_state(&mut kind_state, loaded_documents, kind, preferred_row);
+
+    if !active_edit_is_valid_for_kind(&active_edit, loaded_documents, kind) {
+        active_edit = None;
     }
 
     let issue_count = loaded_documents
@@ -719,14 +1135,32 @@ fn draw_table_editor(
         );
     }
 
+    if let Some(last_commit) = &kind_state.last_commit {
+        ui.colored_label(
+            COLOR_PRIMARY,
+            format!(
+                "Updated {} ({})",
+                last_commit.row.id, last_commit.field_label
+            ),
+        );
+    }
+
+    if let Some(error_message) = active_edit
+        .as_ref()
+        .filter(|edit| edit.cell.row.kind == kind)
+        .and_then(|edit| edit.error_message.as_deref())
+    {
+        ui.colored_label(Color32::RED, error_message);
+    }
+
     ui.horizontal(|ui| {
         ui.label("Filter:");
-        ui.text_edit_singleline(&mut table_state.filter_text);
+        ui.text_edit_singleline(&mut kind_state.filter_text);
     });
 
-    let normalized_filter = table_state.filter_text.trim().to_lowercase();
+    let normalized_filter = kind_state.filter_text.trim().to_lowercase();
 
-    let mut rows: Vec<&LoadedCustomDocument> = loaded_documents
+    let mut rows: Vec<LoadedCustomDocument> = loaded_documents
         .documents
         .iter()
         .filter(|document| document.entry.kind == kind)
@@ -756,9 +1190,10 @@ fn draw_table_editor(
             }
             false
         })
+        .cloned()
         .collect();
 
-    match (table_state.sort_column, table_state.sort_direction) {
+    match (kind_state.sort_column, kind_state.sort_direction) {
         (TableSortColumn::Id, TableSortDirection::Ascending) => {
             rows.sort_by(|a, b| a.entry.id.cmp(&b.entry.id));
         }
@@ -805,9 +1240,10 @@ fn draw_table_editor(
     ui.label(format!("{} of {} documents", rows.len(), total,));
     ui.add_space(4.0);
 
-    let payload_columns = discover_payload_columns(&rows, 20);
+    let sampled_rows: Vec<_> = rows.iter().collect();
+    let payload_columns = discover_payload_columns(&sampled_rows, 20);
 
-    fn sort_arrow(state: &TableEditorState, col: TableSortColumn) -> &'static str {
+    fn sort_arrow(state: &TableKindState, col: TableSortColumn) -> &'static str {
         if state.sort_column == col {
             match state.sort_direction {
                 TableSortDirection::Ascending => " ^",
@@ -818,8 +1254,8 @@ fn draw_table_editor(
         }
     }
 
-    let id_header = format!("id{}", sort_arrow(table_state, TableSortColumn::Id));
-    let label_header = format!("label{}", sort_arrow(table_state, TableSortColumn::Label));
+    let id_header = format!("id{}", sort_arrow(&kind_state, TableSortColumn::Id));
+    let label_header = format!("label{}", sort_arrow(&kind_state, TableSortColumn::Label));
 
     // Fixed columns: id, label. Then up to 6 payload columns.
     let visible_payload_columns: Vec<&str> = payload_columns
@@ -829,7 +1265,7 @@ fn draw_table_editor(
         .map(String::as_str)
         .collect();
 
-    let total_columns = 2 + visible_payload_columns.len();
+    let total_columns = 3 + visible_payload_columns.len();
 
     let mut clicked_sort: Option<TableSortColumn> = None;
 
@@ -851,6 +1287,7 @@ fn draw_table_editor(
                     for col in &visible_payload_columns {
                         ui.label(RichText::new(*col).strong());
                     }
+                    ui.label(RichText::new("status").strong());
                     ui.end_row();
 
                     // Data rows
@@ -859,51 +1296,176 @@ fn draw_table_editor(
                             kind: document.entry.kind.clone(),
                             id: document.entry.id.clone(),
                         };
-                        let is_selected = table_state.selected_row.as_ref() == Some(&row_ref);
+                        let is_selected = kind_state.selected_row.as_ref() == Some(&row_ref);
 
-                        if ui
-                            .selectable_label(is_selected, &document.entry.id)
-                            .clicked()
-                        {
-                            table_state.selected_row = Some(row_ref.clone());
+                        let id_response = draw_table_display_cell(
+                            ui,
+                            &document.entry.id,
+                            is_selected,
+                            None,
+                            None,
+                        );
+                        if id_response.clicked() {
+                            if kind_state.selected_row.as_ref() != Some(&row_ref) {
+                                active_edit = None;
+                            }
+                            kind_state.selected_row = Some(row_ref.clone());
                         }
 
-                        let label = document
+                        let label_field = TableCellField::Label;
+                        let label_path = label_field.field_path();
+                        let label_issue =
+                            first_document_field_issue(loaded_documents, &row_ref, &label_path);
+                        let label_text = document
                             .document
                             .as_ref()
-                            .and_then(|d| d.label.as_deref())
-                            .unwrap_or("");
-                        if ui.selectable_label(is_selected, label).clicked() {
-                            table_state.selected_row = Some(row_ref.clone());
+                            .and_then(|d| d.label.clone())
+                            .unwrap_or_default();
+                        let label_is_active = active_edit
+                            .as_ref()
+                            .is_some_and(|edit| edit.cell.row == row_ref && edit.cell.field == label_field);
+
+                        if is_selected && label_is_active {
+                            draw_table_active_editor(
+                                ui,
+                                loaded_documents,
+                                project,
+                                registry,
+                                &row_ref,
+                                &label_field,
+                                &mut active_edit,
+                                &mut kind_state.last_commit,
+                            );
+                        } else {
+                            let label_response = draw_table_display_cell(
+                                ui,
+                                if label_text.is_empty() {
+                                    "<label>".to_string()
+                                } else {
+                                    label_text
+                                },
+                                is_selected,
+                                label_issue,
+                                is_selected.then_some("Click again to edit this field."),
+                            );
+                            if label_response.clicked() {
+                                let was_selected = is_selected;
+                                if kind_state.selected_row.as_ref() != Some(&row_ref) {
+                                    active_edit = None;
+                                }
+                                kind_state.selected_row = Some(row_ref.clone());
+                                if was_selected && project.is_some() {
+                                    begin_table_cell_edit(
+                                        &mut active_edit,
+                                        &row_ref,
+                                        label_field.clone(),
+                                        document
+                                            .document
+                                            .as_ref()
+                                            .and_then(|parsed| parsed.label.clone())
+                                            .unwrap_or_default(),
+                                        None,
+                                    );
+                                }
+                            }
                         }
 
                         for col in &visible_payload_columns {
-                            let text = payload_cell_text(document, col);
-                            let truncated = if text.len() > 32 {
-                                format!("{}...", &text[..29])
+                            let payload_field = TableCellField::Payload((*col).to_string());
+                            let payload_path = payload_field.field_path();
+                            let payload_issue = first_document_field_issue(
+                                loaded_documents,
+                                &row_ref,
+                                &payload_path,
+                            );
+                            let payload_text = payload_cell_text(document, col);
+                            let truncated = if payload_text.len() > 32 {
+                                format!("{}...", &payload_text[..29])
                             } else {
-                                text
+                                payload_text
                             };
-                            if ui.selectable_label(is_selected, truncated).clicked() {
-                                table_state.selected_row = Some(row_ref.clone());
+                            let editable_scalar = payload_scalar_value(document, col);
+                            let payload_is_active = active_edit.as_ref().is_some_and(|edit| {
+                                edit.cell.row == row_ref && edit.cell.field == payload_field
+                            });
+
+                            if is_selected && payload_is_active {
+                                draw_table_active_editor(
+                                    ui,
+                                    loaded_documents,
+                                    project,
+                                    registry,
+                                    &row_ref,
+                                    &payload_field,
+                                    &mut active_edit,
+                                    &mut kind_state.last_commit,
+                                );
+                            } else {
+                                let hover_hint = if editable_scalar.is_some() && is_selected {
+                                    Some("Click again to edit this field.")
+                                } else if editable_scalar.is_none() {
+                                    Some("Read-only in the table. Use the inspector for nested fields.")
+                                } else {
+                                    None
+                                };
+                                let payload_response = draw_table_display_cell(
+                                    ui,
+                                    truncated,
+                                    is_selected,
+                                    payload_issue,
+                                    hover_hint,
+                                );
+                                if payload_response.clicked() {
+                                    let was_selected = is_selected;
+                                    if kind_state.selected_row.as_ref() != Some(&row_ref) {
+                                        active_edit = None;
+                                    }
+                                    kind_state.selected_row = Some(row_ref.clone());
+                                    if was_selected {
+                                        if let Some(scalar) = editable_scalar {
+                                            begin_table_cell_edit(
+                                                &mut active_edit,
+                                                &row_ref,
+                                                payload_field.clone(),
+                                                scalar_value_text(&scalar),
+                                                Some(scalar),
+                                            );
+                                        }
+                                    }
+                                }
                             }
                         }
+
+                        let status_text = kind_state
+                            .last_commit
+                            .as_ref()
+                            .filter(|last_commit| last_commit.row == row_ref)
+                            .map(|last_commit| format!("updated {}", last_commit.field_label))
+                            .unwrap_or_default();
+                        ui.label(
+                            RichText::new(status_text)
+                                .color(COLOR_PRIMARY)
+                                .small(),
+                        );
                         ui.end_row();
                     }
                 });
         });
 
     if let Some(col) = clicked_sort {
-        if table_state.sort_column == col {
-            table_state.sort_direction = match table_state.sort_direction {
+        if kind_state.sort_column == col {
+            kind_state.sort_direction = match kind_state.sort_direction {
                 TableSortDirection::Ascending => TableSortDirection::Descending,
                 TableSortDirection::Descending => TableSortDirection::Ascending,
             };
         } else {
-            table_state.sort_column = col;
-            table_state.sort_direction = TableSortDirection::Ascending;
+            kind_state.sort_column = col;
+            kind_state.sort_direction = TableSortDirection::Ascending;
         }
     }
+
+    table_state.kind_states.insert(kind.to_string(), kind_state);
+    table_state.active_edit = active_edit;
 }
 
 fn draw_document_inspector(
@@ -913,6 +1475,7 @@ fn draw_document_inspector(
     project: Option<&Project>,
     registry: &CustomDocumentRegistry,
     extensions: &EditorExtensionRegistry,
+    prioritized_field_path: Option<&str>,
 ) {
     world.resource_scope::<LoadedCustomDocuments, _>(|_, mut loaded_documents| {
         let Some(document) = loaded_documents
@@ -1059,17 +1622,23 @@ fn draw_document_inspector(
             }
         }
 
-        let issues = loaded_documents.issues_for(&selected_ref.kind, &selected_ref.id);
+        let issues = prioritize_document_issues(
+            loaded_documents.issues_for(&selected_ref.kind, &selected_ref.id),
+            prioritized_field_path,
+        );
         if !issues.is_empty() {
             ui.separator();
             ui.label(RichText::new("Validation Issues").strong());
             for issue in issues {
-                let color = match issue.severity {
-                    crate::data::ValidationSeverity::Error => Color32::RED,
-                    crate::data::ValidationSeverity::Warning => COLOR_SECONDARY,
-                    crate::data::ValidationSeverity::Info => Color32::GRAY,
-                };
-                ui.colored_label(color, format!("{}: {}", issue.code, issue.message));
+                let field_prefix = issue
+                    .field_path
+                    .as_deref()
+                    .map(|field_path| format!("{field_path}: "))
+                    .unwrap_or_default();
+                ui.colored_label(
+                    validation_issue_color(issue.severity),
+                    format!("{field_prefix}{}: {}", issue.code, issue.message),
+                );
             }
         }
     });
@@ -1612,21 +2181,31 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
                 world.insert_resource(TableEditorState::default());
             }
             world.resource_scope::<TableEditorState, _>(|world, mut table_state| {
-                world.resource_scope::<LoadedCustomDocuments, _>(|_, loaded_documents| {
+                world.resource_scope::<LoadedCustomDocuments, _>(|_, mut loaded_documents| {
                     draw_table_editor(
                         ui,
-                        &loaded_documents,
+                        &mut loaded_documents,
+                        project.as_ref(),
                         &registry,
                         &selected_custom_document.kind,
+                        Some(&selected_custom_document),
                         &mut table_state,
                     );
                 });
             });
 
             // Show inspector for the table's selected row below the table.
-            let inspect_ref = world
-                .get_resource::<TableEditorState>()
-                .and_then(|state| state.selected_row.clone());
+            let inspect_ref = world.get_resource::<TableEditorState>().and_then(|state| {
+                state
+                    .kind_states
+                    .get(&selected_custom_document.kind)
+                    .and_then(|kind_state| kind_state.selected_row.clone())
+            });
+            let prioritized_field_path = inspect_ref.as_ref().and_then(|inspect_ref| {
+                world
+                    .get_resource::<TableEditorState>()
+                    .and_then(|state| state.active_field_path_for(inspect_ref))
+            });
 
             if let Some(inspect_ref) = inspect_ref {
                 ui.separator();
@@ -1637,6 +2216,7 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
                     project.as_ref(),
                     &registry,
                     &extensions,
+                    prioritized_field_path.as_deref(),
                 );
             }
 
@@ -1650,6 +2230,7 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
             project.as_ref(),
             &registry,
             &extensions,
+            None,
         );
         return;
     }
@@ -1788,5 +2369,143 @@ pub(crate) fn draw_central_panel(ui: &mut egui::Ui, world: &mut World) {
         EditorView::StoryGraph => {
             draw_story_graph(ui, world);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::{CustomDocument, CustomDocumentEntry};
+    use serde_json::json;
+
+    fn make_loaded_document(id: &str, payload: serde_json::Value) -> LoadedCustomDocument {
+        LoadedCustomDocument {
+            entry: CustomDocumentEntry {
+                kind: "abilities".into(),
+                id: id.into(),
+                path: format!("abilities/{id}.json"),
+                schema_version: 1,
+                editor_route: EditorDocumentRoute::Table,
+                tags: Vec::new(),
+            },
+            raw_json: String::new(),
+            document: Some(CustomDocument {
+                kind: "abilities".into(),
+                id: id.into(),
+                schema_version: 1,
+                label: Some(id.into()),
+                tags: Vec::new(),
+                references: Vec::new(),
+                payload,
+            }),
+            parse_error: None,
+            resolved_route: EditorDocumentRoute::Table,
+        }
+    }
+
+    #[test]
+    fn test_payload_scalar_value_only_allows_string_number_and_bool() {
+        let scalar_document = make_loaded_document(
+            "fireball",
+            json!({
+                "name": "Fireball",
+                "power": 10,
+                "enabled": true
+            }),
+        );
+        let nested_document = make_loaded_document(
+            "icewall",
+            json!({
+                "stats": { "power": 5 },
+                "tags": ["ice"]
+            }),
+        );
+
+        assert_eq!(
+            payload_scalar_value(&scalar_document, "name"),
+            Some(CustomDocumentScalarValue::String("Fireball".into()))
+        );
+        assert_eq!(
+            payload_scalar_value(&scalar_document, "power"),
+            Some(CustomDocumentScalarValue::Number(serde_json::Number::from(
+                10
+            )))
+        );
+        assert_eq!(
+            payload_scalar_value(&scalar_document, "enabled"),
+            Some(CustomDocumentScalarValue::Bool(true))
+        );
+        assert!(payload_scalar_value(&nested_document, "stats").is_none());
+        assert!(payload_scalar_value(&nested_document, "tags").is_none());
+    }
+
+    #[test]
+    fn test_field_path_matches_exact_and_nested_payload_paths() {
+        let direct_issue = ValidationIssue {
+            severity: ValidationSeverity::Error,
+            code: "bad_label".into(),
+            source_kind: Some("abilities".into()),
+            source_id: Some("fireball".into()),
+            field_path: Some("label".into()),
+            message: "Label mismatch".into(),
+            related_refs: Vec::new(),
+        };
+        let nested_issue = ValidationIssue {
+            severity: ValidationSeverity::Error,
+            code: "broken_ref".into(),
+            source_kind: Some("abilities".into()),
+            source_id: Some("fireball".into()),
+            field_path: Some("payload.loot[0].item".into()),
+            message: "Broken item ref".into(),
+            related_refs: Vec::new(),
+        };
+
+        assert!(field_path_matches(&direct_issue, "label"));
+        assert!(field_path_matches(&nested_issue, "payload.loot"));
+        assert!(!field_path_matches(&nested_issue, "payload.stats"));
+    }
+
+    #[test]
+    fn test_reconcile_table_kind_state_preserves_selection_filter_and_sort_on_reload() {
+        let selected_row = DocumentRef {
+            kind: "abilities".into(),
+            id: "fireball".into(),
+        };
+        let mut kind_state = TableKindState {
+            filter_text: "fire".into(),
+            sort_column: TableSortColumn::Label,
+            sort_direction: TableSortDirection::Descending,
+            selected_row: Some(selected_row.clone()),
+            last_commit: None,
+        };
+        let loaded_documents = LoadedCustomDocuments {
+            manifest_path: None,
+            manifest: None,
+            documents: vec![
+                make_loaded_document("fireball", json!({ "power": 10 })),
+                make_loaded_document("flare", json!({ "power": 4 })),
+            ],
+            issues: Vec::new(),
+        };
+
+        reconcile_table_kind_state(&mut kind_state, &loaded_documents, "abilities", None);
+
+        assert_eq!(kind_state.filter_text, "fire");
+        assert_eq!(kind_state.sort_column, TableSortColumn::Label);
+        assert_eq!(kind_state.sort_direction, TableSortDirection::Descending);
+        assert_eq!(kind_state.selected_row, Some(selected_row.clone()));
+
+        let reloaded_documents = LoadedCustomDocuments {
+            manifest_path: None,
+            manifest: None,
+            documents: vec![
+                make_loaded_document("fireball", json!({ "power": 12 })),
+                make_loaded_document("flare", json!({ "power": 6 })),
+            ],
+            issues: Vec::new(),
+        };
+        reconcile_table_kind_state(&mut kind_state, &reloaded_documents, "abilities", None);
+        assert_eq!(kind_state.selected_row, Some(selected_row));
+        assert_eq!(kind_state.filter_text, "fire");
     }
 }
