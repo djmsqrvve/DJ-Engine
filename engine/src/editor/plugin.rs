@@ -133,6 +133,9 @@ impl Plugin for EditorPlugin {
             .init_resource::<EditorExtensionRegistry>()
             .init_resource::<super::extensions::SelectedPreviewPreset>()
             .init_resource::<super::extensions::ToolbarActionQueue>()
+            .init_resource::<super::tutorial::TutorialState>()
+            .init_resource::<super::panel_export::PanelExportRequest>()
+            .init_resource::<super::panel_export::PanelExportResult>()
             .add_systems(Startup, super::scene_io::load_initial_project_system)
             .add_systems(EguiPrimaryContextPass, configure_visuals_system)
             .add_systems(EguiPrimaryContextPass, super::editor_ui_system)
@@ -141,6 +144,7 @@ impl Plugin for EditorPlugin {
                 (
                     poll_runtime_preview_process_system,
                     refresh_editor_dirty_state,
+                    super::panel_export::process_panel_export_system,
                 ),
             );
 

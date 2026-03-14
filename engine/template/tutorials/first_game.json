@@ -1,0 +1,53 @@
+{
+  "name": "Make Your First Game",
+  "steps": [
+    {
+      "title": "Welcome to DJ Engine",
+      "body": "This tutorial walks you through making your first game.\n\nYou'll learn where everything lives in the editor, place entities on a scene, write dialogue in the story graph, and preview your game.\n\nClick Next to begin.",
+      "target": "FullScreen",
+      "completion": "Manual"
+    },
+    {
+      "title": "The Menu Bar",
+      "body": "This is the menu bar.\n\n- File: Save and load projects\n- View selector: Switch between Level Editor and Story Graph\n- Play button: Launch the runtime preview\n\nClick Next to continue.",
+      "target": "TopPanel",
+      "completion": "Manual"
+    },
+    {
+      "title": "The Browser Panel",
+      "body": "The left panel has four tabs:\n\n- Palette: Select objects to paint on the grid\n- Hierarchy: Scene entity tree\n- Files: Browse project assets\n- Docs: Custom data documents\n\nClick Next to continue.",
+      "target": "LeftPanel",
+      "completion": "Manual"
+    },
+    {
+      "title": "Place an Entity",
+      "body": "Let's place something on the scene!\n\n1. Click the Palette tab in the left panel\n2. Select a tile type (e.g. Terrain)\n3. Click anywhere on the grid\n\nThis step completes automatically when you place an entity.",
+      "target": "CentralPanel",
+      "completion": "EntityPlaced"
+    },
+    {
+      "title": "Switch to Story Graph",
+      "body": "Now let's look at the narrative editor.\n\nClick the Story Graph view selector in the menu bar (the button that says Story Graph).\n\nThis step completes automatically when you switch views.",
+      "target": "TopPanel",
+      "completion": { "ViewChanged": "StoryGraph" }
+    },
+    {
+      "title": "Select a Story Node",
+      "body": "This is the story graph editor. Each node is a narrative beat.\n\nThe starter project has a simple graph:\nStart -> Dialogue -> End\n\nClick on any node to select it.\n\nThis step completes automatically when you select a node.",
+      "target": "CentralPanel",
+      "completion": "NodeSelected"
+    },
+    {
+      "title": "The Inspector",
+      "body": "The right panel is the inspector. It shows properties of whatever you've selected.\n\nWith a story node selected, you can edit:\n- Node position\n- Speaker ID and dialogue text\n- Target scene for End nodes\n\nTry editing the dialogue text, then click Next.",
+      "target": "RightPanel",
+      "completion": "Manual"
+    },
+    {
+      "title": "Run Your Game",
+      "body": "You're ready to preview!\n\nClick the Play button in the menu bar to launch the runtime preview. It opens in a separate window.\n\nThat's the basics. From here you can:\n- Add more entities and scenes\n- Build branching story graphs\n- Import custom data documents\n\nClick Done to close this tutorial.",
+      "target": "FullScreen",
+      "completion": "Manual"
+    }
+  ]
+}

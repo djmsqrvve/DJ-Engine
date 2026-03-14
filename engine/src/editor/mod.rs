@@ -3,11 +3,13 @@
 //! Provides a professional game development environment using Egui.
 
 mod extensions;
+pub mod panel_export;
 pub(crate) mod panels;
 mod plugin;
 mod property_widgets;
 pub(crate) mod scene_io;
 mod table;
+pub mod tutorial;
 pub(crate) mod types;
 pub mod validation;
 pub(crate) mod views;
@@ -40,7 +42,7 @@ pub(crate) fn editor_ui_system(world: &mut World) {
         egui_context.get_mut().clone()
     };
 
-    egui::TopBottomPanel::top("top_panel").show(&egui_ctx, |ui| {
+    let top_resp = egui::TopBottomPanel::top("top_panel").show(&egui_ctx, |ui| {
         panels::draw_top_menu(ui, world);
     });
 
@@ -50,13 +52,13 @@ pub(crate) fn editor_ui_system(world: &mut World) {
 
     panels::draw_pending_project_action_window(&egui_ctx, world);
 
-    egui::SidePanel::left("left_panel")
+    let left_resp = egui::SidePanel::left("left_panel")
         .default_width(250.0)
         .show(&egui_ctx, |ui| {
             panels::draw_left_panel(ui, world);
         });
 
-    egui::SidePanel::right("right_panel")
+    let right_resp = egui::SidePanel::right("right_panel")
         .default_width(300.0)
         .show(&egui_ctx, |ui| {
             panels::draw_right_panel(ui, world);
@@ -69,9 +71,13 @@ pub(crate) fn editor_ui_system(world: &mut World) {
         egui::Frame::central_panel(&egui_ctx.style())
     };
 
-    egui::CentralPanel::default()
+    let central_resp = egui::CentralPanel::default()
         .frame(central_frame)
         .show(&egui_ctx, |ui| {
             panels::draw_central_panel(ui, world);
         });
+
+    // Tutorial overlay (drawn last, on top of everything).
+    tutorial::update_panel_rects(world, &top_resp, &left_resp, &right_resp, &central_resp);
+    tutorial::draw_tutorial_overlay(&egui_ctx, world);
 }

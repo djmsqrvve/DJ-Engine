@@ -27,6 +27,37 @@ use bevy_inspector_egui::bevy_inspector;
 use std::fs;
 use std::path::Path;
 
+use super::panel_export::{PanelExportKind, PanelExportRequest, PanelExportResult};
+
+/// Draw a small "Export" button aligned right. Returns true if clicked.
+fn draw_export_button(ui: &mut egui::Ui) -> bool {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.small_button(RichText::new("Export").color(COLOR_SECONDARY))
+            .clicked()
+    })
+    .inner
+}
+
+/// Show a transient export result message if one exists.
+fn show_export_feedback(ui: &mut egui::Ui, world: &World) {
+    if let Some(result) = world.get_resource::<PanelExportResult>() {
+        if let Some(msg) = &result.message {
+            let color = if result.is_error {
+                Color32::from_rgb(255, 100, 100)
+            } else {
+                Color32::from_rgb(100, 255, 180)
+            };
+            ui.label(RichText::new(msg).small().color(color));
+        }
+    }
+}
+
+fn request_export(world: &mut World, kind: PanelExportKind) {
+    if let Some(mut req) = world.get_resource_mut::<PanelExportRequest>() {
+        req.pending = Some(kind);
+    }
+}
+
 fn log_console(world: &mut World, message: impl Into<String>) {
     if let Some(mut store) = world.get_resource_mut::<ConsoleLogStore>() {
         store.log(message.into());
@@ -1154,6 +1185,16 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
             }
         }
 
+        // Tutorial button.
+        ui.add_space(10.0);
+        if ui
+            .button(RichText::new("Tutorial").color(COLOR_SECONDARY))
+            .clicked()
+        {
+            let mut tut_state = world.resource_mut::<super::tutorial::TutorialState>();
+            super::tutorial::start_first_game_tutorial(&mut tut_state);
+        }
+
         ui.add_space(10.0);
         ui.separator();
 
@@ -1267,6 +1308,7 @@ pub(crate) fn draw_pending_project_action_window(ctx: &egui::Context, world: &mu
 }
 
 pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
+    let mut deferred_export: Option<PanelExportKind> = None;
     world.resource_scope::<EditorUiState, _>(|world, mut ui_state| {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
@@ -1295,7 +1337,12 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
             }
             BrowserTab::Assets => {
                 ui.add_space(5.0);
-                ui.label(RichText::new("ASSET BROWSER").strong().color(COLOR_PRIMARY));
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("ASSET BROWSER").strong().color(COLOR_PRIMARY));
+                    if draw_export_button(ui) {
+                        deferred_export = Some(PanelExportKind::AssetListing);
+                    }
+                });
                 ui.add_space(5.0);
                 let mut query = ui_state.asset_search_query.clone();
                 ui.text_edit_singleline(&mut query);
@@ -1361,11 +1408,23 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
             }
             BrowserTab::Documents => {
                 ui.add_space(5.0);
-                ui.label(
-                    RichText::new("CUSTOM DOCUMENTS")
-                        .strong()
-                        .color(COLOR_PRIMARY),
-                );
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("CUSTOM DOCUMENTS")
+                            .strong()
+                            .color(COLOR_PRIMARY),
+                    );
+                    if draw_export_button(ui) {
+                        let filter = if ui_state.custom_document_kind_filter == "all" {
+                            None
+                        } else {
+                            Some(ui_state.custom_document_kind_filter.clone())
+                        };
+                        deferred_export = Some(PanelExportKind::Documents {
+                            kind_filter: filter,
+                        });
+                    }
+                });
                 ui.add_space(5.0);
                 ui.label(RichText::new("Search").italics());
                 ui.text_edit_singleline(&mut ui_state.custom_document_search_query);
@@ -1443,11 +1502,40 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
             }
         }
     });
+    if let Some(export) = deferred_export {
+        request_export(world, export);
+    }
+    show_export_feedback(ui, world);
 }
 
 pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
     ui.add_space(5.0);
-    ui.label(RichText::new("INSPECTOR").strong().color(COLOR_PRIMARY));
+    let export_clicked = {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("INSPECTOR").strong().color(COLOR_PRIMARY));
+            draw_export_button(ui)
+        })
+        .inner
+    };
+
+    if export_clicked {
+        let state = world.resource::<EditorUiState>();
+        if state.current_view == EditorView::StoryGraph {
+            request_export(world, PanelExportKind::StoryGraph);
+        } else if let Some(doc_ref) = state.selected_custom_document.clone() {
+            request_export(
+                world,
+                PanelExportKind::DocumentInspector {
+                    kind: doc_ref.kind,
+                    id: doc_ref.id,
+                },
+            );
+        } else {
+            request_export(world, PanelExportKind::Scene);
+        }
+    }
+    show_export_feedback(ui, world);
+
     ui.add_space(5.0);
     ui.separator();
 
@@ -1630,6 +1718,12 @@ pub(crate) fn draw_console_window(ctx: &egui::Context, world: &mut World) {
                             store.logs.clear();
                         }
                     }
+                    if ui
+                        .small_button(RichText::new("Export").color(COLOR_SECONDARY))
+                        .clicked()
+                    {
+                        request_export(world, PanelExportKind::Console);
+                    }
                 });
             });
             ui.separator();
@@ -1714,6 +1808,17 @@ pub(crate) fn draw_central_panel(ui: &mut egui::Ui, world: &mut World) {
         draw_welcome_screen(ui, world);
         return;
     }
+
+    let current_view = world.resource::<EditorUiState>().current_view.clone();
+    ui.horizontal(|ui| {
+        if draw_export_button(ui) {
+            match current_view {
+                EditorView::Level => request_export(world, PanelExportKind::Scene),
+                EditorView::StoryGraph => request_export(world, PanelExportKind::StoryGraph),
+            }
+        }
+    });
+    show_export_feedback(ui, world);
 
     let ui_state = world.resource::<EditorUiState>();
     match ui_state.current_view {
