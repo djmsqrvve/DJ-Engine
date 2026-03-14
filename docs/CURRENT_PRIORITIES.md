@@ -74,20 +74,19 @@ Current state:
 - The editor top menu renders a Tools dropdown (when actions are registered) and
   a preset selector ComboBox (when >1 preset is registered)
 
-Gap:
+Recent progress:
 
-- Toolbar action handlers are not yet wired — the queue is populated but no
-  system drains it to perform work (e.g. actually re-running the Helix import)
-- Custom panel draw callbacks are metadata-only; registered panels don't yet
-  render game-provided UI
-- Preview preset selection doesn't yet influence runtime preview launch arguments
+- Toolbar action handlers are now wired — `ToolbarActionFired` fires queued
+  actions and game plugins can respond (e.g. Helix re-import)
+- Custom panel draw callbacks render game-provided UI inside the shell
+- Preview preset selection feeds into runtime preview launch arguments
+- The editor also gained a panel data export system and an interactive
+  tutorial overlay with JSON-driven steps and auto-advance
 
-What the engine needs next:
+Remaining gap:
 
-- wire toolbar action handlers so game plugins can respond to queued actions
-- custom panel draw callbacks that run game-provided UI inside the shell
-- preview preset selection that feeds into runtime preview launch flow
-- broader coverage of the extension API (multiple games, multiple action types)
+- Broader coverage of the extension API across multiple games and action types
+- Custom panel draw callbacks need more real consumers beyond Helix
 
 Why this matters:
 
@@ -113,6 +112,7 @@ Gap:
 
 What the engine needs next:
 
+- broader extension API coverage (more games, more action types)
 - better preview-profile-driven boot flows
 - clearer status/error reporting when startup content is missing or invalid
 - stronger bridging from loaded custom documents into game-side runtime plugins

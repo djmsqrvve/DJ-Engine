@@ -9,7 +9,7 @@ planning in one file.
 DJ Engine now has:
 
 - an engine-first launch surface (`make dev`, `make preview`, `make game`)
-- a manifest-driven editor shell
+- a manifest-driven editor shell with new-game scaffolding (`make new-game`)
 - a separate engine-owned runtime preview path
 - project-scoped preview saves and continue flow
 - snapshot-based editor dirty tracking and guarded reloads
@@ -18,6 +18,13 @@ DJ Engine now has:
   inline top-level scalar editing for record-heavy document kinds (abilities,
   items, mobs), and a recursive property inspector for nested object/array
   payload fields
+- a working editor extension seam: toolbar action dispatch, preview preset
+  selection, and custom panel registration (Helix data plugin is the first
+  real consumer)
+- structured panel data export for all editor surfaces (documents, scene,
+  story graph, console, assets)
+- an interactive tutorial overlay system with JSON-driven step definitions,
+  panel highlighting, and auto-advance on user actions
 
 That gives the repo a solid reusable foundation. The biggest remaining gaps are
 no longer about basic launchability; they are about authoring depth, extension
@@ -41,11 +48,12 @@ Short version:
   recursive nested property editing in the inspector. The remaining authoring
   gap is graph-style editing for relationship-heavy document kinds.
 - Runtime preview is still a baseline playable loop.
-- Editor extension seams now have working toolbar action dispatch (resource
-  queue), preview preset selection, and custom panel registration. The Helix
-  data plugin registers a toolbar action and preview preset as the first
-  real consumer. Remaining gap is wiring action handlers (e.g. re-import)
-  and custom panel draw callbacks.
+- Editor extension seams are now fully wired: toolbar action handlers dispatch
+  queued actions, preview preset selection feeds into runtime launch, and
+  custom panel draw callbacks render game-provided UI. The Helix data plugin
+  is the first real consumer.
+- The editor now has a panel data export system and an interactive tutorial
+  overlay. Entity placement auto-selects the placed entity.
 - Current docs are much cleaner now, but some older planning/spec artifacts are
   still historical rather than fully reconciled with the present repo shape.
 

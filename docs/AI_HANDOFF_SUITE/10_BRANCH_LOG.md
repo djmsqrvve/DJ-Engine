@@ -10,17 +10,17 @@ branches so branch intent does not get lost between sessions.
 
 | Branch | Checkpoint | Purpose | Status | Next Action |
 |--------|------------|---------|--------|-------------|
-| `main` | `ad8257e` | Current integration branch | Active. `main` contains inline table editing and safe mutation helpers. The current worktree adds table.rs extraction, nested property editing (inspector + data layer), nested round-trip integration tests, and editor extension wiring (toolbar actions via resource queue, preview preset selector, Helix registrations). | Wire toolbar action handlers, custom panel draw callbacks, preview preset launch integration, graph editing for relationship-heavy kinds, and runtime preview robustness. |
+| `main` | `66a60c4` | Current integration branch | Active. `main` contains nested property editing, editor extension wiring (toolbar action handlers, preset launch, custom panels), new-game scaffolding, panel data export, interactive tutorial overlay, and entity placement auto-selection. | Graph editing for relationship-heavy kinds, multiple tutorial support, tutorial polish (animations, persistence), runtime preview robustness. |
 | `checkpoint/phase3-phase4-save-crt` | `1d61b7e` | Save/load and CRT checkpoint branch | Parked checkpoint branch. | Keep as recovery/reference point unless resumed for save/load or CRT-specific work. |
 | `feat/phase5-custom-aabb-collision` | `74505d0` | Collision prototype branch | Feature branch exists with custom AABB collision and trigger interaction work. | Revisit when Phase 5 becomes active or when collision decisions need comparison against `main`. |
 | `refactor/phase6-data-api-cleanup` | `7c3602c` | Data/API cleanup refactor branch | Matches `main` tip right now. | Use when Phase 6 data cleanup starts; otherwise leave parked. |
 
 ## Planned Next Work
 
-The immediate follow-up order after the 2026-03-13 inline table-editing slice is:
+The immediate follow-up order after the 2026-03-13 afternoon session is:
 
-1. Expand the generic authoring surface beyond top-level scalar table edits into nested/object/list editing, graph tooling, and broader reference-aware property inspection.
-2. Turn the editor extension registry from metadata-only registration into real UI/runtime seams: toolbar actions, preview preset selection, and useful custom panels.
+1. Graph editing for relationship-heavy document kinds (the main remaining authoring gap).
+2. Multiple tutorial support: tutorial selection dialog, completion persistence, polish (animations, arrow pointers).
 3. Continue generic runtime preview behavior beyond the current `Title -> Dialogue -> Overworld` baseline while keeping DoomExe-specific gameplay systems outside the engine crate.
 4. Keep current docs aligned with the live engine-first workflow as new authoring/runtime features land.
 
@@ -45,4 +45,6 @@ The immediate follow-up order after the 2026-03-13 inline table-editing slice is
 - 2026-03-11: Landed integration commit `85f32fe` (`feat: add structured custom document editing`) adding structured custom-document metadata editing, editable reference-link pickers, and a typed `preview_profiles` editor on top of the raw JSON custom-document browser.
 - 2026-03-13: Landed integration commit `c3a11a2` (`feat: add table editor and helix data plugin with import pipeline`) adding the generic table route/browser, the Helix data bridge/import loop, and table-route registry coverage.
 - 2026-03-13: Landed integration commit `ad8257e` (`feat: inline table editing, safe mutation helpers, helix round-trip tests`) adding inline editing for table-route label/top-level scalar fields, field-targeted validation cues, and Helix save/reload/index round-trip coverage.
-- 2026-03-13: Current worktree extends `ad8257e` with table.rs extraction, nested path mutation helper (`update_loaded_custom_document_nested_value`), recursive property inspector widget (`property_widgets.rs`), nested edit round-trip integration test, and editor extension wiring (ToolbarActionQueue, SelectedPreviewPreset, Tools menu, preset selector, Helix registrations).
+- 2026-03-13: Landed commits `8ba6a76` through `e4daa35` covering nested property editing, table.rs extraction, editor extension wiring (toolbar action handlers, preset launch, custom panels), and new-game scaffolding with starter templates.
+- 2026-03-13: Landed commit `66a60c4` (`feat: panel data export system and interactive tutorial overlay`) adding structured panel data export for all editor surfaces and a JSON-driven tutorial overlay with panel highlighting and auto-advance.
+- 2026-03-13: Entity placement in `draw_grid` now auto-selects the placed entity via `select_replace()`, fixing the tutorial `EntityPlaced` completion condition.

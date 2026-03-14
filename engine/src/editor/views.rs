@@ -63,15 +63,21 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                     _ => Color::WHITE,
                 };
 
-                world.spawn((
-                    Name::new(format!("{} [{:.0}, {:.0}]", item, snap_x, snap_y)),
-                    Sprite {
-                        color,
-                        custom_size: Some(Vec2::new(30.0, 30.0)),
-                        ..default()
-                    },
-                    Transform::from_xyz(snap_x, snap_y, 0.0),
-                ));
+                let entity = world
+                    .spawn((
+                        Name::new(format!("{} [{:.0}, {:.0}]", item, snap_x, snap_y)),
+                        Sprite {
+                            color,
+                            custom_size: Some(Vec2::new(30.0, 30.0)),
+                            ..default()
+                        },
+                        Transform::from_xyz(snap_x, snap_y, 0.0),
+                    ))
+                    .id();
+                world
+                    .resource_mut::<EditorUiState>()
+                    .selected_entities
+                    .select_replace(entity);
             }
         }
     }

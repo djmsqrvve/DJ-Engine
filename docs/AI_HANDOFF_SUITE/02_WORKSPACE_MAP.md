@@ -87,13 +87,18 @@ Important entrypoint:
 - `games/dev/doomexe/src/main.rs`
   - Game binary entrypoint.
 - `engine/src/editor/` — decomposed into submodules (March 2026):
-  - `mod.rs` — thin orchestrator (62 lines), re-exports submodules
-  - `panels.rs` — 5 UI panel draw functions (390 lines)
-  - `views.rs` — `draw_grid`, `draw_story_graph` (304 lines)
+  - `mod.rs` — thin orchestrator, captures panel rects, calls tutorial overlay
+  - `panels.rs` — all panel draw functions, export buttons, tutorial button
+  - `views.rs` — `draw_grid` (with entity auto-selection), `draw_story_graph`
   - `scene_io.rs` — save/load I/O, `world_to_scene`, `load_scene_into_editor` + tests
   - `types.rs` — `EditorState`, `EditorView`, `BrowserTab`, resources, color constants
-  - `plugin.rs` — `EditorPlugin` + lifecycle systems
+  - `plugin.rs` — `EditorPlugin`, resource registration, lifecycle systems
   - `validation.rs` — `ValidationState`, `draw_validation_panel`
+  - `extensions.rs` — `EditorExtensionRegistry`, toolbar/preset/panel registration
+  - `table.rs` — generic table editor for record-heavy document kinds
+  - `property_widgets.rs` — recursive property inspector for nested payload fields
+  - `panel_export.rs` — structured panel data export with timestamped file output
+  - `tutorial.rs` — interactive tutorial overlay with JSON-driven steps
 - `engine/src/data/`
   - Serializable project, scene, database, story, prefab, and custom-document
     layer.
