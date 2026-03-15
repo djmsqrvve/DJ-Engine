@@ -15,7 +15,7 @@ use crate::data::{
 };
 use crate::diagnostics::console::ConsoleLogStore;
 use crate::editor::extensions::EditorExtensionRegistry;
-use crate::editor::plugin::{
+use super::actions::{
     launch_runtime_preview_from_editor, request_project_action, resolve_pending_project_action,
     stop_runtime_preview_from_editor,
 };
@@ -1063,6 +1063,27 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
             stop_runtime_preview_from_editor(world);
         }
 
+        // ── Helix 3D Viewer launch button ──
+        {
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
+
+            let viewer_running = world.resource::<super::types::Helix3DViewerState>().is_running();
+            let btn_label = if viewer_running { "3D (Running)" } else { "3D" };
+            let btn_color = Color32::from_rgb(100, 180, 255); // Steel blue
+            if ui
+                .add_enabled(
+                    !viewer_running,
+                    egui::Button::new(RichText::new(btn_label).color(btn_color).strong()),
+                )
+                .on_hover_text("Launch the Helix 3D Renderer")
+                .clicked()
+            {
+                launch_helix_3d_viewer(world);
+            }
+        }
+
         if world.resource::<EditorUiState>().current_view == EditorView::StoryGraph {
             ui.add_space(10.0);
             ui.separator();
@@ -1724,6 +1745,15 @@ pub(crate) fn draw_console_window(ctx: &egui::Context, world: &mut World) {
                     {
                         request_export(world, PanelExportKind::Console);
                     }
+                    if ui
+                        .small_button(RichText::new("Copy").color(COLOR_PRIMARY))
+                        .clicked()
+                    {
+                        if let Some(store) = world.get_resource::<ConsoleLogStore>() {
+                            let text = store.logs.join("\n");
+                            ui.ctx().copy_text(text);
+                        }
+                    }
                 });
             });
             ui.separator();
@@ -1838,6 +1868,97 @@ pub(crate) fn draw_central_panel(ui: &mut egui::Ui, world: &mut World) {
     }
 }
 
+/// Launch the Helix 3D Renderer as a subprocess.
+/// Looks for the binary at the workspace-relative path first, then falls back to PATH.
+fn launch_helix_3d_viewer(world: &mut World) {
+    use std::process::Command;
+    use std::sync::{Arc, Mutex};
+
+    // Find the renderer workspace root (contains Cargo.toml + assets/).
+    // Uses `cargo run` so Bevy's dynamic_linking dylib is resolved automatically.
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/dj".into());
+    let renderer_root = {
+        let candidates = [
+            std::path::PathBuf::from(&home).join("dev/helix/helix_3d_render_prototype"),
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../helix/helix_3d_render_prototype"),
+            std::env::current_dir().unwrap_or_default().join("../helix/helix_3d_render_prototype"),
+        ];
+        candidates
+            .into_iter()
+            .find(|p| p.join("Cargo.toml").exists())
+    };
+
+    let Some(renderer_root) = renderer_root else {
+        let msg = "3D Renderer not found. Expected at ~/dev/helix/helix_3d_render_prototype/";
+        log_console(world, msg);
+        error!("[3D] {msg}");
+        return;
+    };
+
+    let renderer_root_display = renderer_root.display().to_string();
+    log_console(
+        world,
+        &format!("[3D] Found renderer at: {renderer_root_display}"),
+    );
+
+    info!(
+        "[3D] Launching Helix 3D Renderer via cargo run in {:?}",
+        renderer_root
+    );
+
+    // Use `cargo run` so Bevy's dynamic_linking dylib resolves correctly.
+    // Capture stderr to a temp file so we can report errors.
+    let stderr_path = std::env::temp_dir().join("helix_3d_stderr.log");
+    let stderr_file = std::fs::File::create(&stderr_path).ok();
+
+    let mut cmd = Command::new("cargo");
+    cmd.args([
+        "run",
+        "--features", "egui,terrain",
+        "--",
+        "--model-preset", "drow",
+        "--play-mode",
+    ]);
+    cmd.current_dir(&renderer_root);
+    // Remove RUSTUP_TOOLCHAIN so the renderer's rust-toolchain.toml (1.94.0) takes effect
+    // instead of inheriting DJ Engine's toolchain (1.93.1).
+    cmd.env_remove("RUSTUP_TOOLCHAIN");
+    cmd.stdout(std::process::Stdio::null());
+    if let Some(file) = stderr_file {
+        cmd.stderr(std::process::Stdio::from(file));
+    }
+
+    log_console(
+        world,
+        "[3D] Running: cargo run --features egui,terrain -- --model-preset drow --play-mode",
+    );
+
+    match cmd.spawn() {
+        Ok(child) => {
+            let pid = child.id();
+            let mut state = world.resource_mut::<super::types::Helix3DViewerState>();
+            state.process = Some(Arc::new(Mutex::new(child)));
+            state.status = Some("3D Viewer running".into());
+            log_console(
+                world,
+                &format!("[3D] Helix 3D Renderer launched (PID {pid}). Compiling if needed..."),
+            );
+            log_console(
+                world,
+                &format!("[3D] Stderr log: {}", stderr_path.display()),
+            );
+            info!("[3D] Helix 3D Renderer process started (PID {pid})");
+        }
+        Err(err) => {
+            let msg = format!("[3D] Failed to launch: {err}");
+            let mut state = world.resource_mut::<super::types::Helix3DViewerState>();
+            state.status = Some(msg.clone());
+            log_console(world, &msg);
+            error!("{msg}");
+        }
+    }
+}
+
 fn draw_welcome_screen(ui: &mut egui::Ui, world: &mut World) {
     ui.vertical_centered(|ui| {
         ui.add_space(60.0);
@@ -1888,7 +2009,7 @@ fn draw_welcome_screen(ui: &mut egui::Ui, world: &mut World) {
                         mounted.manifest_path = Some(manifest_path);
                         mounted.project = None;
                         drop(mounted);
-                        super::plugin::request_project_action(
+                        super::actions::request_project_action(
                             world,
                             PendingProjectAction::LoadMountedProject,
                         );
@@ -1918,7 +2039,7 @@ fn draw_welcome_screen(ui: &mut egui::Ui, world: &mut World) {
                     mounted.manifest_path = mount.manifest_path;
                     mounted.project = None;
                     drop(mounted);
-                    super::plugin::request_project_action(
+                    super::actions::request_project_action(
                         world,
                         PendingProjectAction::LoadMountedProject,
                     );

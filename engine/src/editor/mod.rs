@@ -2,8 +2,12 @@
 //!
 //! Provides a professional game development environment using Egui.
 
+mod cli;
+pub mod actions;
+pub mod preview;
 mod extensions;
 pub mod panel_export;
+pub mod prefs;
 pub(crate) mod panels;
 mod plugin;
 mod property_widgets;
@@ -24,8 +28,8 @@ pub use plugin::EditorPlugin;
 pub use types::ActiveStoryGraph;
 pub use types::{
     BrowserTab, EditorDirtyState, EditorSnapshotBaseline, EditorState, EditorUiState, EditorView,
-    PendingProjectAction, PendingProjectActionResolution, RuntimePreviewLaunchPhase,
-    RuntimePreviewLaunchState,
+    Helix3DViewerState, PendingProjectAction, PendingProjectActionResolution,
+    RuntimePreviewLaunchPhase, RuntimePreviewLaunchState,
 };
 
 use bevy::prelude::*;

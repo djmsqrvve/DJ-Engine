@@ -78,6 +78,26 @@ impl RuntimePreviewLaunchState {
     }
 }
 
+/// Tracks a launched Helix 3D Renderer subprocess.
+#[derive(Resource, Default)]
+pub struct Helix3DViewerState {
+    pub process: Option<Arc<Mutex<Child>>>,
+    pub status: Option<String>,
+}
+
+impl Helix3DViewerState {
+    pub fn is_running(&self) -> bool {
+        let Some(ref proc) = self.process else {
+            return false;
+        };
+        let Ok(mut child) = proc.lock() else {
+            return false;
+        };
+        // Check if still running (non-blocking)
+        matches!(child.try_wait(), Ok(None))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum EditorView {
     #[default]
