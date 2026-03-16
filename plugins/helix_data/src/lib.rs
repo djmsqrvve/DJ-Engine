@@ -420,10 +420,12 @@ impl Plugin for HelixDataPlugin {
             .add_systems(
                 Update,
                 (
+                    sync_registries_to_custom_documents_system,
                     refresh_helix_document_index_system,
                     handle_helix_toolbar_actions_system,
                     run_dashboard_validation_system,
-                ),
+                )
+                    .chain(),
             )
             .register_toolbar_action(RegisteredToolbarAction {
                 action_id: "helix_reimport".into(),
@@ -534,6 +536,75 @@ fn populate_database_startup_system(
         database.0.quests.len(),
         total,
     );
+}
+
+fn sync_registries_to_custom_documents_system(
+    registries: Res<HelixRegistries>,
+    registry: Res<dj_engine::data::CustomDocumentRegistry>,
+    mut loaded_documents: ResMut<LoadedCustomDocuments>,
+) {
+    if registries.total_entities() == 0 {
+        return;
+    }
+
+    // Only sync once — if we already have TOML-sourced documents, skip.
+    let already_synced = loaded_documents
+        .documents
+        .iter()
+        .any(|d| d.entry.tags.iter().any(|t| t == "source:toml_registry"));
+    if already_synced {
+        return;
+    }
+
+    let mut count = 0usize;
+    registries.for_each_as_json(|kind, id, payload| {
+        let resolved_route = registry
+            .get(kind)
+            .map(|reg| reg.editor_route)
+            .unwrap_or_default();
+
+        let envelope = dj_engine::data::CustomDocument {
+            kind: kind.to_string(),
+            id: id.to_string(),
+            schema_version: 1,
+            label: payload
+                .get("name")
+                .and_then(|n| n.get("en"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string),
+            tags: vec!["source:toml_registry".to_string()],
+            references: Vec::new(),
+            payload: payload.clone(),
+        };
+
+        let raw_json = serde_json::to_string_pretty(&envelope).unwrap_or_default();
+
+        loaded_documents
+            .documents
+            .push(dj_engine::data::LoadedCustomDocument {
+                entry: dj_engine::data::CustomDocumentEntry {
+                    kind: kind.to_string(),
+                    id: id.to_string(),
+                    path: format!("{kind}/{id}.toml"),
+                    schema_version: 1,
+                    editor_route: resolved_route,
+                    tags: vec!["source:toml_registry".to_string()],
+                },
+                raw_json,
+                document: Some(envelope),
+                parse_error: None,
+                resolved_route,
+            });
+
+        count += 1;
+    });
+
+    if count > 0 {
+        info!(
+            "Synced {} typed TOML entities into LoadedCustomDocuments",
+            count
+        );
+    }
 }
 
 fn refresh_helix_document_index_system(
