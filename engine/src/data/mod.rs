@@ -15,6 +15,7 @@ pub mod assets;
 pub mod components;
 pub mod custom;
 pub mod database;
+pub mod grid;
 pub mod loader;
 pub mod project;
 pub mod scene;
@@ -23,6 +24,7 @@ pub mod story;
 
 // Re-export commonly used types
 pub use assets::{AssetIndex, Prefab};
+pub use grid::Grid;
 pub use components::*;
 pub use custom::{
     default_custom_data_manifest_path, filter_document_refs_by_kind,
