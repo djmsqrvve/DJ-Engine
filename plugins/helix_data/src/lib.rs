@@ -291,12 +291,15 @@ impl Plugin for HelixDataPlugin {
                 .with_validator(validate_helix_mob_document),
             )
             // Register remaining 19 helix document kinds for the editor
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_ACHIEVEMENT_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_ACHIEVEMENT_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_achievement_document),
+            )
             .register_custom_document(CustomDocumentRegistration::<Value>::new(
                 HELIX_AURA_KIND,
                 1,
@@ -321,12 +324,15 @@ impl Plugin for HelixDataPlugin {
                 EditorDocumentRoute::Table,
                 HELIX_GENERIC_SCHEMA_JSON,
             ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_EQUIPMENT_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_EQUIPMENT_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_equipment_document),
+            )
             .register_custom_document(CustomDocumentRegistration::<Value>::new(
                 HELIX_GUILD_KIND,
                 1,
@@ -345,12 +351,15 @@ impl Plugin for HelixDataPlugin {
                 EditorDocumentRoute::Table,
                 HELIX_GENERIC_SCHEMA_JSON,
             ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_NPC_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_NPC_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_npc_document),
+            )
             .register_custom_document(CustomDocumentRegistration::<Value>::new(
                 HELIX_PROFESSION_KIND,
                 1,
@@ -363,12 +372,15 @@ impl Plugin for HelixDataPlugin {
                 EditorDocumentRoute::Table,
                 HELIX_GENERIC_SCHEMA_JSON,
             ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_QUEST_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_QUEST_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_quest_document),
+            )
             .register_custom_document(CustomDocumentRegistration::<Value>::new(
                 HELIX_RAID_KIND,
                 1,
@@ -399,12 +411,15 @@ impl Plugin for HelixDataPlugin {
                 EditorDocumentRoute::Table,
                 HELIX_GENERIC_SCHEMA_JSON,
             ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_ZONE_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_ZONE_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_zone_document),
+            )
             .init_resource::<HelixImportConfig>()
             .init_resource::<HelixDashboardRan>()
             .init_resource::<HelixDatabase>()
@@ -763,6 +778,136 @@ fn validate_helix_document_payload(
     }
 }
 
+fn validate_helix_zone_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_localized_name(HELIX_ZONE_KIND, document, issues);
+}
+
+fn validate_helix_quest_document(
+    document: &CustomDocument<Value>,
+    loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_localized_name(HELIX_QUEST_KIND, document, issues);
+
+    if let Some(prereqs) = document.payload.get("prerequisite_quests").and_then(Value::as_array) {
+        for (i, prereq) in prereqs.iter().enumerate() {
+            if let Some(quest_id) = prereq.as_str() {
+                if loaded.get(HELIX_QUEST_KIND, quest_id).is_none() {
+                    issues.push(ValidationIssue {
+                        severity: ValidationSeverity::Warning,
+                        code: "helix_broken_quest_prereq".into(),
+                        source_kind: Some(HELIX_QUEST_KIND.to_string()),
+                        source_id: Some(document.id.clone()),
+                        field_path: Some(format!("payload.prerequisite_quests[{i}]")),
+                        message: format!(
+                            "Prerequisite quest '{}' not found in loaded documents.",
+                            quest_id
+                        ),
+                        related_refs: vec![format!("{HELIX_QUEST_KIND}:{quest_id}")],
+                    });
+                }
+            }
+        }
+    }
+}
+
+fn validate_helix_npc_document(
+    document: &CustomDocument<Value>,
+    loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_localized_name(HELIX_NPC_KIND, document, issues);
+
+    if let Some(quests) = document.payload.get("quests").and_then(Value::as_array) {
+        for (i, quest) in quests.iter().enumerate() {
+            if let Some(quest_id) = quest.as_str() {
+                if loaded.get(HELIX_QUEST_KIND, quest_id).is_none() {
+                    issues.push(ValidationIssue {
+                        severity: ValidationSeverity::Warning,
+                        code: "helix_broken_npc_quest_ref".into(),
+                        source_kind: Some(HELIX_NPC_KIND.to_string()),
+                        source_id: Some(document.id.clone()),
+                        field_path: Some(format!("payload.quests[{i}]")),
+                        message: format!(
+                            "Referenced quest '{}' not found in loaded documents.",
+                            quest_id
+                        ),
+                        related_refs: vec![format!("{HELIX_QUEST_KIND}:{quest_id}")],
+                    });
+                }
+            }
+        }
+    }
+}
+
+fn validate_helix_achievement_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_localized_name(HELIX_ACHIEVEMENT_KIND, document, issues);
+}
+
+fn validate_helix_equipment_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    if let Some(slot) = document.payload.get("equip_slot").and_then(Value::as_str) {
+        const VALID_SLOTS: &[&str] = &[
+            "head", "neck", "shoulder", "chest", "waist", "legs", "feet", "wrist", "hands",
+            "finger", "trinket", "back", "main_hand", "off_hand", "ranged", "two_hand",
+            "one_hand", "shirt", "tabard",
+        ];
+        if !VALID_SLOTS.contains(&slot) {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_unknown_equip_slot".into(),
+                source_kind: Some(HELIX_EQUIPMENT_KIND.to_string()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("payload.equip_slot".into()),
+                message: format!("Unrecognized equip_slot '{slot}'."),
+                related_refs: Vec::new(),
+            });
+        }
+    }
+}
+
+fn validate_helix_localized_name(
+    kind: &str,
+    document: &CustomDocument<Value>,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    let has_en_name = document
+        .payload
+        .get("name")
+        .and_then(|n| n.get("en"))
+        .and_then(Value::as_str)
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+
+    if !has_en_name {
+        issues.push(ValidationIssue {
+            severity: ValidationSeverity::Warning,
+            code: "helix_missing_en_name".into(),
+            source_kind: Some(kind.to_string()),
+            source_id: Some(document.id.clone()),
+            field_path: Some("payload.name.en".into()),
+            message: "Missing or empty English name (name.en).".into(),
+            related_refs: Vec::new(),
+        });
+    }
+}
+
 pub fn safe_document_reference(
     field_path: impl Into<String>,
     kind: &str,
@@ -842,6 +987,54 @@ mod tests {
         assert!(index.item("dagger").is_some());
         assert!(index.get(HELIX_ITEM_KIND, "dagger").is_some());
         assert_eq!(index.total(), 1);
+    }
+
+    #[test]
+    fn test_validate_helix_localized_name_catches_missing_en() {
+        let document = CustomDocument {
+            kind: HELIX_ZONE_KIND.into(),
+            id: "dark_forest".into(),
+            schema_version: 1,
+            label: None,
+            tags: Vec::new(),
+            references: Vec::new(),
+            payload: json!({ "name": { "ja": "暗い森" } }),
+        };
+
+        let mut issues = Vec::new();
+        validate_helix_zone_document(
+            &document,
+            &LoadedCustomDocuments::default(),
+            &dj_engine::data::Project::new("Test"),
+            &mut issues,
+        );
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "helix_missing_en_name");
+    }
+
+    #[test]
+    fn test_validate_helix_equipment_catches_invalid_slot() {
+        let document = CustomDocument {
+            kind: HELIX_EQUIPMENT_KIND.into(),
+            id: "weird_gear".into(),
+            schema_version: 1,
+            label: None,
+            tags: Vec::new(),
+            references: Vec::new(),
+            payload: json!({ "equip_slot": "nostril" }),
+        };
+
+        let mut issues = Vec::new();
+        validate_helix_equipment_document(
+            &document,
+            &LoadedCustomDocuments::default(),
+            &dj_engine::data::Project::new("Test"),
+            &mut issues,
+        );
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "helix_unknown_equip_slot");
     }
 
     #[test]
