@@ -5,9 +5,35 @@ use bevy::window::PrimaryWindow;
 
 use crate::board::StrategoBoard;
 use crate::pieces::{army_composition, PieceRank, PlacedPiece, Team};
-use crate::rendering::{cell_to_world, world_to_cell, StatusText};
+use crate::rendering::{world_to_cell, StatusText};
 use crate::rules::{self, CombatResult};
 use crate::state::{GamePhase, GameResult};
+use crate::tutorial_steps::TutorialState;
+
+/// Temporary feedback message shown for a few seconds.
+#[derive(Resource, Default, Debug)]
+pub struct FeedbackMessage {
+    pub text: String,
+    pub timer: f32,
+}
+
+impl FeedbackMessage {
+    pub fn set(&mut self, msg: impl Into<String>) {
+        self.text = msg.into();
+        self.timer = 2.0;
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.timer > 0.0
+    }
+}
+
+/// Tick the feedback timer down each frame.
+pub fn tick_feedback_system(time: Res<Time>, mut feedback: ResMut<FeedbackMessage>) {
+    if feedback.timer > 0.0 {
+        feedback.timer -= time.delta_secs();
+    }
+}
 
 /// Tracks the player's current selection during play.
 #[derive(Resource, Default, Debug)]
@@ -60,6 +86,7 @@ pub fn setup_click_system(
     mut board: ResMut<StrategoBoard>,
     mut queue: ResMut<SetupQueue>,
     mut next_state: ResMut<NextState<GamePhase>>,
+    mut feedback: ResMut<FeedbackMessage>,
 ) {
     if !mouse.just_pressed(MouseButton::Left) {
         return;
@@ -69,6 +96,7 @@ pub fn setup_click_system(
         return;
     };
     let Some((x, y)) = world_to_cell(world_pos) else {
+        feedback.set("Click inside the board to place a piece.");
         return;
     };
 
@@ -86,21 +114,37 @@ pub fn setup_click_system(
         queue.remaining.remove(0);
 
         if queue.remaining.is_empty() {
-            // Auto-fill Blue team and start the game.
             board.auto_fill_army(Team::Blue);
             next_state.set(GamePhase::RedTurn);
         }
+    } else if !board.is_setup_zone(x, y, Team::Red) {
+        feedback.set("Place pieces in your zone (bottom 4 rows).");
+    } else {
+        feedback.set("That cell is already occupied or is a lake.");
     }
 }
 
-/// Update status text during setup.
+/// Update status text during setup (defers to tutorial and feedback).
 pub fn setup_status_system(
     queue: Res<SetupQueue>,
+    tutorial: Res<TutorialState>,
+    feedback: Res<FeedbackMessage>,
     mut text_q: Query<&mut Text2d, With<StatusText>>,
 ) {
     let Ok(mut text) = text_q.single_mut() else {
         return;
     };
+
+    // Feedback messages take priority over status.
+    if feedback.is_active() {
+        **text = feedback.text.clone();
+        return;
+    }
+
+    // Tutorial text takes priority over default status.
+    if tutorial.enabled && tutorial.step < 4 {
+        return; // tutorial_system handles the text
+    }
 
     if let Some(rank) = queue.remaining.first() {
         **text = format!(
@@ -122,6 +166,8 @@ pub fn player_click_system(
     mut selection: ResMut<PlayerSelection>,
     mut next_state: ResMut<NextState<GamePhase>>,
     mut game_result: ResMut<GameResult>,
+    mut tutorial: ResMut<TutorialState>,
+    mut feedback: ResMut<FeedbackMessage>,
 ) {
     if !mouse.just_pressed(MouseButton::Left) {
         return;
@@ -137,10 +183,57 @@ pub fn player_click_system(
     // If we have a selection and clicked a valid move target — execute the move.
     if let Some((sx, sy)) = selection.selected {
         if selection.valid_moves.contains(&(x, y)) {
+            // Snapshot the attacker and defender ranks before the move for combat feedback.
+            let attacker_rank = board
+                .get(sx, sy)
+                .and_then(|c| c.piece.as_ref())
+                .map(|p| p.rank);
+            let defender_rank = board
+                .get(x, y)
+                .and_then(|c| c.piece.as_ref())
+                .map(|p| p.rank);
+
             let combat = rules::execute_move(&mut board, sx, sy, x, y);
 
             selection.selected = None;
             selection.valid_moves.clear();
+
+            // Tutorial hooks.
+            tutorial.first_move_done = true;
+            if combat.is_some() {
+                tutorial.first_combat_done = true;
+            }
+
+            // Combat feedback.
+            if let (Some(combat), Some(atk), Some(def)) = (combat, attacker_rank, defender_rank) {
+                match combat {
+                    CombatResult::AttackerWins => {
+                        feedback.set(format!(
+                            "Your {} defeated their {}!",
+                            atk.name(),
+                            def.name()
+                        ));
+                    }
+                    CombatResult::DefenderWins => {
+                        feedback.set(format!(
+                            "Their {} defeated your {}!",
+                            def.name(),
+                            atk.name()
+                        ));
+                    }
+                    CombatResult::BothDie => {
+                        feedback.set(format!(
+                            "Both {}s destroyed each other!",
+                            atk.name()
+                        ));
+                    }
+                    CombatResult::FlagCaptured(loser) => {
+                        game_result.winner = Some(loser.opponent());
+                        next_state.set(GamePhase::GameOver);
+                        return;
+                    }
+                }
+            }
 
             if let Some(CombatResult::FlagCaptured(loser)) = combat {
                 game_result.winner = Some(loser.opponent());
@@ -161,6 +254,14 @@ pub fn player_click_system(
                 selection.valid_moves = moves;
                 return;
             }
+            if piece.team == Team::Red && !piece.rank.can_move() {
+                feedback.set("Your Flag can't move.");
+                return;
+            }
+            if piece.team == Team::Blue {
+                feedback.set("That's not your piece.");
+                return;
+            }
         }
     }
 
@@ -169,15 +270,28 @@ pub fn player_click_system(
     selection.valid_moves.clear();
 }
 
-/// Update status text during play.
+/// Update status text during play (defers to tutorial and feedback).
 pub fn play_status_system(
     phase: Res<State<GamePhase>>,
     selection: Res<PlayerSelection>,
+    tutorial: Res<TutorialState>,
+    feedback: Res<FeedbackMessage>,
     mut text_q: Query<&mut Text2d, With<StatusText>>,
 ) {
     let Ok(mut text) = text_q.single_mut() else {
         return;
     };
+
+    // Feedback messages take priority.
+    if feedback.is_active() {
+        **text = feedback.text.clone();
+        return;
+    }
+
+    // Tutorial text takes priority during active steps.
+    if tutorial.enabled && tutorial.step < 7 {
+        return; // tutorial_system handles the text
+    }
 
     match phase.get() {
         GamePhase::RedTurn => {
@@ -216,12 +330,16 @@ pub fn restart_system(
     mut board: ResMut<StrategoBoard>,
     mut selection: ResMut<PlayerSelection>,
     mut game_result: ResMut<GameResult>,
+    mut tutorial: ResMut<TutorialState>,
+    mut feedback: ResMut<FeedbackMessage>,
     mut next_state: ResMut<NextState<GamePhase>>,
 ) {
     if keys.just_pressed(KeyCode::KeyR) {
         *board = StrategoBoard::new();
         *selection = PlayerSelection::default();
         *game_result = GameResult::default();
+        *tutorial = TutorialState::default();
+        *feedback = FeedbackMessage::default();
         next_state.set(GamePhase::Setup);
     }
 }

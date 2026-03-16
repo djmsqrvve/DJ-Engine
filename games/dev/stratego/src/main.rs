@@ -35,9 +35,18 @@ fn main() {
         .init_resource::<state::GameResult>()
         .init_resource::<input::PlayerSelection>()
         .init_resource::<input::SetupQueue>()
+        .init_resource::<input::FeedbackMessage>()
         .init_resource::<tutorial_steps::TutorialState>()
+        .init_resource::<ai::AiTimer>()
         // Startup
         .add_systems(Startup, (setup_camera, rendering::spawn_board_system))
+        // Global (runs in all states)
+        .add_systems(Update, (
+            input::tick_feedback_system,
+            tutorial_steps::tutorial_system,
+            rendering::sync_pieces_system,
+            rendering::sync_setup_zone_system,
+        ))
         // Setup phase
         .add_systems(OnEnter(state::GamePhase::Setup), input::init_setup_system)
         .add_systems(
@@ -45,8 +54,6 @@ fn main() {
             (
                 input::setup_click_system,
                 input::setup_status_system,
-                rendering::sync_pieces_system,
-                tutorial_steps::tutorial_system,
             )
                 .run_if(in_state(state::GamePhase::Setup)),
         )
@@ -56,17 +63,14 @@ fn main() {
             (
                 input::player_click_system,
                 input::play_status_system,
-                rendering::sync_pieces_system,
                 rendering::sync_highlights_system,
-                tutorial_steps::tutorial_system,
             )
                 .run_if(in_state(state::GamePhase::RedTurn)),
         )
-        // Blue turn (AI)
-        .add_systems(OnEnter(state::GamePhase::BlueTurn), ai::ai_turn_system)
+        // Blue turn (AI with delay)
         .add_systems(
             Update,
-            rendering::sync_pieces_system.run_if(in_state(state::GamePhase::BlueTurn)),
+            ai::ai_turn_system.run_if(in_state(state::GamePhase::BlueTurn)),
         )
         // Game over
         .add_systems(OnEnter(state::GamePhase::GameOver), input::game_over_system)

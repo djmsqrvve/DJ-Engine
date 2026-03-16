@@ -7,12 +7,17 @@ use crate::pieces::Team;
 
 pub const CELL_SIZE: f32 = 64.0;
 
-const COLOR_OPEN: Color = Color::srgb(0.85, 0.78, 0.65);
+use crate::state::GamePhase;
+
+const COLOR_OPEN_LIGHT: Color = Color::srgb(0.87, 0.80, 0.68);
+const COLOR_OPEN_DARK: Color = Color::srgb(0.82, 0.75, 0.62);
 const COLOR_LAKE: Color = Color::srgb(0.3, 0.5, 0.8);
 const COLOR_RED_PIECE: Color = Color::srgb(0.8, 0.2, 0.2);
 const COLOR_BLUE_PIECE: Color = Color::srgb(0.2, 0.2, 0.8);
 const COLOR_SELECTION: Color = Color::srgba(1.0, 1.0, 0.0, 0.4);
 const COLOR_VALID_MOVE: Color = Color::srgba(0.2, 0.9, 0.2, 0.3);
+const COLOR_RED_ZONE: Color = Color::srgba(0.9, 0.3, 0.3, 0.15);
+const COLOR_BLUE_ZONE: Color = Color::srgba(0.3, 0.3, 0.9, 0.15);
 
 /// Marker for a cell background sprite.
 #[derive(Component)]
@@ -62,11 +67,22 @@ pub fn world_to_cell(pos: Vec2) -> Option<(usize, usize)> {
     }
 }
 
-/// Spawn the 10x10 cell background sprites.
+/// Marker for setup zone overlay sprites.
+#[derive(Component)]
+pub struct SetupZoneOverlay;
+
+/// Spawn the 10x10 cell background sprites with checkerboard pattern.
 pub fn spawn_board_system(mut commands: Commands, board: Res<StrategoBoard>) {
     for (x, y, cell) in board.grid.iter() {
+        let checkerboard = (x + y) % 2 == 0;
         let color = match cell.terrain {
-            CellTerrain::Open => COLOR_OPEN,
+            CellTerrain::Open => {
+                if checkerboard {
+                    COLOR_OPEN_LIGHT
+                } else {
+                    COLOR_OPEN_DARK
+                }
+            }
             CellTerrain::Lake => COLOR_LAKE,
         };
 
@@ -74,7 +90,7 @@ pub fn spawn_board_system(mut commands: Commands, board: Res<StrategoBoard>) {
             CellSprite { x, y },
             Sprite {
                 color,
-                custom_size: Some(Vec2::splat(CELL_SIZE - 2.0)),
+                custom_size: Some(Vec2::splat(CELL_SIZE - 3.0)),
                 ..default()
             },
             Transform::from_translation(cell_to_world(x, y)),
@@ -146,6 +162,59 @@ pub fn sync_pieces_system(
                     Transform::from_xyz(0.0, 0.0, 1.0),
                 ));
             });
+    }
+}
+
+/// Show/hide setup zone overlays based on game phase.
+pub fn sync_setup_zone_system(
+    mut commands: Commands,
+    phase: Res<State<GamePhase>>,
+    existing: Query<Entity, With<SetupZoneOverlay>>,
+) {
+    let in_setup = *phase.get() == GamePhase::Setup;
+
+    if !in_setup {
+        for entity in &existing {
+            commands.entity(entity).despawn();
+        }
+        return;
+    }
+
+    // Only spawn once.
+    if !existing.is_empty() {
+        return;
+    }
+
+    // Red zone (rows 0-3).
+    for x in 0..BOARD_WIDTH {
+        for y in 0..4 {
+            let pos = cell_to_world(x, y);
+            commands.spawn((
+                SetupZoneOverlay,
+                Sprite {
+                    color: COLOR_RED_ZONE,
+                    custom_size: Some(Vec2::splat(CELL_SIZE - 3.0)),
+                    ..default()
+                },
+                Transform::from_translation(pos + Vec3::Z * 0.5),
+            ));
+        }
+    }
+
+    // Blue zone (rows 6-9).
+    for x in 0..BOARD_WIDTH {
+        for y in 6..BOARD_HEIGHT {
+            let pos = cell_to_world(x, y);
+            commands.spawn((
+                SetupZoneOverlay,
+                Sprite {
+                    color: COLOR_BLUE_ZONE,
+                    custom_size: Some(Vec2::splat(CELL_SIZE - 3.0)),
+                    ..default()
+                },
+                Transform::from_translation(pos + Vec3::Z * 0.5),
+            ));
+        }
     }
 }
 
