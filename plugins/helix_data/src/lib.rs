@@ -11,24 +11,89 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+pub mod balance;
+pub mod bridge;
+pub mod dashboard;
 pub mod importer;
+pub mod registries;
+pub mod toml_loader;
 
+pub use balance::{BalanceOverlay, BalanceOverlays};
+pub use bridge::populate_database_from_helix;
 pub use importer::{
     import_helix_project, parse_helix_import_cli_args, HelixImportCliOptions, HelixImportError,
     HelixImportSummary,
 };
+pub use registries::{load_helix_registries, load_helix_registries_lenient, HelixRegistries};
+pub use toml_loader::HelixLoadError;
 
 pub const HELIX_ABILITY_KIND: &str = "helix_abilities";
+pub const HELIX_ACHIEVEMENT_KIND: &str = "helix_achievements";
+pub const HELIX_AURA_KIND: &str = "helix_auras";
+pub const HELIX_CLASS_DATA_KIND: &str = "helix_class_data";
+pub const HELIX_CONSUMABLE_KIND: &str = "helix_consumables";
+pub const HELIX_CURRENCY_KIND: &str = "helix_currencies";
+pub const HELIX_EQUIPMENT_KIND: &str = "helix_equipment";
+pub const HELIX_GUILD_KIND: &str = "helix_guilds";
+pub const HELIX_INVENTORY_KIND: &str = "helix_inventory";
 pub const HELIX_ITEM_KIND: &str = "helix_items";
 pub const HELIX_MOB_KIND: &str = "helix_mobs";
+pub const HELIX_MOUNT_KIND: &str = "helix_mounts";
+pub const HELIX_NPC_KIND: &str = "helix_npcs";
+pub const HELIX_PROFESSION_KIND: &str = "helix_professions";
+pub const HELIX_PVP_KIND: &str = "helix_pvp";
+pub const HELIX_QUEST_KIND: &str = "helix_quests";
+pub const HELIX_RAID_KIND: &str = "helix_raids";
+pub const HELIX_TALENT_KIND: &str = "helix_talents";
+pub const HELIX_TITLE_KIND: &str = "helix_titles";
+pub const HELIX_TRADE_GOOD_KIND: &str = "helix_trade_goods";
+pub const HELIX_WEAPON_SKILL_KIND: &str = "helix_weapon_skills";
+pub const HELIX_ZONE_KIND: &str = "helix_zones";
 pub const HELIX_IMPORT_PREVIEW_ID: &str = "helix_import_preview";
 
-/// Configuration for the Helix import pipeline. Set `helix_dist_path` to enable
-/// in-editor re-import via the "Re-import Helix Data" toolbar action.
+/// All 22 helix document kind constants for programmatic iteration.
+pub const ALL_HELIX_KINDS: &[&str] = &[
+    HELIX_ABILITY_KIND,
+    HELIX_ACHIEVEMENT_KIND,
+    HELIX_AURA_KIND,
+    HELIX_CLASS_DATA_KIND,
+    HELIX_CONSUMABLE_KIND,
+    HELIX_CURRENCY_KIND,
+    HELIX_EQUIPMENT_KIND,
+    HELIX_GUILD_KIND,
+    HELIX_INVENTORY_KIND,
+    HELIX_ITEM_KIND,
+    HELIX_MOB_KIND,
+    HELIX_MOUNT_KIND,
+    HELIX_NPC_KIND,
+    HELIX_PROFESSION_KIND,
+    HELIX_PVP_KIND,
+    HELIX_QUEST_KIND,
+    HELIX_RAID_KIND,
+    HELIX_TALENT_KIND,
+    HELIX_TITLE_KIND,
+    HELIX_TRADE_GOOD_KIND,
+    HELIX_WEAPON_SKILL_KIND,
+    HELIX_ZONE_KIND,
+];
+
+/// Configuration for the Helix import pipeline.
+///
+/// - `helix_dist_path`: Legacy JSON bucket path for the old import pipeline.
+/// - `helix3d_path`: Path to `dist/helix3d/` for the typed TOML pipeline.
+/// - `balance_dir`: Optional directory containing per-kind TOML balance overlay files.
+///
+/// When `helix3d_path` is set, the plugin loads typed registries at startup.
 #[derive(Resource, Default, Debug, Clone)]
 pub struct HelixImportConfig {
     pub helix_dist_path: Option<PathBuf>,
+    pub helix3d_path: Option<PathBuf>,
+    pub balance_dir: Option<PathBuf>,
 }
+
+/// Wrapper resource so `Database` (a pure-data struct) can be used as a Bevy Resource.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct HelixDatabase(pub dj_engine::data::Database);
 
 const HELIX_ABILITY_SCHEMA_JSON: &str = r#"{
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -120,6 +185,22 @@ const HELIX_MOB_SCHEMA_JSON: &str = r#"{
   "additionalProperties": false
 }"#;
 
+/// Generic schema for typed helix document kinds that are loaded via TOML
+/// and only need minimal JSON envelope validation in the CustomDocument system.
+const HELIX_GENERIC_SCHEMA_JSON: &str = r#"{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DJ Engine Helix Document",
+  "type": "object",
+  "required": ["kind", "id", "payload"],
+  "properties": {
+    "kind": { "type": "string" },
+    "id": { "type": "string", "minLength": 1 },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "payload": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}"#;
+
 #[derive(Resource, Default, Debug, Clone, PartialEq)]
 pub struct HelixDocumentIndex {
     pub abilities: BTreeMap<String, CustomDocument<Value>>,
@@ -175,6 +256,7 @@ impl Plugin for HelixDataPlugin {
         }
 
         app.init_resource::<HelixDocumentIndex>()
+            .init_resource::<HelixRegistries>()
             .register_custom_document(
                 CustomDocumentRegistration::<Value>::new(
                     HELIX_ABILITY_KIND,
@@ -202,12 +284,145 @@ impl Plugin for HelixDataPlugin {
                 )
                 .with_validator(validate_helix_mob_document),
             )
+            // Register remaining 19 helix document kinds for the editor
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_ACHIEVEMENT_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_AURA_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_CLASS_DATA_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_CONSUMABLE_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_CURRENCY_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_EQUIPMENT_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_GUILD_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_INVENTORY_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_MOUNT_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_NPC_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_PROFESSION_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_PVP_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_QUEST_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_RAID_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_TALENT_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_TITLE_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_TRADE_GOOD_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_WEAPON_SKILL_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
+            .register_custom_document(CustomDocumentRegistration::<Value>::new(
+                HELIX_ZONE_KIND,
+                1,
+                EditorDocumentRoute::Table,
+                HELIX_GENERIC_SCHEMA_JSON,
+            ))
             .init_resource::<HelixImportConfig>()
+            .init_resource::<HelixDashboardRan>()
+            .init_resource::<HelixDatabase>()
+            .init_resource::<balance::BalanceOverlays>()
+            .add_systems(
+                Startup,
+                (
+                    load_helix_registries_startup_system,
+                    load_balance_overlays_startup_system,
+                )
+                    .chain(),
+            )
+            .add_systems(
+                Startup,
+                populate_database_startup_system
+                    .after(load_helix_registries_startup_system)
+                    .after(load_balance_overlays_startup_system),
+            )
             .add_systems(
                 Update,
                 (
                     refresh_helix_document_index_system,
                     handle_helix_toolbar_actions_system,
+                    run_dashboard_validation_system,
                 ),
             )
             .register_toolbar_action(RegisteredToolbarAction {
@@ -221,6 +436,104 @@ impl Plugin for HelixDataPlugin {
                 profile_id: Some(HELIX_IMPORT_PREVIEW_ID.into()),
             });
     }
+}
+
+/// Tracks whether dashboard validation has run (runs once after registries load).
+#[derive(Resource, Default)]
+struct HelixDashboardRan(bool);
+
+/// Run dashboard validation once after registries are loaded, feeding issues
+/// into LoadedCustomDocuments so they appear in the editor's validation view.
+fn run_dashboard_validation_system(
+    registries: Res<HelixRegistries>,
+    config: Res<HelixImportConfig>,
+    mut dashboard_ran: ResMut<HelixDashboardRan>,
+    mut loaded_documents: ResMut<LoadedCustomDocuments>,
+) {
+    if dashboard_ran.0 || registries.total_entities() == 0 {
+        return;
+    }
+    dashboard_ran.0 = true;
+
+    let mut issues = Vec::new();
+    dashboard::validate_helix_registries(
+        &registries,
+        config.helix3d_path.as_deref(),
+        &mut issues,
+    );
+
+    if !issues.is_empty() {
+        info!(
+            "Helix dashboard: {} validation issue(s) found",
+            issues.len()
+        );
+        loaded_documents.issues.extend(issues);
+    }
+}
+
+fn load_helix_registries_startup_system(
+    config: Res<HelixImportConfig>,
+    mut registries: ResMut<HelixRegistries>,
+) {
+    let Some(helix3d_path) = config.helix3d_path.as_ref() else {
+        return;
+    };
+
+    info!("Loading typed Helix registries from {:?}...", helix3d_path);
+    match registries::load_helix_registries_lenient(helix3d_path) {
+        Ok(loaded) => {
+            let total = loaded.total_entities();
+            *registries = loaded;
+            info!("Loaded {} typed Helix entities across 22 registries", total);
+        }
+        Err(error) => {
+            error!("Failed to load Helix registries: {error}");
+        }
+    }
+}
+
+fn load_balance_overlays_startup_system(
+    config: Res<HelixImportConfig>,
+    mut overlays: ResMut<balance::BalanceOverlays>,
+) {
+    let Some(balance_dir) = config.balance_dir.as_ref() else {
+        return;
+    };
+
+    info!("Loading balance overlays from {:?}...", balance_dir);
+    match balance::load_balance_overlays(balance_dir) {
+        Ok(loaded) => {
+            let layer_count: usize = loaded.layers.values().map(|m| m.len()).sum();
+            *overlays = loaded;
+            info!("Loaded {} balance overlay entries", layer_count);
+        }
+        Err(error) => {
+            error!("Failed to load balance overlays: {error}");
+        }
+    }
+}
+
+fn populate_database_startup_system(
+    registries: Res<HelixRegistries>,
+    overlays: Res<balance::BalanceOverlays>,
+    mut database: ResMut<HelixDatabase>,
+) {
+    if registries.total_entities() == 0 {
+        return;
+    }
+
+    info!("Populating engine database from Helix registries...");
+    let db = bridge::populate_database_from_helix(&registries, Some(&overlays));
+    let total = db.items.len() + db.enemies.len() + db.npcs.len() + db.quests.len();
+    database.0 = db;
+    info!(
+        "Engine database populated: {} items, {} enemies, {} npcs, {} quests ({} total)",
+        database.0.items.len(),
+        database.0.enemies.len(),
+        database.0.npcs.len(),
+        database.0.quests.len(),
+        total,
+    );
 }
 
 fn refresh_helix_document_index_system(
@@ -450,5 +763,41 @@ mod tests {
 
         index.rebuild_from_loaded_documents(&loaded);
         assert!(index.item("dagger").is_some());
+    }
+
+    #[test]
+    fn test_populate_database_from_real_helix_registries() {
+        let helix3d_dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../helix/helix_standardization/dist/helix3d");
+        if !helix3d_dir.is_dir() {
+            // Skip if helix3d data isn't available (CI, etc.)
+            return;
+        }
+
+        let registries =
+            registries::load_helix_registries_lenient(&helix3d_dir).unwrap();
+        assert!(registries.total_entities() > 0);
+
+        let db = bridge::populate_database_from_helix(&registries, None);
+        assert!(!db.items.is_empty(), "expected items from helix registries");
+        assert!(
+            !db.enemies.is_empty(),
+            "expected enemies from helix registries"
+        );
+    }
+
+    #[test]
+    fn test_helix_database_resource_populated_via_plugin_startup() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(HelixDataPlugin);
+
+        // Verify resources exist after plugin init.
+        assert!(app.world().contains_resource::<HelixDatabase>());
+        assert!(app.world().contains_resource::<balance::BalanceOverlays>());
+
+        // Without a helix3d_path, database stays empty (no panic).
+        let db = app.world().resource::<HelixDatabase>();
+        assert!(db.0.items.is_empty());
     }
 }
