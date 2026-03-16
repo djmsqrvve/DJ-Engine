@@ -1,6 +1,6 @@
 # DJ Engine - Unified Command Interface
 
-.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom minimal quality-check guardrail helix-import helix-import-toml helix-dashboard helix-editor helix-preview
+.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego minimal quality-check guardrail helix-import helix-import-toml helix-dashboard helix-editor helix-preview
 
 # Ensure rustup toolchain takes precedence over system cargo/rustc
 export PATH := $(HOME)/.cargo/bin:$(PATH)
@@ -92,6 +92,9 @@ game:
 	@cargo run -p doomexe --bin doomexe
 
 doom: game
+
+stratego:
+	@cargo run -p stratego --bin stratego
 
 minimal:
 	@cargo run -p dj_engine --bin minimal

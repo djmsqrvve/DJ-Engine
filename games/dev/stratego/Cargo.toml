@@ -1,0 +1,11 @@
+[package]
+name = "stratego"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { workspace = true, features = ["dynamic_linking"] }
+serde = { workspace = true }
+serde_json = "1.0"
+rand = { workspace = true }
+dj_engine = { path = "../../../engine" }
