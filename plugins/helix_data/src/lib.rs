@@ -203,46 +203,52 @@ const HELIX_GENERIC_SCHEMA_JSON: &str = r#"{
 
 #[derive(Resource, Default, Debug, Clone, PartialEq)]
 pub struct HelixDocumentIndex {
-    pub abilities: BTreeMap<String, CustomDocument<Value>>,
-    pub items: BTreeMap<String, CustomDocument<Value>>,
-    pub mobs: BTreeMap<String, CustomDocument<Value>>,
+    kinds: BTreeMap<String, BTreeMap<String, CustomDocument<Value>>>,
 }
 
 impl HelixDocumentIndex {
+    /// Generic lookup: any kind + id.
+    pub fn get(&self, kind: &str, id: &str) -> Option<&CustomDocument<Value>> {
+        self.kinds.get(kind).and_then(|map| map.get(id))
+    }
+
+    /// Convenience: lookup an ability by id.
     pub fn ability(&self, id: &str) -> Option<&CustomDocument<Value>> {
-        self.abilities.get(id)
+        self.get(HELIX_ABILITY_KIND, id)
     }
 
+    /// Convenience: lookup an item by id.
     pub fn item(&self, id: &str) -> Option<&CustomDocument<Value>> {
-        self.items.get(id)
+        self.get(HELIX_ITEM_KIND, id)
     }
 
+    /// Convenience: lookup a mob by id.
     pub fn mob(&self, id: &str) -> Option<&CustomDocument<Value>> {
-        self.mobs.get(id)
+        self.get(HELIX_MOB_KIND, id)
+    }
+
+    /// Number of indexed entities across all kinds.
+    pub fn total(&self) -> usize {
+        self.kinds.values().map(|m| m.len()).sum()
     }
 
     fn rebuild_from_loaded_documents(&mut self, loaded_documents: &LoadedCustomDocuments) {
-        self.abilities.clear();
-        self.items.clear();
-        self.mobs.clear();
+        self.kinds.clear();
 
         for document in &loaded_documents.documents {
+            let kind = document.entry.kind.as_str();
+            if !ALL_HELIX_KINDS.contains(&kind) {
+                continue;
+            }
+
             let Some(parsed) = document.document.clone() else {
                 continue;
             };
 
-            match document.entry.kind.as_str() {
-                HELIX_ABILITY_KIND => {
-                    self.abilities.insert(document.entry.id.clone(), parsed);
-                }
-                HELIX_ITEM_KIND => {
-                    self.items.insert(document.entry.id.clone(), parsed);
-                }
-                HELIX_MOB_KIND => {
-                    self.mobs.insert(document.entry.id.clone(), parsed);
-                }
-                _ => {}
-            }
+            self.kinds
+                .entry(kind.to_string())
+                .or_default()
+                .insert(document.entry.id.clone(), parsed);
         }
     }
 }
@@ -834,6 +840,8 @@ mod tests {
 
         index.rebuild_from_loaded_documents(&loaded);
         assert!(index.item("dagger").is_some());
+        assert!(index.get(HELIX_ITEM_KIND, "dagger").is_some());
+        assert_eq!(index.total(), 1);
     }
 
     #[test]
