@@ -3,8 +3,11 @@
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
+mod ai;
 mod board;
+mod input;
 mod pieces;
+mod rendering;
 mod rules;
 mod state;
 
@@ -25,10 +28,48 @@ fn main() {
                     ..default()
                 }),
         )
+        .insert_resource(ClearColor(Color::srgb(0.15, 0.15, 0.2)))
         .init_state::<state::GamePhase>()
         .init_resource::<board::StrategoBoard>()
         .init_resource::<state::GameResult>()
-        .add_systems(Startup, setup_camera)
+        .init_resource::<input::PlayerSelection>()
+        .init_resource::<input::SetupQueue>()
+        // Startup
+        .add_systems(Startup, (setup_camera, rendering::spawn_board_system))
+        // Setup phase
+        .add_systems(OnEnter(state::GamePhase::Setup), input::init_setup_system)
+        .add_systems(
+            Update,
+            (
+                input::setup_click_system,
+                input::setup_status_system,
+                rendering::sync_pieces_system,
+            )
+                .run_if(in_state(state::GamePhase::Setup)),
+        )
+        // Red turn
+        .add_systems(
+            Update,
+            (
+                input::player_click_system,
+                input::play_status_system,
+                rendering::sync_pieces_system,
+                rendering::sync_highlights_system,
+            )
+                .run_if(in_state(state::GamePhase::RedTurn)),
+        )
+        // Blue turn (AI)
+        .add_systems(OnEnter(state::GamePhase::BlueTurn), ai::ai_turn_system)
+        .add_systems(
+            Update,
+            rendering::sync_pieces_system.run_if(in_state(state::GamePhase::BlueTurn)),
+        )
+        // Game over
+        .add_systems(OnEnter(state::GamePhase::GameOver), input::game_over_system)
+        .add_systems(
+            Update,
+            input::restart_system.run_if(in_state(state::GamePhase::GameOver)),
+        )
         .run();
 }
 
