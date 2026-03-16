@@ -176,7 +176,7 @@ external data flows through game plugins that register document kinds.
 
 The primary planned external source is `helix_standardization`
 (`~/dev/helix/helix_standardization`), a mature data standardization pipeline
-with ~10,800 entities across 22 JSON schemas and 285 categories (abilities, items,
+with ~14,491 entities across 22 TOML files in `dist/helix3d/` (abilities, items,
 mobs, quests, zones, equipment, mounts, currencies, etc.).
 
 The intended data flow:

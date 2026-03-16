@@ -2,7 +2,7 @@
 
 > **Note (2026-03-16):** This document is from the initial planning phase (January
 > 2026). The engine has since evolved significantly — typed TOML data pipeline,
-> editor extension seams, 265+ tests, custom document authoring, and more. See
+> editor extension seams, 270+ tests, custom document authoring, and more. See
 > [CURRENT_GAPS.md](CURRENT_GAPS.md) and [CURRENT_PRIORITIES.md](CURRENT_PRIORITIES.md)
 > for the live state.
 
