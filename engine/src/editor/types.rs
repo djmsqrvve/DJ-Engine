@@ -64,6 +64,8 @@ pub struct RuntimePreviewLaunchState {
     pub manifest_path: Option<PathBuf>,
     pub status_message: Option<String>,
     pub last_exit: Option<String>,
+    /// Last stderr output from a failed preview process (for diagnostics).
+    pub last_error: Option<String>,
     pub process: Option<Arc<Mutex<Child>>>,
 }
 

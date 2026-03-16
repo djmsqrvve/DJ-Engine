@@ -1,0 +1,4 @@
+[13:17:43] [3D] Found renderer at: /home/dj/dev/helix/helix_3d_render_prototype
+[13:17:43] [3D] Running: cargo run --features egui,terrain -- --model-preset drow --play-mode
+[13:17:43] [3D] Helix 3D Renderer launched (PID 266181). Compiling if needed...
+[13:17:43] [3D] Stderr log: /tmp/helix_3d_stderr.log

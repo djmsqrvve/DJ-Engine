@@ -31,6 +31,7 @@ fn main() {
     if let Some(dist_path) = helix_dist {
         app.insert_resource(HelixImportConfig {
             helix_dist_path: Some(dist_path),
+            ..default()
         });
     }
 

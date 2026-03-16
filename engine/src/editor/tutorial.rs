@@ -3,6 +3,7 @@
 //! Displays a step-by-step guided tutorial with panel highlighting.
 //! Tutorial content is loaded from an embedded JSON file.
 
+use super::prefs::{load_editor_prefs, save_editor_prefs};
 use super::types::{EditorUiState, EditorView, COLOR_PRIMARY, COLOR_SECONDARY};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32, Id, LayerId, Order, Painter, Pos2, Rect, RichText};
@@ -55,6 +56,8 @@ pub struct ActiveTutorial {
     pub def: TutorialDef,
     pub current_step: usize,
     pub panel_rects: PanelRects,
+    pub last_target_rect: Option<Rect>,
+    pub transition_progress: f32,
 }
 
 #[derive(Default, Clone, Debug)]
@@ -87,6 +90,8 @@ pub fn start_first_game_tutorial(state: &mut TutorialState) {
                 def,
                 current_step: 0,
                 panel_rects: PanelRects::default(),
+                last_target_rect: None,
+                transition_progress: 1.0,
             });
         }
         Err(e) => {
@@ -148,7 +153,7 @@ pub fn draw_tutorial_overlay(ctx: &egui::Context, world: &mut World) {
         },
     };
 
-    let (step, current_step, total_steps, target_rect) = match snapshot {
+    let (step, current_step, total_steps, target_rect, last_rect, progress) = match snapshot {
         Snapshot::Inactive => return,
         Snapshot::PastEnd => {
             world.resource_mut::<TutorialState>().active = None;
@@ -160,21 +165,51 @@ pub fn draw_tutorial_overlay(ctx: &egui::Context, world: &mut World) {
             total_steps,
             panel_rects,
         } => {
+            let active = world.resource::<TutorialState>().active.as_ref().unwrap();
+            let last_rect = active.last_target_rect;
+            let progress = active.transition_progress;
             let target_rect = panel_rects.rect_for_target(&step.target);
-            (step, current_step, total_steps, target_rect)
+            (step, current_step, total_steps, target_rect, last_rect, progress)
         }
     };
 
+    // Update transition progress.
+    let dt = world.resource::<Time>().delta_secs();
+    {
+        let mut state = world.resource_mut::<TutorialState>();
+        if let Some(active) = state.active.as_mut() {
+            active.transition_progress = (active.transition_progress + dt * 4.0).min(1.0);
+        }
+    }
+
     // Check auto-completion before drawing.
     if check_completion(world, &step.completion) {
-        advance_step(world, 1);
+        advance_step(world, 1, target_rect);
         return;
     }
 
     let screen_rect = ctx.input(|i| i.viewport_rect());
 
+    // Calculate interpolated rect for transition.
+    let current_cutout = match (last_rect, target_rect) {
+        (Some(l), Some(t)) => Some(Rect::from_min_max(
+            l.min.lerp(t.min, progress),
+            l.max.lerp(t.max, progress),
+        )),
+        (None, Some(t)) => Some(Rect::from_min_max(
+            screen_rect.min.lerp(t.min, progress),
+            screen_rect.max.lerp(t.max, progress),
+        )), // Lerp from full screen down to panel
+        (Some(l), None) => Some(Rect::from_min_max(
+            l.min.lerp(screen_rect.min, progress),
+            l.max.lerp(screen_rect.max, progress),
+        )), // Fade back to fullscreen
+        (None, None) => None,
+    };
+
     // Draw dim overlay with cutout for the target panel.
-    draw_dim_overlay(ctx, screen_rect, target_rect);
+    let elapsed = world.resource::<Time>().elapsed_secs();
+    draw_dim_overlay(ctx, screen_rect, current_cutout, elapsed);
 
     // Draw instruction window.
     let window_pos = instruction_window_pos(screen_rect, target_rect, &step.target);
@@ -243,29 +278,47 @@ pub fn draw_tutorial_overlay(ctx: &egui::Context, world: &mut World) {
             });
         });
 
+    // Draw arrow from instruction window to target rect.
+    if let Some(cutout) = current_cutout {
+        if progress > 0.8 {
+            draw_arrow(ctx, screen_rect, window_pos, cutout);
+        }
+    }
+
     if should_skip {
         world.resource_mut::<TutorialState>().active = None;
     } else if should_advance {
-        advance_step(world, 1);
+        advance_step(world, 1, target_rect);
     } else if should_back {
-        advance_step(world, -1);
+        advance_step(world, -1, target_rect);
     }
 }
 
 // ── Internal helpers ─────────────────────────────────────────────
 
-fn advance_step(world: &mut World, delta: i32) {
+fn advance_step(world: &mut World, delta: i32, current_rect: Option<Rect>) {
     let mut state = world.resource_mut::<TutorialState>();
     let Some(active) = state.active.as_mut() else {
         return;
     };
+
+    active.last_target_rect = current_rect;
+    active.transition_progress = 0.0;
+
     let new = active.current_step as i32 + delta;
     if new < 0 {
         active.current_step = 0;
+        active.transition_progress = 1.0; // No transition if staying at 0
     } else if new >= active.def.steps.len() as i32 {
         // Tutorial complete.
+        let name = active.def.name.clone();
         drop(state);
         world.resource_mut::<TutorialState>().active = None;
+
+        // Persist completion.
+        let mut prefs = load_editor_prefs();
+        prefs.completed_tutorials.insert(name);
+        save_editor_prefs(&prefs);
     } else {
         active.current_step = new as usize;
     }
@@ -294,7 +347,7 @@ fn check_completion(world: &World, condition: &CompletionCondition) -> bool {
     }
 }
 
-fn draw_dim_overlay(ctx: &egui::Context, screen: Rect, cutout: Option<Rect>) {
+fn draw_dim_overlay(ctx: &egui::Context, screen: Rect, cutout: Option<Rect>, elapsed: f32) {
     let dim_color = Color32::from_black_alpha(180);
     let layer_id = LayerId::new(Order::Foreground, Id::new("tutorial_dim"));
     let painter = Painter::new(ctx.clone(), layer_id, screen);
@@ -333,11 +386,17 @@ fn draw_dim_overlay(ctx: &egui::Context, screen: Rect, cutout: Option<Rect>) {
                 dim_color,
             );
 
-            // Highlight border around the cutout.
+            // Pulsing highlight border around the cutout.
+            let pulse = (elapsed * 4.0).sin() * 0.5 + 0.5;
+            let stroke_width = 2.0 + pulse * 2.0;
+            let alpha = (150.0 + pulse * 105.0) as u8;
+            let mut color = COLOR_PRIMARY;
+            color = Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), alpha);
+
             painter.rect_stroke(
                 cutout,
                 2.0,
-                egui::Stroke::new(2.0, COLOR_PRIMARY),
+                egui::Stroke::new(stroke_width, color),
                 egui::StrokeKind::Outside,
             );
         }
@@ -346,6 +405,31 @@ fn draw_dim_overlay(ctx: &egui::Context, screen: Rect, cutout: Option<Rect>) {
             painter.rect_filled(screen, 0.0, Color32::from_black_alpha(120));
         }
     }
+}
+
+fn draw_arrow(ctx: &egui::Context, screen: Rect, window_pos: Pos2, target_rect: Rect) {
+    let layer_id = LayerId::new(Order::Foreground, Id::new("tutorial_arrow"));
+    let painter = Painter::new(ctx.clone(), layer_id, screen);
+
+    let window_center = window_pos + egui::vec2(170.0, 50.0); // Rough center of instruction window
+
+    // Find point on target rect closest to window center.
+    let target_point = Pos2::new(
+        window_center.x.clamp(target_rect.left(), target_rect.right()),
+        window_center.y.clamp(target_rect.top(), target_rect.bottom()),
+    );
+
+    // If window is very close to or inside target, don't draw arrow.
+    if window_center.distance(target_point) < 40.0 {
+        return;
+    }
+
+    // Direction from window to target.
+    let dir = (target_point - window_center).normalized();
+    let start = window_center + dir * 60.0;
+    let end = target_point - dir * 10.0;
+
+    painter.arrow(start, end - start, egui::Stroke::new(3.0, COLOR_PRIMARY));
 }
 
 fn instruction_window_pos(
@@ -438,5 +522,43 @@ mod tests {
         // Should be roughly centered.
         assert!(pos.x > 200.0 && pos.x < 700.0);
         assert!(pos.y > 100.0 && pos.y < 500.0);
+    }
+
+    #[test]
+    fn test_advance_step_persistence() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        std::env::set_var("DJ_ENGINE_PREFS_DIR", temp_dir.path());
+
+        let mut world = World::new();
+        let def = TutorialDef {
+            name: "TestTutorial".to_string(),
+            steps: vec![TutorialStep {
+                title: "Step 1".to_string(),
+                body: "".to_string(),
+                target: TutorialTarget::FullScreen,
+                completion: CompletionCondition::Manual,
+            }],
+        };
+        world.insert_resource(TutorialState {
+            active: Some(ActiveTutorial {
+                def,
+                current_step: 0,
+                panel_rects: PanelRects::default(),
+                last_target_rect: None,
+                transition_progress: 1.0,
+            }),
+        });
+
+        // Advance past the end.
+        advance_step(&mut world, 1, None);
+
+        // State should be inactive.
+        assert!(world.resource::<TutorialState>().active.is_none());
+
+        // Prefs should show completion.
+        let prefs = load_editor_prefs();
+        assert!(prefs.completed_tutorials.contains("TestTutorial"));
+
+        std::env::remove_var("DJ_ENGINE_PREFS_DIR");
     }
 }

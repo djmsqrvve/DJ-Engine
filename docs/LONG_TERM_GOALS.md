@@ -139,21 +139,27 @@ The engine remains understandable:
 ## Helix Data Integration Path
 
 The DJ multiverse includes a Helix timeline with multiple game variants (Helix2000,
-potential Helix MMORPG, etc.) that may run on different engines or languages.
+Helix 3D, potential Helix MMORPG) that may run on different engines or languages.
 `helix_standardization` (`~/dev/helix/helix_standardization`) is the shared data
-standard across all of them: ~10,800 entities, 22 JSON schemas, 285 categories
-covering abilities, items, mobs, quests, zones, equipment, mounts, currencies,
-and more.
+standard across all of them: ~14,491 entities, 22 curated TOML files in
+`dist/helix3d/` (499 entities), covering abilities, items, mobs, quests, zones,
+equipment, mounts, currencies, and more.
 
 The integration path into DJ-Engine is:
 
-- `helix_standardization` dist/ JSON → game plugin maps categories to DJ-Engine
-  document kinds → registered via `CustomDocumentRegistration<T>` → loaded
-  through `data/registry.json`
+- **Typed TOML pipeline (current):** `dist/helix3d/*.toml` → `helix-data` crate
+  `Registry<T>::from_toml_str()` → `HelixRegistries` Bevy Resource (22 typed
+  registries) → bridge layer converts to engine DB types → balance overlays
+  apply per-engine tuning
+- **Legacy JSON pipeline:** `dist/` raw JSON → `plugins/helix_data/` importer →
+  `CustomDocument<Value>` envelopes → `HelixDocumentIndex`
+- The `helix-data` crate (`~/dev/helix/helix_3d_render_prototype/crates/helix-data/`)
+  is a zero-Bevy pure serde+toml crate shared between DJ Engine and Helix 3D
 - The engine never depends on `helix_standardization` at compile time or runtime
 - Each game variant maps standardized data to its own runtime needs
 - Production builds carry their own data — `helix_standardization` is a
   dev/testing bridge only
+- `make helix-dashboard` validates all 22 registries for schema contracts
 
 The test fixtures in `engine/src/runtime_preview/mod.rs` intentionally use
 Helix-shaped document kinds (`abilities`, `enemy_archetypes`, `evolution_tree`,

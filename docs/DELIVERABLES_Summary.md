@@ -1,8 +1,14 @@
-# 🎯 DELIVERABLES SUMMARY: dj_engine Complete Implementation Package
+# DELIVERABLES SUMMARY: dj_engine Complete Implementation Package
 
-**Date:** January 21, 2026  
-**Status:** ✅ ALL DOCUMENTS CREATED AND READY TO USE  
-**Total Content:** ~10,000 lines  
+> **Note (2026-03-16):** This document is from the initial planning phase (January
+> 2026). The engine has since evolved significantly — typed TOML data pipeline,
+> editor extension seams, 265+ tests, custom document authoring, and more. See
+> [CURRENT_GAPS.md](CURRENT_GAPS.md) and [CURRENT_PRIORITIES.md](CURRENT_PRIORITIES.md)
+> for the live state.
+
+**Date:** January 21, 2026
+**Status:** HISTORICAL — see current docs for live state
+**Total Content:** ~10,000 lines
 **Implementation Timeline:** 20 weeks (1 dev) → 10 weeks (3 devs)
 
 ---

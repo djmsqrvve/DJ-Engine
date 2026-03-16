@@ -48,18 +48,18 @@ A data-driven tutorial overlay that guides new users through making their first 
 - [x] Auto-advance on completion conditions
 - [x] Progress indicator ("Step N of M")
 - [x] Tutorial button in top menu bar
-- [x] 4 unit tests (deserialization, panel rects, window positioning)
+- [x] Animated transitions between steps (lerp cutout to new panel)
+- [x] Pulsing border animation on highlighted panel
+- [x] Arrow/pointer from instruction window to target panel
+- [x] Completion persistence (save completed tutorial IDs to disk)
+- [x] 6 unit tests (deserialization, panel rects, window positioning, persistence)
 
 ## Planned Features
 
 - [ ] Multiple tutorial definitions (load by name, not just "first game")
 - [ ] Tutorial selection menu / launcher dialog
-- [ ] Animated transitions between steps (fade cutout to new panel)
-- [ ] Pulsing border animation on highlighted panel
-- [ ] Arrow/pointer from instruction window to target panel
 - [ ] Rich text formatting in step body (bold, inline code, links)
 - [ ] Image/screenshot support in tutorial steps
-- [ ] Completion persistence (remember which tutorials user has finished)
 - [ ] "Don't show again" / auto-show on first launch
 - [ ] Custom tutorials loaded from project files (not just embedded)
 - [ ] Conditional steps (skip step if user already did the action)
@@ -71,6 +71,7 @@ A data-driven tutorial overlay that guides new users through making their first 
 ## Related Systems
 
 - **Panel Export** (`panel_export.rs`): Structured data export for all panels, committed alongside the tutorial system.
+- **Editor Prefs** (`prefs.rs`): Persistent storage for user settings and tutorial completion.
 - **EditorUiState**: Provides the state fields that completion conditions check against.
 - **EditorView / BrowserTab**: Enums used for `ViewChanged` and `TabChanged` conditions.
 

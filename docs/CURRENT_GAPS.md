@@ -15,9 +15,8 @@ DJ Engine now has:
 - snapshot-based editor dirty tracking and guarded reloads
 - a registry-driven custom-document scaffold under `data/registry.json`
 - structured metadata editing, reference-link pickers, a table editor with
-  inline top-level scalar editing for record-heavy document kinds (abilities,
-  items, mobs), and a recursive property inspector for nested object/array
-  payload fields
+  inline top-level scalar editing for record-heavy document kinds, and a
+  recursive property inspector for nested object/array payload fields
 - a working editor extension seam: toolbar action dispatch, preview preset
   selection, and custom panel registration (Helix data plugin is the first
   real consumer)
@@ -25,6 +24,11 @@ DJ Engine now has:
   story graph, console, assets)
 - an interactive tutorial overlay system with JSON-driven step definitions,
   panel highlighting, and auto-advance on user actions
+- a typed TOML pipeline for Helix data: `helix-data` crate dependency,
+  `HelixRegistries` Bevy Resource with 22 typed `Registry<T>` (499 entities),
+  bridge layer converting Helix types to engine DB types, balance overlays,
+  and a contract validation dashboard (`make helix-dashboard`)
+- 265 passing tests across the workspace
 
 That gives the repo a solid reusable foundation. The biggest remaining gaps are
 no longer about basic launchability; they are about authoring depth, extension
