@@ -38,7 +38,9 @@ pub use custom::{
     LoadedCustomDocument, LoadedCustomDocuments, PreviewProfilePayload, ValidationIssue,
     ValidationSeverity,
 };
-pub use database::{Database, EnemyRow, ItemRow, LootTableRow, NpcRow, QuestRow, TowerRow};
+pub use database::{
+    AbilityRow, Database, EnemyRow, ItemRow, LootTableRow, NpcRow, QuestRow, TowerRow, ZoneRow,
+};
 pub use loader::{load_database, load_project, load_scene, load_story_graph, DataError};
 pub use project::{EditorPreferences, Project, ProjectSettings};
 pub use scene::{Entity, EntityType, Layer, Scene, SceneType};

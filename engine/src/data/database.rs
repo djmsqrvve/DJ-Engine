@@ -425,6 +425,40 @@ impl QuestRow {
     }
 }
 
+/// Ability definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct AbilityRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub ability_type: String,
+    #[serde(default)]
+    pub school: String,
+    #[serde(default)]
+    pub cooldown: f64,
+    #[serde(default)]
+    pub mana_cost: f64,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Zone definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct ZoneRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub level_min: u32,
+    #[serde(default)]
+    pub level_max: u32,
+    #[serde(default)]
+    pub continent: String,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
 /// The complete game database.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Database {
@@ -446,6 +480,12 @@ pub struct Database {
     /// Quest definitions
     #[serde(default)]
     pub quests: Vec<QuestRow>,
+    /// Ability definitions
+    #[serde(default)]
+    pub abilities: Vec<AbilityRow>,
+    /// Zone definitions
+    #[serde(default)]
+    pub zones: Vec<ZoneRow>,
 }
 
 impl Database {
@@ -482,6 +522,16 @@ impl Database {
     /// Find a quest by ID.
     pub fn find_quest(&self, id: &str) -> Option<&QuestRow> {
         self.quests.iter().find(|q| q.id == id)
+    }
+
+    /// Find an ability by ID.
+    pub fn find_ability(&self, id: &str) -> Option<&AbilityRow> {
+        self.abilities.iter().find(|a| a.id == id)
+    }
+
+    /// Find a zone by ID.
+    pub fn find_zone(&self, id: &str) -> Option<&ZoneRow> {
+        self.zones.iter().find(|z| z.id == id)
     }
 }
 
