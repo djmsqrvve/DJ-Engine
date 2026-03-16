@@ -10,6 +10,7 @@ mod pieces;
 mod rendering;
 mod rules;
 mod state;
+mod tutorial_steps;
 
 fn main() {
     App::new()
@@ -34,6 +35,7 @@ fn main() {
         .init_resource::<state::GameResult>()
         .init_resource::<input::PlayerSelection>()
         .init_resource::<input::SetupQueue>()
+        .init_resource::<tutorial_steps::TutorialState>()
         // Startup
         .add_systems(Startup, (setup_camera, rendering::spawn_board_system))
         // Setup phase
@@ -44,6 +46,7 @@ fn main() {
                 input::setup_click_system,
                 input::setup_status_system,
                 rendering::sync_pieces_system,
+                tutorial_steps::tutorial_system,
             )
                 .run_if(in_state(state::GamePhase::Setup)),
         )
@@ -55,6 +58,7 @@ fn main() {
                 input::play_status_system,
                 rendering::sync_pieces_system,
                 rendering::sync_highlights_system,
+                tutorial_steps::tutorial_system,
             )
                 .run_if(in_state(state::GamePhase::RedTurn)),
         )
