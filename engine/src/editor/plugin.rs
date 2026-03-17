@@ -79,6 +79,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<EditorDirtyState>()
             .init_resource::<RuntimePreviewLaunchState>()
             .init_resource::<super::types::Helix3DViewerState>()
+            .init_resource::<super::types::Helix3DLaunchConfig>()
             .init_resource::<LoadedCustomDocuments>()
             .init_resource::<EditorExtensionRegistry>()
             .init_resource::<super::extensions::SelectedPreviewPreset>()
@@ -95,6 +96,7 @@ impl Plugin for EditorPlugin {
                     poll_runtime_preview_process_system,
                     refresh_editor_dirty_state,
                     super::panel_export::process_panel_export_system,
+                    super::panels::screenshot_hotkey_system,
                 ),
             );
 

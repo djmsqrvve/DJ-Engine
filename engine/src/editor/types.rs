@@ -80,6 +80,28 @@ impl RuntimePreviewLaunchState {
     }
 }
 
+/// Configurable launch settings for the Helix 3D Renderer.
+#[derive(Resource, Debug, Clone)]
+pub struct Helix3DLaunchConfig {
+    pub model_preset: String,
+    pub play_mode: bool,
+    pub data_dir: Option<String>,
+    pub terrain_dir: Option<String>,
+    pub extra_args: Vec<String>,
+}
+
+impl Default for Helix3DLaunchConfig {
+    fn default() -> Self {
+        Self {
+            model_preset: "drow".to_string(),
+            play_mode: true,
+            data_dir: None,
+            terrain_dir: None,
+            extra_args: Vec::new(),
+        }
+    }
+}
+
 /// Tracks a launched Helix 3D Renderer subprocess.
 #[derive(Resource, Default)]
 pub struct Helix3DViewerState {

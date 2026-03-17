@@ -22,6 +22,7 @@ use super::actions::{
 use crate::project_mount::MountedProject;
 use crate::story_graph::GraphExecutor;
 use bevy::prelude::*;
+use bevy::render::view::screenshot::{save_to_disk, Screenshot, ScreenshotCaptured};
 use bevy_egui::egui::{self, Color32, RichText};
 use bevy_inspector_egui::bevy_inspector;
 use std::fs;
@@ -1063,25 +1064,61 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
             stop_runtime_preview_from_editor(world);
         }
 
-        // ── Helix 3D Viewer launch button ──
+        // ── Helix 3D Viewer launch button + config ──
         {
             ui.add_space(10.0);
             ui.separator();
             ui.add_space(10.0);
 
             let viewer_running = world.resource::<super::types::Helix3DViewerState>().is_running();
-            let btn_label = if viewer_running { "3D (Running)" } else { "3D" };
-            let btn_color = Color32::from_rgb(100, 180, 255); // Steel blue
-            if ui
-                .add_enabled(
-                    !viewer_running,
-                    egui::Button::new(RichText::new(btn_label).color(btn_color).strong()),
-                )
-                .on_hover_text("Launch the Helix 3D Renderer")
-                .clicked()
-            {
-                launch_helix_3d_viewer(world);
-            }
+
+            ui.horizontal(|ui| {
+                let btn_label = if viewer_running { "3D (Running)" } else { "3D" };
+                let btn_color = Color32::from_rgb(100, 180, 255);
+                if ui
+                    .add_enabled(
+                        !viewer_running,
+                        egui::Button::new(RichText::new(btn_label).color(btn_color).strong()),
+                    )
+                    .on_hover_text("Launch the Helix 3D Renderer")
+                    .clicked()
+                {
+                    launch_helix_3d_viewer(world);
+                }
+
+                // Model preset selector.
+                let mut config = world
+                    .get_resource::<super::types::Helix3DLaunchConfig>()
+                    .cloned()
+                    .unwrap_or_default();
+                let presets = [
+                    "drow", "phantom-assassin", "crystal-maiden", "juggernaut",
+                    "witch-doctor", "shadow-fiend",
+                ];
+                egui::ComboBox::from_id_salt("3d_model_preset")
+                    .selected_text(&config.model_preset)
+                    .width(120.0)
+                    .show_ui(ui, |ui| {
+                        for preset in &presets {
+                            ui.selectable_value(
+                                &mut config.model_preset,
+                                preset.to_string(),
+                                *preset,
+                            );
+                        }
+                    });
+                world.insert_resource(config);
+            });
+        }
+
+        // ── Screenshot button ──
+        ui.add_space(6.0);
+        if ui
+            .button(RichText::new("Screenshot").color(Color32::from_rgb(200, 200, 200)))
+            .on_hover_text("Save a screenshot of the editor window (F12)")
+            .clicked()
+        {
+            take_screenshot(world);
         }
 
         if world.resource::<EditorUiState>().current_view == EditorView::StoryGraph {
@@ -1911,14 +1948,34 @@ fn launch_helix_3d_viewer(world: &mut World) {
     let stderr_path = std::env::temp_dir().join("helix_3d_stderr.log");
     let stderr_file = std::fs::File::create(&stderr_path).ok();
 
+    let config = world
+        .get_resource::<super::types::Helix3DLaunchConfig>()
+        .cloned()
+        .unwrap_or_default();
+
+    let mut args = vec![
+        "run".to_string(),
+        "--features".to_string(),
+        "egui,terrain".to_string(),
+        "--".to_string(),
+        "--model-preset".to_string(),
+        config.model_preset.clone(),
+    ];
+    if config.play_mode {
+        args.push("--play-mode".to_string());
+    }
+    if let Some(ref data_dir) = config.data_dir {
+        args.push("--data-dir".to_string());
+        args.push(data_dir.clone());
+    }
+    if let Some(ref terrain_dir) = config.terrain_dir {
+        args.push("--terrain-dir".to_string());
+        args.push(terrain_dir.clone());
+    }
+    args.extend(config.extra_args.iter().cloned());
+
     let mut cmd = Command::new("cargo");
-    cmd.args([
-        "run",
-        "--features", "egui,terrain",
-        "--",
-        "--model-preset", "drow",
-        "--play-mode",
-    ]);
+    cmd.args(&args);
     cmd.current_dir(&renderer_root);
     // Remove RUSTUP_TOOLCHAIN so the renderer's rust-toolchain.toml (1.94.0) takes effect
     // instead of inheriting DJ Engine's toolchain (1.93.1).
@@ -1928,9 +1985,10 @@ fn launch_helix_3d_viewer(world: &mut World) {
         cmd.stderr(std::process::Stdio::from(file));
     }
 
+    let args_display = args.join(" ");
     log_console(
         world,
-        "[3D] Running: cargo run --features egui,terrain -- --model-preset drow --play-mode",
+        &format!("[3D] Running: cargo {args_display}"),
     );
 
     match cmd.spawn() {
@@ -1956,6 +2014,66 @@ fn launch_helix_3d_viewer(world: &mut World) {
             log_console(world, &msg);
             error!("{msg}");
         }
+    }
+}
+
+fn take_screenshot(world: &mut World) {
+    let mounted = world.resource::<MountedProject>();
+    let screenshot_dir = mounted
+        .root_path
+        .as_ref()
+        .map(|p| p.join("screenshots"))
+        .unwrap_or_else(|| std::path::PathBuf::from("screenshots"));
+
+    if let Err(err) = fs::create_dir_all(&screenshot_dir) {
+        let msg = format!("Failed to create screenshots directory: {err}");
+        log_console(world, &msg);
+        error!("{msg}");
+        return;
+    }
+
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let path = screenshot_dir.join(format!("editor_{timestamp}.png"));
+    let path_display = path.display().to_string();
+
+    world
+        .commands()
+        .spawn(Screenshot::primary_window())
+        .observe(move |captured: On<ScreenshotCaptured>| {
+            save_to_disk(path.clone())(captured);
+            info!("[SCREENSHOT] Saved to {}", path.display());
+        });
+
+    let msg = format!("Screenshot capturing to {path_display}");
+    log_console(world, &msg);
+    info!("{msg}");
+}
+
+/// System: F12 hotkey triggers a screenshot.
+pub fn screenshot_hotkey_system(keys: Res<ButtonInput<KeyCode>>, mut commands: Commands) {
+    if keys.just_pressed(KeyCode::F12) {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let path = std::path::PathBuf::from(format!("screenshots/editor_{timestamp}.png"));
+
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+
+        let path_clone = path.clone();
+        commands
+            .spawn(Screenshot::primary_window())
+            .observe(move |captured: On<ScreenshotCaptured>| {
+                save_to_disk(path_clone.clone())(captured);
+                info!("[SCREENSHOT] Saved to {}", path_clone.display());
+            });
+
+        info!("[SCREENSHOT] Capturing to {}", path.display());
     }
 }
 
