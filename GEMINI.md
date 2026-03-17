@@ -49,14 +49,15 @@ Lua integration for game logic and cutscenes.
 
 ### Common Commands
 ```bash
-# Run the main game (DoomExe)
-cargo run -p doomexe
+# Run games
+make doom              # DoomExe (hamster narrator JRPG)
+make stratego          # Stratego (10x10 board game tutorial)
+make iso               # Iso Sandbox (isometric tile grid)
 
-# Run all tests
-cargo test --workspace
-
-# Check for compilation errors
-cargo check --workspace
+# Quality
+make test              # Run all tests (302+ passing)
+make check             # Check for compilation errors
+make lint              # Run clippy
 ```
 
 ### Key File Locations

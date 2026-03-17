@@ -56,18 +56,21 @@ Examples:
 
 ```
 dj_engine/
-├── engine/          # Core engine library
+├── engine/              # Core engine library
 │   ├── src/
 │   │   ├── core/        # Core engine plugin
-│   │   ├── data/        # Serializable data types
+│   │   ├── data/        # Serializable data types, Grid<T>
 │   │   ├── editor/      # Egui-based editor
 │   │   ├── story_graph/ # Narrative system
 │   │   └── scripting/   # Lua integration
-│   └── examples/    # Example JSON files
-├── games/           # Game projects
-│   └── dev/doomexe/ # Main development game
-├── docs/            # Documentation
-└── tools/           # CLI utilities
+│   └── examples/        # Example JSON files
+├── games/dev/
+│   ├── doomexe/         # Primary game — hamster narrator JRPG
+│   ├── stratego/        # Tutorial game — 10x10 board, AI opponent
+│   └── iso_sandbox/     # Isometric sandbox — 16x16 tile grid
+├── plugins/helix_data/  # Helix data bridge and TOML import
+├── docs/                # Documentation + tutorials
+└── tools/               # CLI utilities
 ```
 
 ## Getting Help

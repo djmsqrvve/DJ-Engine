@@ -23,54 +23,34 @@ This file provides essential information for AI coding agents working with the D
 
 ## Project Structure
 
-This is a **Cargo workspace** with three main crates:
+This is a **Cargo workspace** with six crates:
 
 ```
 dj_engine/
 ├── engine/                      # Core engine library (dj_engine crate)
-│   ├── src/
-│   │   ├── animation/          # Procedural animation systems
-│   │   ├── assets/             # Asset loading and definitions
-│   │   ├── audio/              # Audio systems (SFX, BGM, MIDI)
-│   │   ├── core/               # Master plugin bundle (DJEnginePlugin)
-│   │   ├── data/               # Serialization types & loading
-│   │   ├── diagnostics/        # Debug overlay and inspector
-│   │   ├── editor/             # In-engine editing tools
-│   │   ├── input/              # Input handling and action mapping
-│   │   ├── midi/               # MIDI music integration
-│   │   ├── rendering/          # Custom rendering & palette effects
-│   │   ├── scene/              # Scene management
-│   │   ├── scripting/          # Lua integration & FFI
-│   │   ├── story_graph/        # Narrative node system
-│   │   ├── types.rs            # Shared engine types
-│   │   └── lib.rs              # Public API & prelude
-│   └── Cargo.toml
-├── games/dev/doomexe/           # Primary game project
-│   ├── src/
-│   │   ├── assets.rs           # Game-specific asset management
-│   │   ├── battle/             # JRPG battle system
-│   │   ├── dialogue/           # Dialogue UI and flow
-│   │   ├── hamster/            # "Hamster" character systems
-│   │   ├── hud/                # Heads-up display
-│   │   ├── main.rs             # Game entry point
-│   │   ├── overworld/          # Exploration gameplay
-│   │   ├── scripting/          # Game-specific Lua extensions
-│   │   ├── state.rs            # Game state management
-│   │   ├── story/              # Story progression system
-│   │   ├── title.rs            # Title screen implementation
-│   │   └── types.rs            # Game-specific types
-│   ├── assets/
-│   │   ├── music/              # MIDI and audio files
-│   │   ├── palettes/           # Color palette definitions
-│   │   ├── scripts/            # Lua game scripts
-│   │   ├── shaders/            # Custom shaders
-│   │   └── sprites/            # 2D sprite assets
-│   └── Cargo.toml
+│   └── src/
+│       ├── animation/          # Procedural animation systems
+│       ├── assets/             # Asset loading and definitions
+│       ├── audio/              # Audio systems (SFX, BGM, MIDI)
+│       ├── core/               # Master plugin bundle (DJEnginePlugin)
+│       ├── data/               # Serialization types, Grid<T>, loading
+│       ├── diagnostics/        # Debug overlay and inspector
+│       ├── editor/             # In-engine editing tools
+│       ├── input/              # Input handling and action mapping
+│       ├── midi/               # MIDI music integration
+│       ├── rendering/          # Custom rendering & palette effects
+│       ├── scene/              # Scene management
+│       ├── scripting/          # Lua integration & FFI
+│       ├── story_graph/        # Narrative node system
+│       ├── types.rs            # Shared engine types
+│       └── lib.rs              # Public API & prelude
+├── games/dev/doomexe/           # Primary game — hamster narrator JRPG
+├── games/dev/stratego/          # Tutorial game — 10x10 board, 8 piece types, AI
+├── games/dev/iso_sandbox/       # Isometric sandbox — 16x16 tile grid, entity placement
+├── plugins/helix_data/          # Helix data bridge plugin and TOML import tooling
 ├── tools/asset_generator/       # Build-time asset processing
-│   ├── src/main.rs
-│   └── Cargo.toml
-├── docs/                        # Comprehensive documentation
-├── target/                      # Build artifacts
+├── docs/                        # Documentation + tutorials
+│   └── tutorials/              # 8-chapter Stratego walkthrough with full code
 └── Cargo.toml                   # Workspace manifest
 ```
 
@@ -80,26 +60,36 @@ dj_engine/
 ```bash
 # Development
 make dev               # Launch the editor (default)
-make dev-fast          # Fastest startup (skip checks)
-make dev-safe          # Clean and start fresh
-make dev-release       # Run optimized release build
 make editor            # Launch the editor
+make engine            # Alias for make editor
 make minimal           # Run minimal rendering binary
-make asset-gen         # Run the asset generator
+make preview PROJECT=<dir>  # Launch runtime preview
+make new-game NAME=<name>   # Scaffold a new game crate
+
+# Games
+make game              # Run DoomExe (hamster narrator JRPG)
+make doom              # Alias for make game
+make stratego          # Run Stratego (10x10 board game tutorial)
+make iso               # Run Iso Sandbox (isometric tile grid)
+
+# Helix Data
+make helix-import HELIX_DIST=<dir> PROJECT=<dir>  # Import Helix dist
+make helix-import-toml HELIX3D=<dir>               # Load typed TOML registries
+make helix-dashboard HELIX3D=<dir>                  # Data contract validation
+make helix-editor PROJECT=<dir>                     # Helix editor wrapper
+make helix-preview PROJECT=<dir>                    # Helix runtime preview
 
 # Testing & Quality
-make test              # Run all workspace tests
+make test              # Run all workspace tests (302+ passing)
 make quality-check     # Full pipeline (fmt + clippy + test)
 make guardrail         # Quick safety checks
-make guardrail-strict  # Full safety checks
 make lint              # Run clippy
-make lint-fix          # Auto-fix clippy issues
-make format            # Check formatting
+make fmt               # Check formatting
 make format-fix        # Fix formatting
 
 # Build
 make build             # Debug build
-make build-release     # Release build (optimized)
+make clean             # Remove build artifacts
 ```
 
 ### Direct Cargo Commands
@@ -403,12 +393,11 @@ Currently targeting desktop platforms:
 
 ```bash
 # Daily development
-make doom       # Run game
-make test       # Run tests
+make doom       # Run DoomExe game
+make stratego   # Run Stratego tutorial game
+make iso        # Run Iso Sandbox
+make test       # Run all tests (302+)
 cargo check     # Validate code
-
-# Asset work
-make asset-gen  # Generate assets
 
 # Debugging
 RUST_LOG=debug make doom    # Verbose logging

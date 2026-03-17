@@ -1,6 +1,6 @@
 # DJ-Engine Roadmap
 
-Status as of 2026-03-10: 121 tests passing, Phase 1-4 complete.
+Status as of 2026-03-17: 302 tests passing, Phase 1-4 complete. Three game crates: DoomExe, Stratego, Iso Sandbox.
 
 ## Phase 1: Quick Wins (1 session)
 
@@ -93,8 +93,7 @@ Status as of 2026-03-10: 121 tests passing, Phase 1-4 complete.
 
 | Session | Work | Tests After |
 |---------|------|-------------|
-| Next | Phase 1: Quick wins (docs, validation, helper, MIDI) | ~107 |
-| +1 | Phase 2: Audio crossfade | ~112 |
-| +2 | Phase 3: Save/load | ~118 |
-| +3-5 | Phase 4: CRT pipeline | ~122 |
-| +6-8 | Phase 5: Physics/collision | ~130 |
+| Next | Phase 2: Audio crossfade | ~310 |
+| +1 | Phase 3: Save/load | ~320 |
+| +2-4 | Phase 4: CRT pipeline | ~330 |
+| +5-7 | Phase 5: Physics/collision | ~345 |

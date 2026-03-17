@@ -80,6 +80,8 @@ make helix-editor PROJECT=/tmp/helix_project
 make helix-preview PROJECT=/tmp/helix_project
 make game             # Run the sample DoomExe game
 make doom             # Alias for make game
+make stratego         # Run Stratego (10x10 board game tutorial)
+make iso              # Run Iso Sandbox (isometric tile grid)
 make minimal          # Run minimal rendering binary
 
 # Quality
@@ -100,10 +102,12 @@ make clean            # Remove build artifacts
 ```text
 dj_engine/
 ├── engine/                 # Core engine library
-├── games/dev/doomexe/      # Sample game project
+├── games/dev/doomexe/      # Primary game — hamster narrator JRPG
+├── games/dev/stratego/     # Tutorial game — 10x10 board, AI opponent
+├── games/dev/iso_sandbox/  # Isometric sandbox — 16x16 tile grid
 ├── plugins/helix_data/     # Helix data bridge plugin and import tooling
 ├── tools/asset_generator/  # Asset processing utilities
-├── docs/                   # Project and engine documentation
+├── docs/                   # Documentation + 8-chapter Stratego tutorial
 └── Makefile                # Unified command interface
 ```
 
