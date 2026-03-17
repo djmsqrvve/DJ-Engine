@@ -85,6 +85,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<super::extensions::SelectedPreviewPreset>()
             .init_resource::<super::extensions::ToolbarActionQueue>()
             .init_resource::<super::tutorial::TutorialState>()
+            .insert_resource(super::tutorial::build_catalog())
             .init_resource::<super::panel_export::PanelExportRequest>()
             .init_resource::<super::panel_export::PanelExportResult>()
             .add_systems(Startup, super::scene_io::load_initial_project_system)

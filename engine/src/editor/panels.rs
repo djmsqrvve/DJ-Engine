@@ -1249,15 +1249,42 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
             }
         }
 
-        // Tutorial button.
+        // Tutorial picker.
         ui.add_space(10.0);
-        if ui
-            .button(RichText::new("Tutorial").color(COLOR_SECONDARY))
-            .clicked()
-        {
-            let mut tut_state = world.resource_mut::<super::tutorial::TutorialState>();
-            super::tutorial::start_first_game_tutorial(&mut tut_state);
+        let tut_btn = ui.button(RichText::new("Tutorial \u{25BE}").color(COLOR_SECONDARY));
+        let popup_id = ui.make_persistent_id("tutorial_picker");
+        if tut_btn.clicked() {
+            ui.memory_mut(|m| m.toggle_popup(popup_id));
         }
+        egui::popup_below_widget(
+            ui,
+            popup_id,
+            &tut_btn,
+            egui::PopupCloseBehavior::CloseOnClickOutside,
+            |ui: &mut egui::Ui| {
+                ui.set_min_width(200.0);
+                let catalog = world.resource::<super::tutorial::TutorialCatalog>().clone();
+                let prefs = super::prefs::load_editor_prefs();
+                for def in &catalog.tutorials {
+                    let key = if def.id.is_empty() {
+                        &def.name
+                    } else {
+                        &def.id
+                    };
+                    let completed = prefs.completed_tutorials.contains(key);
+                    let label = if completed {
+                        format!("\u{2713} {}", def.name)
+                    } else {
+                        format!("  {}", def.name)
+                    };
+                    if ui.button(label).clicked() {
+                        let mut tut_state = world.resource_mut::<super::tutorial::TutorialState>();
+                        super::tutorial::start_tutorial(&mut tut_state, def.clone());
+                        ui.close_menu();
+                    }
+                }
+            },
+        );
 
         ui.add_space(10.0);
         ui.separator();

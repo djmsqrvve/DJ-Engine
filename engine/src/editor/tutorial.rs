@@ -10,11 +10,15 @@ use bevy_egui::egui::{self, Color32, Id, LayerId, Order, Painter, Pos2, Rect, Ri
 use serde::Deserialize;
 
 const FIRST_GAME_TUTORIAL_JSON: &str = include_str!("../../template/tutorials/first_game.json");
+const STORY_GRAPH_TUTORIAL_JSON: &str = include_str!("../../template/tutorials/story_graph.json");
 
 // ── Data types (deserializable from JSON) ────────────────────────
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct TutorialDef {
+    /// Unique identifier used for completion tracking in prefs.
+    #[serde(default)]
+    pub id: String,
     pub name: String,
     pub steps: Vec<TutorialStep>,
 }
@@ -80,23 +84,45 @@ impl PanelRects {
     }
 }
 
+// ── Tutorial catalog ─────────────────────────────────────────────
+
+/// All available tutorials, populated at startup.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct TutorialCatalog {
+    pub tutorials: Vec<TutorialDef>,
+}
+
+/// Build the catalog from all embedded tutorial JSONs.
+pub fn build_catalog() -> TutorialCatalog {
+    let sources = [FIRST_GAME_TUTORIAL_JSON, STORY_GRAPH_TUTORIAL_JSON];
+    let mut tutorials = Vec::new();
+    for src in sources {
+        match serde_json::from_str::<TutorialDef>(src) {
+            Ok(def) => tutorials.push(def),
+            Err(e) => warn!("Failed to parse embedded tutorial: {e}"),
+        }
+    }
+    TutorialCatalog { tutorials }
+}
+
 // ── Public API ───────────────────────────────────────────────────
+
+/// Start any tutorial by definition.
+pub fn start_tutorial(state: &mut TutorialState, def: TutorialDef) {
+    state.active = Some(ActiveTutorial {
+        def,
+        current_step: 0,
+        panel_rects: PanelRects::default(),
+        last_target_rect: None,
+        transition_progress: 1.0,
+    });
+}
 
 /// Load and start the built-in "First Game" tutorial.
 pub fn start_first_game_tutorial(state: &mut TutorialState) {
     match serde_json::from_str::<TutorialDef>(FIRST_GAME_TUTORIAL_JSON) {
-        Ok(def) => {
-            state.active = Some(ActiveTutorial {
-                def,
-                current_step: 0,
-                panel_rects: PanelRects::default(),
-                last_target_rect: None,
-                transition_progress: 1.0,
-            });
-        }
-        Err(e) => {
-            warn!("Failed to load tutorial: {e}");
-        }
+        Ok(def) => start_tutorial(state, def),
+        Err(e) => warn!("Failed to load tutorial: {e}"),
     }
 }
 
@@ -317,14 +343,18 @@ fn advance_step(world: &mut World, delta: i32, current_rect: Option<Rect>) {
         active.current_step = 0;
         active.transition_progress = 1.0; // No transition if staying at 0
     } else if new >= active.def.steps.len() as i32 {
-        // Tutorial complete.
-        let name = active.def.name.clone();
+        // Tutorial complete — track by id (fall back to name for legacy).
+        let tracking_key = if active.def.id.is_empty() {
+            active.def.name.clone()
+        } else {
+            active.def.id.clone()
+        };
         drop(state);
         world.resource_mut::<TutorialState>().active = None;
 
         // Persist completion.
         let mut prefs = load_editor_prefs();
-        prefs.completed_tutorials.insert(name);
+        prefs.completed_tutorials.insert(tracking_key);
         save_editor_prefs(&prefs);
     } else {
         active.current_step = new as usize;
@@ -542,6 +572,7 @@ mod tests {
 
         let mut world = World::new();
         let def = TutorialDef {
+            id: "test_tutorial".to_string(),
             name: "TestTutorial".to_string(),
             steps: vec![TutorialStep {
                 title: "Step 1".to_string(),
@@ -566,10 +597,31 @@ mod tests {
         // State should be inactive.
         assert!(world.resource::<TutorialState>().active.is_none());
 
-        // Prefs should show completion.
+        // Prefs should show completion by id.
         let prefs = load_editor_prefs();
-        assert!(prefs.completed_tutorials.contains("TestTutorial"));
+        assert!(prefs.completed_tutorials.contains("test_tutorial"));
 
         std::env::remove_var("DJ_ENGINE_PREFS_DIR");
+    }
+
+    #[test]
+    fn test_build_catalog_loads_all_tutorials() {
+        let catalog = build_catalog();
+        assert!(
+            catalog.tutorials.len() >= 2,
+            "expected at least 2 tutorials, got {}",
+            catalog.tutorials.len()
+        );
+        assert!(catalog.tutorials.iter().any(|t| t.id == "first_game"));
+        assert!(catalog.tutorials.iter().any(|t| t.id == "story_graph"));
+    }
+
+    #[test]
+    fn test_story_graph_tutorial_parses() {
+        let def: TutorialDef = serde_json::from_str(STORY_GRAPH_TUTORIAL_JSON)
+            .expect("story graph tutorial JSON should parse");
+        assert_eq!(def.id, "story_graph");
+        assert_eq!(def.name, "Story Graph Basics");
+        assert_eq!(def.steps.len(), 4);
     }
 }
