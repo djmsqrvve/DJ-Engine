@@ -1,6 +1,6 @@
 # DJ Engine - Unified Command Interface
 
-.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts helix-import helix-import-toml helix-dashboard helix-editor helix-preview
+.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts validate helix-import helix-import-toml helix-dashboard helix-editor helix-preview
 
 # Ensure rustup toolchain takes precedence over system cargo/rustc
 export PATH := $(HOME)/.cargo/bin:$(PATH)
@@ -37,6 +37,7 @@ help:
 	@echo "  make quality-check Full pipeline (fmt + clippy + test)"
 	@echo "  make guardrail    Quick safety checks"
 	@echo "  make contracts    Print engine API contracts dashboard"
+	@echo "  make validate     Full QA pipeline (fmt + clippy + test + contracts)"
 	@echo ""
 	@echo "Utility:"
 	@echo "  make clean        Clean build artifacts"
@@ -134,6 +135,27 @@ quality-check:
 
 contracts:
 	@cargo run -p dj_engine --bin contracts
+
+validate:
+	@echo "=== DJ Engine Validate ==="
+	@echo ""
+	@echo "[1/5] Checking format..."
+	@cargo fmt --all --check || (echo "FAILED: Formatting issues"; exit 1)
+	@echo "[2/5] Running clippy..."
+	@cargo clippy --workspace --all-targets -- -W clippy::all || (echo "FAILED: Clippy warnings"; exit 1)
+	@echo "[3/5] Running tests..."
+	@cargo test --workspace || (echo "FAILED: Tests broken"; exit 1)
+	@echo "[4/5] Checking contracts..."
+	@cargo run -p dj_engine --bin contracts
+	@echo "[5/5] Checking test count..."
+	@test_count=$$(cargo test --workspace -- --list 2>/dev/null | grep -c ': test$$'); \
+	if [ "$$test_count" -lt 300 ]; then \
+		echo "FAILED: Test count regression ($$test_count < 300)"; exit 1; \
+	else \
+		echo "Test count: $$test_count (>= 300 minimum)"; \
+	fi
+	@echo ""
+	@echo "=== All validation passed ==="
 
 guardrail:
 	@echo "Running guardrail checks..."

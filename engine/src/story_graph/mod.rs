@@ -6,6 +6,7 @@
 mod executor;
 pub mod types;
 
+pub use executor::GameTimeScale;
 pub use types::{
     CameraCommand, ExecutionStatus, GraphChoice, GraphExecutor, NodeId, StoryEvent, StoryFlags,
     StoryFlowEvent, StoryGraph, StoryInputEvent, StoryNode, StoryVariables, TimeControlCommand,
@@ -26,6 +27,7 @@ impl Plugin for StoryGraphPlugin {
             .init_resource::<GraphExecutor>()
             .init_resource::<StoryFlags>()
             .init_resource::<StoryVariables>()
+            .init_resource::<GameTimeScale>()
             .register_type::<StoryVariables>()
             .add_message::<StoryEvent>()
             .add_message::<StoryFlowEvent>()
@@ -45,6 +47,7 @@ impl Plugin for StoryGraphPlugin {
                 ContractEntry::of::<GraphExecutor>("Story graph executor state"),
                 ContractEntry::of::<StoryFlags>("Boolean story state flags"),
                 ContractEntry::of::<StoryVariables>("JSON story state variables"),
+                ContractEntry::of::<GameTimeScale>("Gameplay pause and time scale"),
             ],
             components: vec![
                 ContractEntry::of::<StoryGraph>("Story graph data on entity"),

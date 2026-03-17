@@ -159,11 +159,43 @@ fn handle_choice_selection(executor: &mut GraphExecutor, index: usize) {
     executor.status = ExecutionStatus::Running;
 }
 
-pub(super) fn handle_time_control(mut commands: MessageReader<TimeControlCommand>) {
+/// Resource controlling gameplay time scale, driven by TimeControlCommand.
+#[derive(Resource, Debug, Clone)]
+pub struct GameTimeScale {
+    pub paused: bool,
+    pub scale: f32,
+}
+
+impl Default for GameTimeScale {
+    fn default() -> Self {
+        Self {
+            paused: false,
+            scale: 1.0,
+        }
+    }
+}
+
+impl GameTimeScale {
+    /// Effective multiplier: 0.0 when paused, otherwise the scale factor.
+    pub fn effective(&self) -> f32 {
+        if self.paused {
+            0.0
+        } else {
+            self.scale
+        }
+    }
+}
+
+pub(super) fn handle_time_control(
+    mut commands: MessageReader<TimeControlCommand>,
+    mut time_scale: ResMut<GameTimeScale>,
+) {
     for cmd in commands.read() {
-        warn!(
-            "TimeControlCommand received but not yet implemented: pause={}, scale={}",
-            cmd.pause_gameplay, cmd.time_scale
+        time_scale.paused = cmd.pause_gameplay;
+        time_scale.scale = cmd.time_scale.max(0.0);
+        info!(
+            "TimeControl: paused={}, scale={:.2}",
+            time_scale.paused, time_scale.scale
         );
     }
 }
@@ -300,6 +332,50 @@ mod tests {
     use super::*;
     use crate::story_graph::{GraphExecutor, StoryGraph, StoryInputEvent, StoryNode};
     use bevy::ecs::message::Messages;
+
+    #[test]
+    fn test_time_control_command_updates_resource() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<GameTimeScale>();
+        app.add_message::<TimeControlCommand>();
+        app.add_systems(Update, handle_time_control);
+
+        // Pause gameplay
+        app.world_mut()
+            .resource_mut::<Messages<TimeControlCommand>>()
+            .write(TimeControlCommand {
+                pause_gameplay: true,
+                time_scale: 0.5,
+            });
+        app.update();
+
+        let ts = app.world().resource::<GameTimeScale>();
+        assert!(ts.paused);
+        assert!((ts.scale - 0.5).abs() < f32::EPSILON);
+        assert_eq!(ts.effective(), 0.0); // paused → 0
+
+        // Resume
+        app.world_mut()
+            .resource_mut::<Messages<TimeControlCommand>>()
+            .write(TimeControlCommand {
+                pause_gameplay: false,
+                time_scale: 2.0,
+            });
+        app.update();
+
+        let ts = app.world().resource::<GameTimeScale>();
+        assert!(!ts.paused);
+        assert!((ts.effective() - 2.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_game_time_scale_default() {
+        let ts = GameTimeScale::default();
+        assert!(!ts.paused);
+        assert!((ts.scale - 1.0).abs() < f32::EPSILON);
+        assert!((ts.effective() - 1.0).abs() < f32::EPSILON);
+    }
 
     #[test]
     fn test_advance_input_moves_past_dialogue_node() {

@@ -188,6 +188,108 @@ pub fn print_contracts_summary(registry: &ContractRegistry) {
 }
 
 // ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContractIssueLevel {
+    Warning,
+    Info,
+}
+
+#[derive(Debug, Clone)]
+pub struct ContractIssue {
+    pub level: ContractIssueLevel,
+    pub message: String,
+}
+
+/// Validate the contract registry for common problems.
+pub fn validate_contracts(registry: &ContractRegistry) -> Vec<ContractIssue> {
+    let mut issues = Vec::new();
+
+    // Check for empty contracts
+    for contract in &registry.contracts {
+        let total = contract.resources.len()
+            + contract.components.len()
+            + contract.events.len()
+            + contract.system_sets.len();
+        if total == 0 {
+            issues.push(ContractIssue {
+                level: ContractIssueLevel::Warning,
+                message: format!("{}: empty contract (no resources, components, events, or sets)", contract.name),
+            });
+        }
+    }
+
+    // Check for duplicate type names across plugins
+    let mut seen: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for contract in &registry.contracts {
+        for entry in contract
+            .resources
+            .iter()
+            .chain(&contract.components)
+            .chain(&contract.events)
+        {
+            if let Some(prev_plugin) = seen.get(&entry.type_name) {
+                issues.push(ContractIssue {
+                    level: ContractIssueLevel::Warning,
+                    message: format!(
+                        "duplicate type '{}' registered by both {} and {}",
+                        entry.name, prev_plugin, contract.name
+                    ),
+                });
+            } else {
+                seen.insert(entry.type_name.clone(), contract.name.clone());
+            }
+        }
+    }
+
+    // Summary info
+    issues.push(ContractIssue {
+        level: ContractIssueLevel::Info,
+        message: format!(
+            "{} plugins, {} resources, {} components, {} events, {} system sets",
+            registry.contracts.len(),
+            registry.total_resources(),
+            registry.total_components(),
+            registry.total_events(),
+            registry.total_system_sets(),
+        ),
+    });
+
+    issues
+}
+
+/// Print validation issues and return warning count.
+pub fn print_validation_issues(issues: &[ContractIssue]) -> usize {
+    let warnings: Vec<_> = issues
+        .iter()
+        .filter(|i| i.level == ContractIssueLevel::Warning)
+        .collect();
+    let infos: Vec<_> = issues
+        .iter()
+        .filter(|i| i.level == ContractIssueLevel::Info)
+        .collect();
+
+    if !warnings.is_empty() {
+        println!("Validation:");
+        for issue in &warnings {
+            println!("  [WARN] {}", issue.message);
+        }
+    }
+    for issue in &infos {
+        println!("  [INFO] {}", issue.message);
+    }
+
+    if warnings.is_empty() {
+        println!("  All checks passed.");
+    }
+    println!();
+
+    warnings.len()
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -224,6 +326,70 @@ mod tests {
         assert_eq!(reg.contracts.len(), 1);
         assert_eq!(reg.contracts[0].name, "TestPlugin");
         assert_eq!(reg.total_resources(), 1);
+    }
+
+    #[test]
+    fn validate_warns_on_empty_contract() {
+        let reg = ContractRegistry {
+            contracts: vec![PluginContract {
+                name: "EmptyPlugin".into(),
+                description: "".into(),
+                resources: vec![],
+                components: vec![],
+                events: vec![],
+                system_sets: vec![],
+            }],
+        };
+        let issues = validate_contracts(&reg);
+        assert!(issues.iter().any(|i| i.level == ContractIssueLevel::Warning
+            && i.message.contains("empty contract")));
+    }
+
+    #[test]
+    fn validate_warns_on_duplicate_types() {
+        let reg = ContractRegistry {
+            contracts: vec![
+                PluginContract {
+                    name: "PluginA".into(),
+                    description: "".into(),
+                    resources: vec![ContractEntry::of::<bool>("shared type")],
+                    components: vec![],
+                    events: vec![],
+                    system_sets: vec![],
+                },
+                PluginContract {
+                    name: "PluginB".into(),
+                    description: "".into(),
+                    resources: vec![ContractEntry::of::<bool>("also uses bool")],
+                    components: vec![],
+                    events: vec![],
+                    system_sets: vec![],
+                },
+            ],
+        };
+        let issues = validate_contracts(&reg);
+        assert!(issues.iter().any(|i| i.level == ContractIssueLevel::Warning
+            && i.message.contains("duplicate type")));
+    }
+
+    #[test]
+    fn validate_clean_registry_has_no_warnings() {
+        let reg = ContractRegistry {
+            contracts: vec![PluginContract {
+                name: "CleanPlugin".into(),
+                description: "".into(),
+                resources: vec![ContractEntry::of::<bool>("a resource")],
+                components: vec![],
+                events: vec![],
+                system_sets: vec![],
+            }],
+        };
+        let issues = validate_contracts(&reg);
+        let warnings = issues
+            .iter()
+            .filter(|i| i.level == ContractIssueLevel::Warning)
+            .count();
+        assert_eq!(warnings, 0);
     }
 
     #[test]

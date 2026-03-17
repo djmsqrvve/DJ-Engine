@@ -26,9 +26,14 @@ impl Plugin for DiagnosticsPlugin {
                     console_fps_logger_system.run_if(resource_exists::<DiagnosticConfig>),
                 ),
             )
-            // Disabled temporarily due to WSL2/LLVMpipe compatibility issues (incompatible window kind panic)
-            // .add_plugins(inspector::InspectorPlugin)
             .add_plugins(console::ConsolePlugin);
+
+        // Inspector disabled on WSL2/LLVMpipe (incompatible window kind panic).
+        // Enable with: DJENGINE_INSPECTOR=1 make dev
+        if std::env::var("DJENGINE_INSPECTOR").is_ok() {
+            app.add_plugins(inspector::InspectorPlugin);
+            info!("Inspector plugin enabled (DJENGINE_INSPECTOR set)");
+        }
 
         use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
         app.register_contract(PluginContract {
