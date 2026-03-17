@@ -3,10 +3,17 @@
 //! Renders a collapsible tree of all registered plugin contracts showing
 //! resources, components, events, and system sets.
 
-use crate::contracts::ContractRegistry;
-use crate::editor::types::COLOR_PRIMARY;
+use crate::contracts::{format_contracts_text, ContractRegistry};
+use crate::editor::types::{COLOR_PRIMARY, COLOR_SECONDARY};
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Color32, RichText};
+
+/// Tracks the last-read snapshot so the Refresh button can re-read.
+#[derive(Resource, Default)]
+pub(crate) struct ContractsPanelState {
+    pub cached: Option<ContractRegistry>,
+    pub copy_flash: f32,
+}
 
 pub(crate) fn draw_contracts_browser(ui: &mut egui::Ui, world: &mut World) {
     let Some(registry) = world.get_resource::<ContractRegistry>() else {
@@ -19,13 +26,48 @@ pub(crate) fn draw_contracts_browser(ui: &mut egui::Ui, world: &mut World) {
     };
     let registry = registry.clone();
 
+    // Tick copy flash timer
+    let dt = world.resource::<Time>().delta_secs();
+    world.init_resource::<ContractsPanelState>();
+    let mut panel_state = world.resource_mut::<ContractsPanelState>();
+    if panel_state.copy_flash > 0.0 {
+        panel_state.copy_flash = (panel_state.copy_flash - dt).max(0.0);
+    }
+    let show_copied = panel_state.copy_flash > 0.0;
+
     ui.add_space(5.0);
-    ui.label(
-        RichText::new("ENGINE CONTRACTS")
-            .strong()
-            .color(COLOR_PRIMARY),
-    );
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("ENGINE CONTRACTS")
+                .strong()
+                .color(COLOR_PRIMARY),
+        );
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if ui
+                .small_button(RichText::new("Copy").color(COLOR_PRIMARY))
+                .clicked()
+            {
+                let text = format_contracts_text(&registry);
+                ui.ctx().copy_text(text);
+                world.resource_mut::<ContractsPanelState>().copy_flash = 1.5;
+            }
+            if ui
+                .small_button(RichText::new("Refresh").color(COLOR_SECONDARY))
+                .clicked()
+            {
+                // Registry is populated at build time, so refresh just
+                // forces the panel to re-read (useful after hot-reload).
+                world
+                    .resource_mut::<ContractsPanelState>()
+                    .cached
+                    .replace(registry.clone());
+            }
+        });
+    });
     ui.add_space(2.0);
+    if show_copied {
+        ui.label(RichText::new("Copied to clipboard!").small().color(Color32::from_rgb(100, 255, 150)));
+    }
     ui.label(
         RichText::new(format!(
             "{} plugins  |  {} resources  |  {} components  |  {} events",

@@ -132,34 +132,59 @@ fn shorten_type_name(full: &str) -> String {
 // CLI display
 // ---------------------------------------------------------------------------
 
-/// Print a formatted dashboard of all registered contracts.
-pub fn print_contracts_summary(registry: &ContractRegistry) {
-    println!();
-    println!("DJ Engine Contracts");
-    println!("===================");
-    println!();
+/// Format a plain-text summary of all registered contracts.
+pub fn format_contracts_text(registry: &ContractRegistry) -> String {
+    let mut out = String::new();
+    out.push_str("DJ Engine Contracts\n");
+    out.push_str("===================\n\n");
 
     for contract in &registry.contracts {
         let r = contract.resources.len();
         let c = contract.components.len();
         let e = contract.events.len();
         let s = contract.system_sets.len();
-        println!(
-            "  {:<28} {:>2} resources  {:>2} components  {:>2} events  {:>2} sets",
+        out.push_str(&format!(
+            "  {:<28} {:>2} resources  {:>2} components  {:>2} events  {:>2} sets\n",
             contract.name, r, c, e, s
-        );
+        ));
     }
 
-    println!();
-    println!(
-        "  Total: {} plugins, {} resources, {} components, {} events, {} system sets",
+    out.push('\n');
+    out.push_str(&format!(
+        "  Total: {} plugins, {} resources, {} components, {} events, {} system sets\n",
         registry.contracts.len(),
         registry.total_resources(),
         registry.total_components(),
         registry.total_events(),
         registry.total_system_sets(),
-    );
-    println!();
+    ));
+
+    // Detailed breakdown
+    out.push_str("\n--- Detailed ---\n\n");
+    for contract in &registry.contracts {
+        out.push_str(&format!("{}\n", contract.name));
+        out.push_str(&format!("  {}\n", contract.description));
+        for entry in &contract.resources {
+            out.push_str(&format!("  [Resource]  {} — {}\n", entry.name, entry.description));
+        }
+        for entry in &contract.components {
+            out.push_str(&format!("  [Component] {} — {}\n", entry.name, entry.description));
+        }
+        for entry in &contract.events {
+            out.push_str(&format!("  [Event]     {} — {}\n", entry.name, entry.description));
+        }
+        for set in &contract.system_sets {
+            out.push_str(&format!("  [Set]       {} ({})\n", set.name, set.schedule));
+        }
+        out.push('\n');
+    }
+
+    out
+}
+
+/// Print a formatted dashboard of all registered contracts.
+pub fn print_contracts_summary(registry: &ContractRegistry) {
+    print!("{}", format_contracts_text(registry));
 }
 
 // ---------------------------------------------------------------------------
