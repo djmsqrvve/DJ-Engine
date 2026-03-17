@@ -36,5 +36,29 @@ impl Plugin for StoryGraphPlugin {
                 Update,
                 (executor::execute_graph, executor::handle_time_control),
             );
+
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "StoryGraphPlugin".into(),
+            description: "Node-based narrative branching and execution".into(),
+            resources: vec![
+                ContractEntry::of::<GraphExecutor>("Story graph executor state"),
+                ContractEntry::of::<StoryFlags>("Boolean story state flags"),
+                ContractEntry::of::<StoryVariables>("JSON story state variables"),
+            ],
+            components: vec![
+                ContractEntry::of::<StoryGraph>("Story graph data on entity"),
+                ContractEntry::of::<StoryNode>("Individual story node"),
+                ContractEntry::of::<GraphChoice>("Choice option in story node"),
+            ],
+            events: vec![
+                ContractEntry::of::<StoryEvent>("Generic story event with payload"),
+                ContractEntry::of::<StoryFlowEvent>("Executor -> UI flow events"),
+                ContractEntry::of::<StoryInputEvent>("UI -> Executor input events"),
+                ContractEntry::of::<CameraCommand>("Camera control from story"),
+                ContractEntry::of::<TimeControlCommand>("Time control from story"),
+            ],
+            system_sets: vec![],
+        });
     }
 }

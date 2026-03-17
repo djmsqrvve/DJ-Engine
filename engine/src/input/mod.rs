@@ -95,6 +95,19 @@ impl Plugin for DJInputPlugin {
             .init_resource::<InputConfig>()
             .add_systems(PreUpdate, update_action_state);
 
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "DJInputPlugin".into(),
+            description: "Action-based input mapping (keyboard, gamepad planned)".into(),
+            resources: vec![
+                ContractEntry::of::<ActionState>("Current input action state"),
+                ContractEntry::of::<InputConfig>("Keyboard/gamepad mappings"),
+            ],
+            components: vec![],
+            events: vec![],
+            system_sets: vec![],
+        });
+
         info!("DJ Input Plugin initialized");
     }
 }

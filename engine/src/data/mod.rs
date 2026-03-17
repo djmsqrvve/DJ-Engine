@@ -71,5 +71,18 @@ impl Plugin for DataPlugin {
             .register_type::<scene::ScenePathfinding>()
             .register_type::<scene::Entity>()
             .register_type::<scene::Scene>();
+
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "DataPlugin".into(),
+            description: "Data models, custom documents, scene/story serialization".into(),
+            resources: vec![
+                ContractEntry::of::<custom::CustomDocumentRegistry>("Custom document kind registry"),
+                ContractEntry::of::<custom::LoadedCustomDocuments>("All loaded custom documents"),
+            ],
+            components: vec![],
+            events: vec![],
+            system_sets: vec![],
+        });
     }
 }

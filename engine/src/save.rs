@@ -159,6 +159,21 @@ impl Plugin for SavePlugin {
             .init_resource::<LoadedSave>()
             .add_systems(Update, (handle_save_commands, handle_load_commands));
 
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "SavePlugin".into(),
+            description: "JSON save/load to ~/.local/share/dj_engine/saves/".into(),
+            resources: vec![ContractEntry::of::<LoadedSave>(
+                "Most recently loaded save data",
+            )],
+            components: vec![],
+            events: vec![
+                ContractEntry::of::<SaveCommand>("Request game save"),
+                ContractEntry::of::<LoadCommand>("Request game load"),
+            ],
+            system_sets: vec![],
+        });
+
         info!("Save Plugin initialized");
     }
 }

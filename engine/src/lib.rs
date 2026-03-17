@@ -18,6 +18,7 @@ pub mod animation;
 pub mod assets;
 pub mod audio;
 pub mod collision;
+pub mod contracts;
 pub mod core;
 pub mod data;
 pub mod diagnostics;
@@ -37,6 +38,9 @@ pub mod runtime_preview;
 /// Prelude module for convenient imports
 pub mod prelude {
     // Core engine plugin
+    pub use crate::contracts::{
+        AppContractExt, ContractEntry, ContractRegistry, ContractSystemSet, PluginContract,
+    };
     pub use crate::core::DJEnginePlugin;
 
     // Individual plugins (for fine-grained control)

@@ -2,6 +2,7 @@
 //!
 //! Provides procedural breathing, blinking, and idle motion animations.
 
+use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
 use bevy::prelude::*;
 
 pub mod components;
@@ -22,5 +23,18 @@ impl Plugin for DJAnimationPlugin {
                 systems::idle_motion_system,
             ),
         );
+
+        app.register_contract(PluginContract {
+            name: "DJAnimationPlugin".into(),
+            description: "Procedural breathing, blinking, and idle motion".into(),
+            resources: vec![],
+            components: vec![
+                ContractEntry::of::<BreathingAnimation>("Breathing cycle animation"),
+                ContractEntry::of::<BlinkingAnimation>("Blinking interval animation"),
+                ContractEntry::of::<IdleMotion>("Idle sway motion"),
+            ],
+            events: vec![],
+            system_sets: vec![],
+        });
     }
 }

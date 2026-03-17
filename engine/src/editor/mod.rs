@@ -4,6 +4,7 @@
 
 mod cli;
 pub mod actions;
+pub(crate) mod contracts_panel;
 pub mod preview;
 mod extensions;
 pub mod panel_export;

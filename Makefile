@@ -1,6 +1,6 @@
 # DJ Engine - Unified Command Interface
 
-.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail helix-import helix-import-toml helix-dashboard helix-editor helix-preview
+.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts helix-import helix-import-toml helix-dashboard helix-editor helix-preview
 
 # Ensure rustup toolchain takes precedence over system cargo/rustc
 export PATH := $(HOME)/.cargo/bin:$(PATH)
@@ -36,6 +36,7 @@ help:
 	@echo "  make format-fix   Fix formatting"
 	@echo "  make quality-check Full pipeline (fmt + clippy + test)"
 	@echo "  make guardrail    Quick safety checks"
+	@echo "  make contracts    Print engine API contracts dashboard"
 	@echo ""
 	@echo "Utility:"
 	@echo "  make clean        Clean build artifacts"
@@ -130,6 +131,9 @@ quality-check:
 	@echo "Running tests..."
 	@cargo test --workspace
 	@echo "All quality checks passed."
+
+contracts:
+	@cargo run -p dj_engine --bin contracts
 
 guardrail:
 	@echo "Running guardrail checks..."

@@ -29,6 +29,18 @@ impl Plugin for DiagnosticsPlugin {
             // Disabled temporarily due to WSL2/LLVMpipe compatibility issues (incompatible window kind panic)
             // .add_plugins(inspector::InspectorPlugin)
             .add_plugins(console::ConsolePlugin);
+
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "DiagnosticsPlugin".into(),
+            description: "FPS overlay, console logger, inspector".into(),
+            resources: vec![ContractEntry::of::<DiagnosticConfig>(
+                "Diagnostic overlay configuration",
+            )],
+            components: vec![],
+            events: vec![],
+            system_sets: vec![],
+        });
     }
 }
 

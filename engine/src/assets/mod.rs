@@ -23,6 +23,18 @@ impl Plugin for DJAssetPlugin {
             .init_asset::<PaletteDefinition>()
             .register_asset_loader(SpritePartLoader)
             .register_asset_loader(PaletteLoader);
+
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "DJAssetPlugin".into(),
+            description: "Sprite and palette asset loaders".into(),
+            resources: vec![ContractEntry::of::<SpritePartLibrary>(
+                "Loaded sprite part assets",
+            )],
+            components: vec![],
+            events: vec![],
+            system_sets: vec![],
+        });
     }
 }
 

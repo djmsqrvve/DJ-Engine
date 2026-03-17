@@ -217,6 +217,22 @@ impl Plugin for DJAudioPlugin {
             .add_message::<AudioCommand>()
             .add_systems(Update, (handle_audio_commands, tick_bgm_fades));
 
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "DJAudioPlugin".into(),
+            description: "BGM and SFX playback with crossfade support".into(),
+            resources: vec![ContractEntry::of::<AudioState>(
+                "Current audio playback state",
+            )],
+            components: vec![
+                ContractEntry::of::<BgmSource>("Marks entity as BGM audio source"),
+                ContractEntry::of::<SfxSource>("Marks entity as SFX audio source"),
+                ContractEntry::of::<BgmFade>("Drives volume fade over time"),
+            ],
+            events: vec![ContractEntry::of::<AudioCommand>("Audio control commands")],
+            system_sets: vec![],
+        });
+
         info!("DJ Audio Plugin initialized");
     }
 }

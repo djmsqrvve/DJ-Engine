@@ -40,6 +40,18 @@ impl Plugin for DJScriptingPlugin {
             .add_message::<ScriptCommand>()
             .add_systems(Update, handle_script_commands);
 
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "DJScriptingPlugin".into(),
+            description: "Lua 5.4 runtime via mlua with FFI bridge".into(),
+            resources: vec![ContractEntry::of::<LuaContext>("Thread-safe Lua context")],
+            components: vec![],
+            events: vec![ContractEntry::of::<ScriptCommand>(
+                "Script load/execute commands",
+            )],
+            system_sets: vec![],
+        });
+
         info!("DJ Scripting Plugin initialized");
     }
 }

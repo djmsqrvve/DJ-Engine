@@ -94,6 +94,21 @@ impl Plugin for MidiPlugin {
                 ),
             );
 
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "MidiPlugin".into(),
+            description: "MIDI file loading and waveform sequencer".into(),
+            resources: vec![
+                ContractEntry::of::<MidiManager>("Active MIDI voices"),
+                ContractEntry::of::<MidiPlayback>("MIDI playback state"),
+            ],
+            components: vec![ContractEntry::of::<AutoLoadMidi>(
+                "Auto-load MIDI file at startup",
+            )],
+            events: vec![ContractEntry::of::<MidiCommand>("MIDI note on/off commands")],
+            system_sets: vec![],
+        });
+
         info!("MIDI Plugin initialized");
     }
 }

@@ -3,6 +3,7 @@
 //! Provides offscreen rendering at 320x240, upscaling to window,
 //! and CRT post-processing (configurable via `CrtConfig`).
 
+use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
 use bevy::prelude::*;
 
 pub mod camera;
@@ -29,5 +30,18 @@ impl Plugin for RenderingPlugin {
                     offscreen::sync_crt_config,
                 ),
             );
+
+        app.register_contract(PluginContract {
+            name: "RenderingPlugin".into(),
+            description: "Offscreen 320x240 rendering, upscaling, CRT post-processing".into(),
+            resources: vec![ContractEntry::of::<CrtConfig>("CRT effect configuration")],
+            components: vec![
+                ContractEntry::of::<MainCamera>("Main render camera"),
+                ContractEntry::of::<DisplayCamera>("Display target camera"),
+                ContractEntry::of::<OffscreenTarget>("Offscreen render target"),
+            ],
+            events: vec![],
+            system_sets: vec![],
+        });
     }
 }

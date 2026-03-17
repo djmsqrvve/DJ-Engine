@@ -1378,6 +1378,7 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
             );
             ui.selectable_value(&mut ui_state.browser_tab, BrowserTab::Assets, "Files");
             ui.selectable_value(&mut ui_state.browser_tab, BrowserTab::Documents, "Docs");
+            ui.selectable_value(&mut ui_state.browser_tab, BrowserTab::Contracts, "API");
         });
         ui.add_space(4.0);
         ui.separator();
@@ -1557,6 +1558,9 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
                         }
                     }
                 });
+            }
+            BrowserTab::Contracts => {
+                super::contracts_panel::draw_contracts_browser(ui, world);
             }
         }
     });

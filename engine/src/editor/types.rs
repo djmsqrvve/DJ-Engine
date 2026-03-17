@@ -136,6 +136,7 @@ pub enum BrowserTab {
     Assets,
     Documents,
     Palette,
+    Contracts,
 }
 
 #[derive(Resource, Default)]

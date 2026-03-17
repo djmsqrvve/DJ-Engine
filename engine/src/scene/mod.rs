@@ -135,6 +135,23 @@ impl Plugin for DJScenePlugin {
             .add_systems(Startup, setup_transition_overlay)
             .add_systems(Update, (handle_scene_change, update_transition));
 
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "DJScenePlugin".into(),
+            description: "Scene transitions with cross-fade overlays".into(),
+            resources: vec![ContractEntry::of::<SceneManager>(
+                "Active scene and transition state",
+            )],
+            components: vec![
+                ContractEntry::of::<SceneBackground>("Background image entity"),
+                ContractEntry::of::<TransitionOverlay>("Black fade overlay"),
+            ],
+            events: vec![ContractEntry::of::<ChangeSceneEvent>(
+                "Trigger scene change with fade",
+            )],
+            system_sets: vec![],
+        });
+
         info!("DJ Scene Plugin initialized");
     }
 }

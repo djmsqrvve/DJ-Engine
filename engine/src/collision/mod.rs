@@ -207,6 +207,27 @@ impl Plugin for CollisionPlugin {
                     detect_trigger_contacts.in_set(CollisionSet::DetectTriggers),
                 ),
             );
+
+        use crate::contracts::{AppContractExt, ContractEntry, ContractSystemSet, PluginContract};
+        app.register_contract(PluginContract {
+            name: "CollisionPlugin".into(),
+            description: "AABB collision detection and trigger zones".into(),
+            resources: vec![ContractEntry::of::<TriggerContacts>(
+                "Active trigger overlaps by entity",
+            )],
+            components: vec![
+                ContractEntry::of::<MovementIntent>("Per-frame movement delta"),
+                ContractEntry::of::<RuntimeCollider>("Runtime collider shape and config"),
+            ],
+            events: vec![ContractEntry::of::<TriggerContactEvent>(
+                "Trigger enter/exit events",
+            )],
+            system_sets: vec![
+                ContractSystemSet { name: "CollisionSet::SyncData".into(), schedule: "Update".into() },
+                ContractSystemSet { name: "CollisionSet::MoveBodies".into(), schedule: "Update".into() },
+                ContractSystemSet { name: "CollisionSet::DetectTriggers".into(), schedule: "Update".into() },
+            ],
+        });
     }
 }
 
