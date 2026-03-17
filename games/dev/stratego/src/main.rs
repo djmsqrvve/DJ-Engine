@@ -44,7 +44,10 @@ fn main() {
         .add_systems(Update, (
             input::tick_feedback_system,
             tutorial_steps::tutorial_system,
-            rendering::sync_pieces_system,
+            rendering::sync_pieces_system
+                .after(input::setup_click_system)
+                .after(input::player_click_system)
+                .after(ai::ai_turn_system),
             rendering::sync_setup_zone_system,
         ))
         // Setup phase

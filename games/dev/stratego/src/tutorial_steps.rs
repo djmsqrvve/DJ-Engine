@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use crate::board::StrategoBoard;
 use crate::input::{FeedbackMessage, SetupQueue};
 use crate::pieces::{PieceRank, Team};
-use crate::rendering::StatusText;
+use crate::rendering::{TutorialPanel, TutorialText};
 use crate::state::GamePhase;
 
 /// Current tutorial step.
@@ -55,9 +55,14 @@ pub fn tutorial_system(
     queue: Res<SetupQueue>,
     feedback: Res<FeedbackMessage>,
     mut tutorial: ResMut<TutorialState>,
-    mut text_q: Query<&mut Text2d, With<StatusText>>,
+    mut text_q: Query<&mut Text2d, With<TutorialText>>,
+    mut panel_q: Query<&mut Visibility, With<TutorialPanel>>,
 ) {
     if !tutorial.enabled {
+        // Hide panel when tutorial is off.
+        if let Ok(mut vis) = panel_q.single_mut() {
+            *vis = Visibility::Hidden;
+        }
         return;
     }
 
@@ -106,10 +111,18 @@ pub fn tutorial_system(
         tutorial.timer = 0.0;
     }
 
-    // Show tutorial text when in active steps.
+    // Show tutorial text in the separate panel below the board.
     if tutorial.step < TUTORIAL_MESSAGES.len() {
         if let Ok(mut text) = text_q.single_mut() {
             **text = tutorial_message(tutorial.step).to_string();
+        }
+        if let Ok(mut vis) = panel_q.single_mut() {
+            *vis = Visibility::Visible;
+        }
+    } else {
+        // Tutorial complete — hide the panel.
+        if let Ok(mut vis) = panel_q.single_mut() {
+            *vis = Visibility::Hidden;
         }
     }
 }

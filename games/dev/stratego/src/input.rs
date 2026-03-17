@@ -124,10 +124,9 @@ pub fn setup_click_system(
     }
 }
 
-/// Update status text during setup (defers to tutorial and feedback).
+/// Update status text during setup.
 pub fn setup_status_system(
     queue: Res<SetupQueue>,
-    tutorial: Res<TutorialState>,
     feedback: Res<FeedbackMessage>,
     mut text_q: Query<&mut Text2d, With<StatusText>>,
 ) {
@@ -139,11 +138,6 @@ pub fn setup_status_system(
     if feedback.is_active() {
         **text = feedback.text.clone();
         return;
-    }
-
-    // Tutorial text takes priority over default status.
-    if tutorial.enabled && tutorial.step < 4 {
-        return; // tutorial_system handles the text
     }
 
     if let Some(rank) = queue.remaining.first() {
@@ -270,11 +264,10 @@ pub fn player_click_system(
     selection.valid_moves.clear();
 }
 
-/// Update status text during play (defers to tutorial and feedback).
+/// Update status text during play.
 pub fn play_status_system(
     phase: Res<State<GamePhase>>,
     selection: Res<PlayerSelection>,
-    tutorial: Res<TutorialState>,
     feedback: Res<FeedbackMessage>,
     mut text_q: Query<&mut Text2d, With<StatusText>>,
 ) {
@@ -286,11 +279,6 @@ pub fn play_status_system(
     if feedback.is_active() {
         **text = feedback.text.clone();
         return;
-    }
-
-    // Tutorial text takes priority during active steps.
-    if tutorial.enabled && tutorial.step < 7 {
-        return; // tutorial_system handles the text
     }
 
     match phase.get() {

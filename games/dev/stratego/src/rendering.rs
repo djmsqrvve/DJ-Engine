@@ -42,6 +42,14 @@ pub struct MoveHighlight;
 #[derive(Component)]
 pub struct StatusText;
 
+/// Marker for the tutorial overlay text below the board.
+#[derive(Component)]
+pub struct TutorialText;
+
+/// Marker for the tutorial overlay background panel.
+#[derive(Component)]
+pub struct TutorialPanel;
+
 /// Convert grid coordinates to world position (center of cell).
 pub fn cell_to_world(x: usize, y: usize) -> Vec3 {
     let half_board = (BOARD_WIDTH as f32 * CELL_SIZE) / 2.0;
@@ -108,16 +116,45 @@ pub fn spawn_board_system(mut commands: Commands, board: Res<StrategoBoard>) {
         TextColor(Color::WHITE),
         Transform::from_xyz(0.0, (BOARD_HEIGHT as f32 * CELL_SIZE) / 2.0 + 30.0, 10.0),
     ));
+
+    // Tutorial panel below the board.
+    let tutorial_y = -(BOARD_HEIGHT as f32 * CELL_SIZE) / 2.0 - 40.0;
+    commands
+        .spawn((
+            TutorialPanel,
+            Sprite {
+                color: Color::srgba(0.1, 0.1, 0.15, 0.85),
+                custom_size: Some(Vec2::new(700.0, 44.0)),
+                ..default()
+            },
+            Transform::from_xyz(0.0, tutorial_y, 9.0),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                TutorialText,
+                Text2d::new(""),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(1.0, 1.0, 0.8)),
+                Transform::from_xyz(0.0, 0.0, 1.0),
+            ));
+        });
 }
 
 /// Sync piece sprites to match the current board state.
+/// Only rebuilds when the board has actually changed (not every frame).
 pub fn sync_pieces_system(
     mut commands: Commands,
     board: Res<StrategoBoard>,
     existing: Query<Entity, With<PieceSprite>>,
 ) {
+    if !board.is_changed() {
+        return;
+    }
+
     // Despawn all existing piece sprites and rebuild.
-    // Simple approach — fine for 10x10 board.
     for entity in &existing {
         commands.entity(entity).despawn();
     }
