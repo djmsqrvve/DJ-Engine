@@ -4,6 +4,7 @@ members = [
     "engine",
     "games/dev/doomexe",
     "games/dev/stratego",
+    "games/dev/iso_sandbox",
     "plugins/helix_data",
     "tools/asset_generator"
 ]

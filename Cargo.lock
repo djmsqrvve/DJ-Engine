@@ -3486,6 +3486,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "iso_sandbox"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "dj_engine",
+ "rand 0.8.5",
+ "serde",
+]
+
+[[package]]
 name = "itertools"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
