@@ -9,7 +9,9 @@ use crate::project_mount::MountedProject;
 use bevy::prelude::*;
 use std::sync::{Arc, Mutex};
 
-use super::preview::{log_preview_message, resolve_runtime_preview_command, set_launch_state_message};
+use super::preview::{
+    log_preview_message, resolve_runtime_preview_command, set_launch_state_message,
+};
 
 #[derive(Resource)]
 pub struct AutomatedTestActive {
@@ -197,11 +199,7 @@ pub(crate) fn launch_runtime_preview_from_editor(world: &mut World) {
             launch_state.manifest_path = Some(manifest_path.clone());
             launch_state.process = None;
             launch_state.last_exit = None;
-            set_launch_state_message(
-                &mut launch_state,
-                None,
-                &message,
-            );
+            set_launch_state_message(&mut launch_state, None, &message);
             launch_state.phase = RuntimePreviewLaunchPhase::Failed;
         }
         log_preview_message(
@@ -229,11 +227,7 @@ pub(crate) fn launch_runtime_preview_from_editor(world: &mut World) {
                 let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
                 launch_state.manifest_path = Some(manifest_path.clone());
                 launch_state.process = None;
-                set_launch_state_message(
-                    &mut launch_state,
-                    None,
-                    &message,
-                );
+                set_launch_state_message(&mut launch_state, None, &message);
                 launch_state.phase = RuntimePreviewLaunchPhase::Failed;
             }
             log_preview_message(
@@ -250,11 +244,7 @@ pub(crate) fn launch_runtime_preview_from_editor(world: &mut World) {
         launch_state.manifest_path = Some(manifest_path.clone());
         launch_state.last_exit = None;
         launch_state.process = None;
-        set_launch_state_message(
-            &mut launch_state,
-            None,
-            "Preview Launching",
-        );
+        set_launch_state_message(&mut launch_state, None, "Preview Launching");
         launch_state.phase = RuntimePreviewLaunchPhase::Launching;
     }
 
@@ -279,11 +269,7 @@ pub(crate) fn launch_runtime_preview_from_editor(world: &mut World) {
             {
                 let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
                 launch_state.process = None;
-                set_launch_state_message(
-                    &mut launch_state,
-                    None,
-                    &message,
-                );
+                set_launch_state_message(&mut launch_state, None, &message);
                 launch_state.phase = RuntimePreviewLaunchPhase::Failed;
             }
             log_preview_message(
@@ -316,11 +302,7 @@ pub(crate) fn launch_runtime_preview_from_editor(world: &mut World) {
             {
                 let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
                 launch_state.process = None;
-                set_launch_state_message(
-                    &mut launch_state,
-                    None,
-                    &message,
-                );
+                set_launch_state_message(&mut launch_state, None, &message);
                 launch_state.phase = RuntimePreviewLaunchPhase::Failed;
             }
             log_preview_message(
@@ -333,7 +315,10 @@ pub(crate) fn launch_runtime_preview_from_editor(world: &mut World) {
 }
 
 pub(crate) fn stop_runtime_preview_from_editor(world: &mut World) {
-    let process_arc = world.resource::<RuntimePreviewLaunchState>().process.clone();
+    let process_arc = world
+        .resource::<RuntimePreviewLaunchState>()
+        .process
+        .clone();
 
     let Some(process_arc) = process_arc else {
         return;
@@ -346,11 +331,7 @@ pub(crate) fn stop_runtime_preview_from_editor(world: &mut World) {
             {
                 let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
                 launch_state.process = None;
-                set_launch_state_message(
-                    &mut launch_state,
-                    None,
-                    &message,
-                );
+                set_launch_state_message(&mut launch_state, None, &message);
                 launch_state.phase = RuntimePreviewLaunchPhase::Failed;
             }
             log_preview_message(
@@ -367,11 +348,7 @@ pub(crate) fn stop_runtime_preview_from_editor(world: &mut World) {
             let message = "Preview stopping...".to_string();
             {
                 let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
-                set_launch_state_message(
-                    &mut launch_state,
-                    None,
-                    &message,
-                );
+                set_launch_state_message(&mut launch_state, None, &message);
                 launch_state.phase = RuntimePreviewLaunchPhase::Stopping;
             }
             log_preview_message(
@@ -385,11 +362,7 @@ pub(crate) fn stop_runtime_preview_from_editor(world: &mut World) {
             {
                 let mut launch_state = world.resource_mut::<RuntimePreviewLaunchState>();
                 launch_state.process = None;
-                set_launch_state_message(
-                    &mut launch_state,
-                    None,
-                    &message,
-                );
+                set_launch_state_message(&mut launch_state, None, &message);
                 launch_state.phase = RuntimePreviewLaunchPhase::Failed;
             }
             log_preview_message(
@@ -406,7 +379,7 @@ mod tests {
     use super::*;
     use crate::data::{loader, Project};
     use crate::editor::scene_io::sync_editor_snapshot_baseline;
-    use crate::editor::{EditorSnapshotBaseline, types::ActiveStoryGraph};
+    use crate::editor::{types::ActiveStoryGraph, EditorSnapshotBaseline};
 
     fn build_project_action_test_world(temp_dir: &tempfile::TempDir) -> World {
         let mut project = Project::new("Disk Project");

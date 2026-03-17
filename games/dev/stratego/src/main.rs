@@ -20,8 +20,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "DJ Engine - Stratego".into(),
-                        resolution: WindowResolution::new(800, 800)
-                            .with_scale_factor_override(1.0),
+                        resolution: WindowResolution::new(800, 800).with_scale_factor_override(1.0),
                         position: WindowPosition::Centered(MonitorSelection::Primary),
                         present_mode: bevy::window::PresentMode::AutoVsync,
                         ..default()
@@ -41,23 +40,23 @@ fn main() {
         // Startup
         .add_systems(Startup, (setup_camera, rendering::spawn_board_system))
         // Global (runs in all states)
-        .add_systems(Update, (
-            input::tick_feedback_system,
-            tutorial_steps::tutorial_system,
-            rendering::sync_pieces_system
-                .after(input::setup_click_system)
-                .after(input::player_click_system)
-                .after(ai::ai_turn_system),
-            rendering::sync_setup_zone_system,
-        ))
+        .add_systems(
+            Update,
+            (
+                input::tick_feedback_system,
+                tutorial_steps::tutorial_system,
+                rendering::sync_pieces_system
+                    .after(input::setup_click_system)
+                    .after(input::player_click_system)
+                    .after(ai::ai_turn_system),
+                rendering::sync_setup_zone_system,
+            ),
+        )
         // Setup phase
         .add_systems(OnEnter(state::GamePhase::Setup), input::init_setup_system)
         .add_systems(
             Update,
-            (
-                input::setup_click_system,
-                input::setup_status_system,
-            )
+            (input::setup_click_system, input::setup_status_system)
                 .run_if(in_state(state::GamePhase::Setup)),
         )
         // Red turn

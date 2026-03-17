@@ -203,7 +203,8 @@ pub fn populate_database_from_helix(
 
     for (id, ability) in registries.abilities.iter() {
         let overlay = balance.and_then(|b| b.get("abilities", id));
-        db.abilities.push(ability_to_ability_row(id, ability, overlay));
+        db.abilities
+            .push(ability_to_ability_row(id, ability, overlay));
     }
 
     for (id, zone) in registries.zones.iter() {

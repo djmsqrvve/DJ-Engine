@@ -41,10 +41,7 @@ const TUTORIAL_MESSAGES: &[&str] = &[
 ];
 
 fn tutorial_message(step: usize) -> &'static str {
-    TUTORIAL_MESSAGES
-        .get(step)
-        .copied()
-        .unwrap_or("Play on!")
+    TUTORIAL_MESSAGES.get(step).copied().unwrap_or("Play on!")
 }
 
 /// Advance the tutorial based on game events. Runs every frame in all phases.
@@ -96,9 +93,10 @@ pub fn tutorial_system(
 
         5 => {
             tutorial.first_combat_done
-                || board.grid.iter().any(|(_, _, cell)| {
-                    cell.piece.as_ref().map(|p| p.revealed).unwrap_or(false)
-                })
+                || board
+                    .grid
+                    .iter()
+                    .any(|(_, _, cell)| cell.piece.as_ref().map(|p| p.revealed).unwrap_or(false))
         }
 
         6 => *phase.get() == GamePhase::GameOver,

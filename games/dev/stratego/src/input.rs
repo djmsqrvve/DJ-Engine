@@ -56,7 +56,9 @@ fn cursor_world_pos(
     let window = windows.single().ok()?;
     let (camera, camera_transform) = camera_q.single().ok()?;
     let cursor_pos = window.cursor_position()?;
-    camera.viewport_to_world_2d(camera_transform, cursor_pos).ok()
+    camera
+        .viewport_to_world_2d(camera_transform, cursor_pos)
+        .ok()
 }
 
 /// Initialize setup queue with all army pieces.
@@ -216,10 +218,7 @@ pub fn player_click_system(
                         ));
                     }
                     CombatResult::BothDie => {
-                        feedback.set(format!(
-                            "Both {}s destroyed each other!",
-                            atk.name()
-                        ));
+                        feedback.set(format!("Both {}s destroyed each other!", atk.name()));
                     }
                     CombatResult::FlagCaptured(loser) => {
                         game_result.winner = Some(loser.opponent());

@@ -1,9 +1,9 @@
+use super::types::{RuntimePreviewLaunchPhase, RuntimePreviewLaunchState};
+use crate::diagnostics::console::ConsoleLogStore;
 use bevy::prelude::*;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use super::types::{RuntimePreviewLaunchPhase, RuntimePreviewLaunchState};
-use crate::diagnostics::console::ConsoleLogStore;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedRuntimePreviewCommand {
@@ -169,8 +169,7 @@ pub fn poll_runtime_preview_process_system(
                     use std::io::Read;
                     let mut error_output = String::new();
                     let mut reader = std::io::BufReader::new(stderr);
-                    if reader.read_to_string(&mut error_output).is_ok()
-                        && !error_output.is_empty()
+                    if reader.read_to_string(&mut error_output).is_ok() && !error_output.is_empty()
                     {
                         // Truncate very long error output for display.
                         let truncated = if error_output.len() > 2000 {

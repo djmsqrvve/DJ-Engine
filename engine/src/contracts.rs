@@ -165,13 +165,22 @@ pub fn format_contracts_text(registry: &ContractRegistry) -> String {
         out.push_str(&format!("{}\n", contract.name));
         out.push_str(&format!("  {}\n", contract.description));
         for entry in &contract.resources {
-            out.push_str(&format!("  [Resource]  {} — {}\n", entry.name, entry.description));
+            out.push_str(&format!(
+                "  [Resource]  {} — {}\n",
+                entry.name, entry.description
+            ));
         }
         for entry in &contract.components {
-            out.push_str(&format!("  [Component] {} — {}\n", entry.name, entry.description));
+            out.push_str(&format!(
+                "  [Component] {} — {}\n",
+                entry.name, entry.description
+            ));
         }
         for entry in &contract.events {
-            out.push_str(&format!("  [Event]     {} — {}\n", entry.name, entry.description));
+            out.push_str(&format!(
+                "  [Event]     {} — {}\n",
+                entry.name, entry.description
+            ));
         }
         for set in &contract.system_sets {
             out.push_str(&format!("  [Set]       {} ({})\n", set.name, set.schedule));
@@ -216,7 +225,10 @@ pub fn validate_contracts(registry: &ContractRegistry) -> Vec<ContractIssue> {
         if total == 0 {
             issues.push(ContractIssue {
                 level: ContractIssueLevel::Warning,
-                message: format!("{}: empty contract (no resources, components, events, or sets)", contract.name),
+                message: format!(
+                    "{}: empty contract (no resources, components, events, or sets)",
+                    contract.name
+                ),
             });
         }
     }
@@ -341,8 +353,9 @@ mod tests {
             }],
         };
         let issues = validate_contracts(&reg);
-        assert!(issues.iter().any(|i| i.level == ContractIssueLevel::Warning
-            && i.message.contains("empty contract")));
+        assert!(issues.iter().any(
+            |i| i.level == ContractIssueLevel::Warning && i.message.contains("empty contract")
+        ));
     }
 
     #[test]
@@ -368,8 +381,9 @@ mod tests {
             ],
         };
         let issues = validate_contracts(&reg);
-        assert!(issues.iter().any(|i| i.level == ContractIssueLevel::Warning
-            && i.message.contains("duplicate type")));
+        assert!(issues.iter().any(
+            |i| i.level == ContractIssueLevel::Warning && i.message.contains("duplicate type")
+        ));
     }
 
     #[test]

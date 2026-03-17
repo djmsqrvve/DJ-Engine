@@ -105,7 +105,9 @@ impl Plugin for MidiPlugin {
             components: vec![ContractEntry::of::<AutoLoadMidi>(
                 "Auto-load MIDI file at startup",
             )],
-            events: vec![ContractEntry::of::<MidiCommand>("MIDI note on/off commands")],
+            events: vec![ContractEntry::of::<MidiCommand>(
+                "MIDI note on/off commands",
+            )],
             system_sets: vec![],
         });
 

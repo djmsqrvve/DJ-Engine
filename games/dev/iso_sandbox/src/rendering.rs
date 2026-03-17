@@ -118,7 +118,9 @@ pub fn spawn_grid_system(mut commands: Commands, grid: Res<IsoGrid>) {
     // Status text at top.
     commands.spawn((
         StatusText,
-        Text2d::new("Iso Sandbox — 1:Actor 2:Prop 3:Blocker 4:Spawn | LMB:Place RMB:Remove T:Terrain"),
+        Text2d::new(
+            "Iso Sandbox — 1:Actor 2:Prop 3:Blocker 4:Spawn | LMB:Place RMB:Remove T:Terrain",
+        ),
         TextFont {
             font_size: 18.0,
             ..default()
@@ -129,10 +131,7 @@ pub fn spawn_grid_system(mut commands: Commands, grid: Res<IsoGrid>) {
 }
 
 /// Update tile colors when terrain changes.
-pub fn sync_tiles_system(
-    grid: Res<IsoGrid>,
-    mut tile_q: Query<(&TileSprite, &mut Sprite)>,
-) {
+pub fn sync_tiles_system(grid: Res<IsoGrid>, mut tile_q: Query<(&TileSprite, &mut Sprite)>) {
     if !grid.is_changed() {
         return;
     }

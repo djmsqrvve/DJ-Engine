@@ -89,10 +89,18 @@ pub fn ai_turn_system(
                 feedback.set(format!("AI's {} defeated your {}!", atk.name(), def.name()));
             }
             CombatResult::DefenderWins => {
-                feedback.set(format!("Your {} held against AI's {}!", def.name(), atk.name()));
+                feedback.set(format!(
+                    "Your {} held against AI's {}!",
+                    def.name(),
+                    atk.name()
+                ));
             }
             CombatResult::BothDie => {
-                feedback.set(format!("AI's {} and your {} destroyed each other!", atk.name(), def.name()));
+                feedback.set(format!(
+                    "AI's {} and your {} destroyed each other!",
+                    atk.name(),
+                    def.name()
+                ));
             }
             CombatResult::FlagCaptured(loser) => {
                 game_result.winner = Some(loser.opponent());

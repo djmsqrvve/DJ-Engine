@@ -179,7 +179,10 @@ mod tests {
     fn iter_yields_all_cells_with_coordinates() {
         let grid = Grid::from_vec(2, 2, vec![10, 20, 30, 40]).unwrap();
         let cells: Vec<_> = grid.iter().collect();
-        assert_eq!(cells, vec![(0, 0, &10), (1, 0, &20), (0, 1, &30), (1, 1, &40)]);
+        assert_eq!(
+            cells,
+            vec![(0, 0, &10), (1, 0, &20), (0, 1, &30), (1, 1, &40)]
+        );
     }
 
     #[test]

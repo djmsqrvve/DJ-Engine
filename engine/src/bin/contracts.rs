@@ -34,7 +34,10 @@ fn main() {
         std::process::exit(1);
     }
     if strict && warning_count > 0 {
-        eprintln!("--strict: {} warning(s) found, exiting with error", warning_count);
+        eprintln!(
+            "--strict: {} warning(s) found, exiting with error",
+            warning_count
+        );
         std::process::exit(1);
     }
 }

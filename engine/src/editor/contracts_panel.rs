@@ -66,7 +66,11 @@ pub(crate) fn draw_contracts_browser(ui: &mut egui::Ui, world: &mut World) {
     });
     ui.add_space(2.0);
     if show_copied {
-        ui.label(RichText::new("Copied to clipboard!").small().color(Color32::from_rgb(100, 255, 150)));
+        ui.label(
+            RichText::new("Copied to clipboard!")
+                .small()
+                .color(Color32::from_rgb(100, 255, 150)),
+        );
     }
     ui.label(
         RichText::new(format!(
@@ -101,7 +105,9 @@ pub(crate) fn draw_contracts_browser(ui: &mut egui::Ui, world: &mut World) {
                     ui.add_space(2.0);
 
                     if !contract.resources.is_empty() {
-                        ui.label(RichText::new("Resources").color(Color32::from_rgb(100, 200, 255)));
+                        ui.label(
+                            RichText::new("Resources").color(Color32::from_rgb(100, 200, 255)),
+                        );
                         for entry in &contract.resources {
                             ui.horizontal(|ui| {
                                 ui.add_space(12.0);
@@ -135,9 +141,7 @@ pub(crate) fn draw_contracts_browser(ui: &mut egui::Ui, world: &mut World) {
                     }
 
                     if !contract.events.is_empty() {
-                        ui.label(
-                            RichText::new("Events").color(Color32::from_rgb(255, 200, 100)),
-                        );
+                        ui.label(RichText::new("Events").color(Color32::from_rgb(255, 200, 100)));
                         for entry in &contract.events {
                             ui.horizontal(|ui| {
                                 ui.add_space(12.0);

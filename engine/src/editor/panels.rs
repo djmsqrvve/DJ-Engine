@@ -1,3 +1,7 @@
+use super::actions::{
+    launch_runtime_preview_from_editor, request_project_action, resolve_pending_project_action,
+    stop_runtime_preview_from_editor,
+};
 use super::scene_io::{resolve_asset_root, save_project_impl};
 use super::table::{draw_table_editor, TableEditorState};
 use super::types::{
@@ -15,10 +19,6 @@ use crate::data::{
 };
 use crate::diagnostics::console::ConsoleLogStore;
 use crate::editor::extensions::EditorExtensionRegistry;
-use super::actions::{
-    launch_runtime_preview_from_editor, request_project_action, resolve_pending_project_action,
-    stop_runtime_preview_from_editor,
-};
 use crate::project_mount::MountedProject;
 use crate::story_graph::GraphExecutor;
 use bevy::prelude::*;
@@ -1070,7 +1070,9 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
             ui.separator();
             ui.add_space(10.0);
 
-            let viewer_running = world.resource::<super::types::Helix3DViewerState>().is_running();
+            let viewer_running = world
+                .resource::<super::types::Helix3DViewerState>()
+                .is_running();
 
             ui.horizontal(|ui| {
                 let btn_label = if viewer_running { "3D (Running)" } else { "3D" };
@@ -1092,8 +1094,12 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
                     .cloned()
                     .unwrap_or_default();
                 let presets = [
-                    "drow", "phantom-assassin", "crystal-maiden", "juggernaut",
-                    "witch-doctor", "shadow-fiend",
+                    "drow",
+                    "phantom-assassin",
+                    "crystal-maiden",
+                    "juggernaut",
+                    "witch-doctor",
+                    "shadow-fiend",
                 ];
                 egui::ComboBox::from_id_salt("3d_model_preset")
                     .selected_text(&config.model_preset)
@@ -1921,8 +1927,11 @@ fn launch_helix_3d_viewer(world: &mut World) {
     let renderer_root = {
         let candidates = [
             std::path::PathBuf::from(&home).join("dev/helix/helix_3d_render_prototype"),
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../helix/helix_3d_render_prototype"),
-            std::env::current_dir().unwrap_or_default().join("../helix/helix_3d_render_prototype"),
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../helix/helix_3d_render_prototype"),
+            std::env::current_dir()
+                .unwrap_or_default()
+                .join("../helix/helix_3d_render_prototype"),
         ];
         candidates
             .into_iter()
@@ -1990,10 +1999,7 @@ fn launch_helix_3d_viewer(world: &mut World) {
     }
 
     let args_display = args.join(" ");
-    log_console(
-        world,
-        &format!("[3D] Running: cargo {args_display}"),
-    );
+    log_console(world, &format!("[3D] Running: cargo {args_display}"));
 
     match cmd.spawn() {
         Ok(child) => {
@@ -2070,12 +2076,12 @@ pub fn screenshot_hotkey_system(keys: Res<ButtonInput<KeyCode>>, mut commands: C
         }
 
         let path_clone = path.clone();
-        commands
-            .spawn(Screenshot::primary_window())
-            .observe(move |captured: On<ScreenshotCaptured>| {
+        commands.spawn(Screenshot::primary_window()).observe(
+            move |captured: On<ScreenshotCaptured>| {
                 save_to_disk(path_clone.clone())(captured);
                 info!("[SCREENSHOT] Saved to {}", path_clone.display());
-            });
+            },
+        );
 
         info!("[SCREENSHOT] Capturing to {}", path.display());
     }

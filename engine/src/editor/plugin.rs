@@ -15,10 +15,10 @@ use bevy_egui::{
 };
 use std::path::Path;
 
-use super::types::ActiveStoryGraph;
+use super::actions::{automated_ui_test_system, AutomatedTestActive};
 use super::cli::parse_editor_cli_args;
-use super::actions::{AutomatedTestActive, automated_ui_test_system};
 use super::preview::poll_runtime_preview_process_system;
+use super::types::ActiveStoryGraph;
 
 pub struct EditorPlugin;
 
@@ -101,9 +101,12 @@ impl Plugin for EditorPlugin {
             );
 
         if cli.start_tutorial {
-            app.add_systems(Startup, |mut tut_state: ResMut<super::tutorial::TutorialState>| {
-                super::tutorial::start_first_game_tutorial(&mut tut_state);
-            });
+            app.add_systems(
+                Startup,
+                |mut tut_state: ResMut<super::tutorial::TutorialState>| {
+                    super::tutorial::start_first_game_tutorial(&mut tut_state);
+                },
+            );
         }
 
         if cli.test_mode {

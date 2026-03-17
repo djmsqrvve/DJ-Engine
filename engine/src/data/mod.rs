@@ -24,7 +24,6 @@ pub mod story;
 
 // Re-export commonly used types
 pub use assets::{AssetIndex, Prefab};
-pub use grid::Grid;
 pub use components::*;
 pub use custom::{
     default_custom_data_manifest_path, filter_document_refs_by_kind,
@@ -43,6 +42,7 @@ pub use custom::{
 pub use database::{
     AbilityRow, Database, EnemyRow, ItemRow, LootTableRow, NpcRow, QuestRow, TowerRow, ZoneRow,
 };
+pub use grid::Grid;
 pub use loader::{load_database, load_project, load_scene, load_story_graph, DataError};
 pub use project::{EditorPreferences, Project, ProjectSettings};
 pub use scene::{Entity, EntityType, Layer, Scene, SceneType};
@@ -77,7 +77,9 @@ impl Plugin for DataPlugin {
             name: "DataPlugin".into(),
             description: "Data models, custom documents, scene/story serialization".into(),
             resources: vec![
-                ContractEntry::of::<custom::CustomDocumentRegistry>("Custom document kind registry"),
+                ContractEntry::of::<custom::CustomDocumentRegistry>(
+                    "Custom document kind registry",
+                ),
                 ContractEntry::of::<custom::LoadedCustomDocuments>("All loaded custom documents"),
             ],
             components: vec![],

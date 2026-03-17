@@ -2,15 +2,15 @@
 //!
 //! Provides a professional game development environment using Egui.
 
-mod cli;
 pub mod actions;
+mod cli;
 pub(crate) mod contracts_panel;
-pub mod preview;
 mod extensions;
 pub mod panel_export;
-pub mod prefs;
 pub(crate) mod panels;
 mod plugin;
+pub mod prefs;
+pub mod preview;
 mod property_widgets;
 pub(crate) mod scene_io;
 mod table;

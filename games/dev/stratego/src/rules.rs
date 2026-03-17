@@ -146,11 +146,7 @@ pub fn valid_moves(board: &StrategoBoard, team: Team, x: usize, y: usize) -> Vec
         for (dx, dy) in &[(1i32, 0i32), (-1, 0), (0, 1), (0, -1)] {
             let mut nx = x as i32 + dx;
             let mut ny = y as i32 + dy;
-            while nx >= 0
-                && nx < BOARD_WIDTH as i32
-                && ny >= 0
-                && ny < BOARD_HEIGHT as i32
-            {
+            while nx >= 0 && nx < BOARD_WIDTH as i32 && ny >= 0 && ny < BOARD_HEIGHT as i32 {
                 let tx = nx as usize;
                 let ty = ny as usize;
                 let Some(target) = board.get(tx, ty) else {

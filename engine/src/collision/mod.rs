@@ -223,9 +223,18 @@ impl Plugin for CollisionPlugin {
                 "Trigger enter/exit events",
             )],
             system_sets: vec![
-                ContractSystemSet { name: "CollisionSet::SyncData".into(), schedule: "Update".into() },
-                ContractSystemSet { name: "CollisionSet::MoveBodies".into(), schedule: "Update".into() },
-                ContractSystemSet { name: "CollisionSet::DetectTriggers".into(), schedule: "Update".into() },
+                ContractSystemSet {
+                    name: "CollisionSet::SyncData".into(),
+                    schedule: "Update".into(),
+                },
+                ContractSystemSet {
+                    name: "CollisionSet::MoveBodies".into(),
+                    schedule: "Update".into(),
+                },
+                ContractSystemSet {
+                    name: "CollisionSet::DetectTriggers".into(),
+                    schedule: "Update".into(),
+                },
             ],
         });
     }

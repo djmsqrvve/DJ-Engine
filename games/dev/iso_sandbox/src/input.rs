@@ -39,7 +39,9 @@ fn cursor_world_pos(
     let window = windows.single().ok()?;
     let (camera, camera_transform) = camera_q.single().ok()?;
     let cursor_pos = window.cursor_position()?;
-    camera.viewport_to_world_2d(camera_transform, cursor_pos).ok()
+    camera
+        .viewport_to_world_2d(camera_transform, cursor_pos)
+        .ok()
 }
 
 /// Update hover tile based on cursor position.
@@ -48,8 +50,7 @@ pub fn hover_system(
     camera_q: Query<(&Camera, &GlobalTransform)>,
     mut hover: ResMut<HoverTile>,
 ) {
-    let new_tile = cursor_world_pos(&windows, &camera_q)
-        .and_then(world_to_iso);
+    let new_tile = cursor_world_pos(&windows, &camera_q).and_then(world_to_iso);
 
     if hover.tile != new_tile {
         hover.tile = new_tile;
@@ -77,13 +78,14 @@ pub fn click_place_system(
     };
 
     if cell.entity.is_some() {
-        feedback.set(format!("({}, {}) already has an entity — right-click to remove.", x, y));
+        feedback.set(format!(
+            "({}, {}) already has an entity — right-click to remove.",
+            x, y
+        ));
         return;
     }
 
-    cell.entity = Some(PlacedEntity {
-        kind: palette.kind,
-    });
+    cell.entity = Some(PlacedEntity { kind: palette.kind });
     feedback.set(format!("Placed {} at ({}, {})", palette.kind.name(), x, y));
 }
 

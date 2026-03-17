@@ -55,7 +55,16 @@ impl StrategoBoard {
         let mut grid = Grid::new(BOARD_WIDTH, BOARD_HEIGHT);
 
         // Two 2x2 lake zones in the center rows (4-5).
-        for &(lx, ly) in &[(2, 4), (3, 4), (2, 5), (3, 5), (6, 4), (7, 4), (6, 5), (7, 5)] {
+        for &(lx, ly) in &[
+            (2, 4),
+            (3, 4),
+            (2, 5),
+            (3, 5),
+            (6, 4),
+            (7, 4),
+            (6, 5),
+            (7, 5),
+        ] {
             grid.set(
                 lx,
                 ly,
@@ -154,12 +163,7 @@ impl StrategoBoard {
     pub fn piece_count(&self, team: Team) -> usize {
         self.grid
             .iter()
-            .filter(|(_, _, cell)| {
-                cell.piece
-                    .as_ref()
-                    .map(|p| p.team == team)
-                    .unwrap_or(false)
-            })
+            .filter(|(_, _, cell)| cell.piece.as_ref().map(|p| p.team == team).unwrap_or(false))
             .count()
     }
 }

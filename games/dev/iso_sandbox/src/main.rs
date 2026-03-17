@@ -33,28 +33,26 @@ fn main() {
         // Startup
         .add_systems(Startup, (setup_camera, rendering::spawn_grid_system))
         // Update
-        .add_systems(Update, (
-            input::hover_system,
-            input::click_place_system,
-            input::click_remove_system,
-            input::terrain_cycle_system,
-            input::tick_feedback_system,
-            input::status_system,
-            palette::palette_system,
-            rendering::sync_tiles_system
-                .after(input::terrain_cycle_system),
-            rendering::sync_entities_system
-                .after(input::click_place_system)
-                .after(input::click_remove_system),
-            rendering::sync_hover_system
-                .after(input::hover_system),
-        ))
+        .add_systems(
+            Update,
+            (
+                input::hover_system,
+                input::click_place_system,
+                input::click_remove_system,
+                input::terrain_cycle_system,
+                input::tick_feedback_system,
+                input::status_system,
+                palette::palette_system,
+                rendering::sync_tiles_system.after(input::terrain_cycle_system),
+                rendering::sync_entities_system
+                    .after(input::click_place_system)
+                    .after(input::click_remove_system),
+                rendering::sync_hover_system.after(input::hover_system),
+            ),
+        )
         .run();
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn((
-        Camera2d,
-        Transform::from_xyz(0.0, -240.0, 0.0),
-    ));
+    commands.spawn((Camera2d, Transform::from_xyz(0.0, -240.0, 0.0)));
 }

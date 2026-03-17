@@ -479,11 +479,7 @@ fn run_dashboard_validation_system(
     dashboard_ran.0 = true;
 
     let mut issues = Vec::new();
-    dashboard::validate_helix_registries(
-        &registries,
-        config.helix3d_path.as_deref(),
-        &mut issues,
-    );
+    dashboard::validate_helix_registries(&registries, config.helix3d_path.as_deref(), &mut issues);
 
     if !issues.is_empty() {
         info!(
@@ -795,7 +791,11 @@ fn validate_helix_quest_document(
 ) {
     validate_helix_localized_name(HELIX_QUEST_KIND, document, issues);
 
-    if let Some(prereqs) = document.payload.get("prerequisite_quests").and_then(Value::as_array) {
+    if let Some(prereqs) = document
+        .payload
+        .get("prerequisite_quests")
+        .and_then(Value::as_array)
+    {
         for (i, prereq) in prereqs.iter().enumerate() {
             if let Some(quest_id) = prereq.as_str() {
                 if loaded.get(HELIX_QUEST_KIND, quest_id).is_none() {
@@ -864,9 +864,25 @@ fn validate_helix_equipment_document(
 ) {
     if let Some(slot) = document.payload.get("equip_slot").and_then(Value::as_str) {
         const VALID_SLOTS: &[&str] = &[
-            "head", "neck", "shoulder", "chest", "waist", "legs", "feet", "wrist", "hands",
-            "finger", "trinket", "back", "main_hand", "off_hand", "ranged", "two_hand",
-            "one_hand", "shirt", "tabard",
+            "head",
+            "neck",
+            "shoulder",
+            "chest",
+            "waist",
+            "legs",
+            "feet",
+            "wrist",
+            "hands",
+            "finger",
+            "trinket",
+            "back",
+            "main_hand",
+            "off_hand",
+            "ranged",
+            "two_hand",
+            "one_hand",
+            "shirt",
+            "tabard",
         ];
         if !VALID_SLOTS.contains(&slot) {
             issues.push(ValidationIssue {
@@ -1039,15 +1055,14 @@ mod tests {
 
     #[test]
     fn test_populate_database_from_real_helix_registries() {
-        let helix3d_dir =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../helix/helix_standardization/dist/helix3d");
+        let helix3d_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../helix/helix_standardization/dist/helix3d");
         if !helix3d_dir.is_dir() {
             // Skip if helix3d data isn't available (CI, etc.)
             return;
         }
 
-        let registries =
-            registries::load_helix_registries_lenient(&helix3d_dir).unwrap();
+        let registries = registries::load_helix_registries_lenient(&helix3d_dir).unwrap();
         assert!(registries.total_entities() > 0);
 
         let db = bridge::populate_database_from_helix(&registries, None);

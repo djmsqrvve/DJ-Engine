@@ -169,7 +169,14 @@ pub fn draw_tutorial_overlay(ctx: &egui::Context, world: &mut World) {
             let last_rect = active.last_target_rect;
             let progress = active.transition_progress;
             let target_rect = panel_rects.rect_for_target(&step.target);
-            (step, current_step, total_steps, target_rect, last_rect, progress)
+            (
+                step,
+                current_step,
+                total_steps,
+                target_rect,
+                last_rect,
+                progress,
+            )
         }
     };
 
@@ -415,8 +422,12 @@ fn draw_arrow(ctx: &egui::Context, screen: Rect, window_pos: Pos2, target_rect: 
 
     // Find point on target rect closest to window center.
     let target_point = Pos2::new(
-        window_center.x.clamp(target_rect.left(), target_rect.right()),
-        window_center.y.clamp(target_rect.top(), target_rect.bottom()),
+        window_center
+            .x
+            .clamp(target_rect.left(), target_rect.right()),
+        window_center
+            .y
+            .clamp(target_rect.top(), target_rect.bottom()),
     );
 
     // If window is very close to or inside target, don't draw arrow.
