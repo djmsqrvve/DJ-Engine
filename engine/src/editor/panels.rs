@@ -1028,10 +1028,18 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
                 EditorView::StoryGraph,
                 RichText::new("🕸 Story Graph").strong(),
             );
+            ui.selectable_value(
+                &mut ui_state.current_view,
+                EditorView::DocumentGraph,
+                RichText::new("🔗 Doc Graph").strong(),
+            );
         }
 
         if current_state == EditorState::GraphPreview
-            && world.resource::<EditorUiState>().current_view != EditorView::StoryGraph
+            && !matches!(
+                world.resource::<EditorUiState>().current_view,
+                EditorView::StoryGraph | EditorView::DocumentGraph
+            )
         {
             world
                 .resource_mut::<NextState<EditorState>>()
@@ -1919,6 +1927,7 @@ pub(crate) fn draw_central_panel(ui: &mut egui::Ui, world: &mut World) {
             match current_view {
                 EditorView::Level => request_export(world, PanelExportKind::Scene),
                 EditorView::StoryGraph => request_export(world, PanelExportKind::StoryGraph),
+                EditorView::DocumentGraph => {} // no export for doc graph yet
             }
         }
     });
@@ -1938,6 +1947,9 @@ pub(crate) fn draw_central_panel(ui: &mut egui::Ui, world: &mut World) {
         }
         EditorView::StoryGraph => {
             draw_story_graph(ui, world);
+        }
+        EditorView::DocumentGraph => {
+            super::graph_editor::draw_graph_editor(ui, world);
         }
     }
 }

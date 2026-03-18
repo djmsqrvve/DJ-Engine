@@ -127,6 +127,7 @@ pub enum EditorView {
     #[default]
     Level,
     StoryGraph,
+    DocumentGraph,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

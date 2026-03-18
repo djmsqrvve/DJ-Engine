@@ -29,6 +29,7 @@ pub fn parse_editor_cli_args(args: impl IntoIterator<Item = String>) -> EditorCl
                 if i + 1 < args.len() {
                     options.initial_view = match args[i + 1].as_str() {
                         "story" => EditorView::StoryGraph,
+                        "docgraph" => EditorView::DocumentGraph,
                         _ => EditorView::Level,
                     };
                     info!("CLI: Setting initial view to {:?}", options.initial_view);

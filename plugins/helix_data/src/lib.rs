@@ -315,7 +315,7 @@ impl Plugin for HelixDataPlugin {
                 CustomDocumentRegistration::<Value>::new(
                     HELIX_CLASS_DATA_KIND,
                     1,
-                    EditorDocumentRoute::Table,
+                    EditorDocumentRoute::Graph,
                     HELIX_GENERIC_SCHEMA_JSON,
                 )
                 .with_validator(validate_helix_class_data_document),
@@ -405,7 +405,7 @@ impl Plugin for HelixDataPlugin {
                 CustomDocumentRegistration::<Value>::new(
                     HELIX_QUEST_KIND,
                     1,
-                    EditorDocumentRoute::Table,
+                    EditorDocumentRoute::Graph,
                     HELIX_GENERIC_SCHEMA_JSON,
                 )
                 .with_validator(validate_helix_quest_document),
@@ -423,7 +423,7 @@ impl Plugin for HelixDataPlugin {
                 CustomDocumentRegistration::<Value>::new(
                     HELIX_TALENT_KIND,
                     1,
-                    EditorDocumentRoute::Table,
+                    EditorDocumentRoute::Graph,
                     HELIX_GENERIC_SCHEMA_JSON,
                 )
                 .with_validator(validate_helix_talent_document),

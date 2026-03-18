@@ -372,6 +372,7 @@ fn check_completion(world: &World, condition: &CompletionCondition) -> bool {
             let current = match ui_state.current_view {
                 EditorView::Level => "Level",
                 EditorView::StoryGraph => "StoryGraph",
+                EditorView::DocumentGraph => "DocumentGraph",
             };
             current == target
         }

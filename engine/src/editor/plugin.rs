@@ -84,6 +84,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<EditorExtensionRegistry>()
             .init_resource::<super::extensions::SelectedPreviewPreset>()
             .init_resource::<super::extensions::ToolbarActionQueue>()
+            .init_resource::<super::graph_editor::GraphEditorState>()
             .init_resource::<super::tutorial::TutorialState>()
             .insert_resource(super::tutorial::build_catalog())
             .init_resource::<super::panel_export::PanelExportRequest>()
