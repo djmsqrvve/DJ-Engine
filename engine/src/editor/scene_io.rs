@@ -163,6 +163,20 @@ pub(crate) fn load_mounted_project(world: &mut World) -> Result<(), DataError> {
                 load_scene_into_editor(world, Scene::new("editor_empty", "Empty Scene"));
             }
         }
+        // Load GridLevel if it exists alongside the scene
+        let grid_path = scene_path.with_extension("grid.json");
+        if grid_path.exists() {
+            match std::fs::read_to_string(&grid_path) {
+                Ok(json) => match serde_json::from_str::<super::grid::GridLevel>(&json) {
+                    Ok(grid) => {
+                        info!("Loaded grid level from {:?}", grid_path);
+                        world.insert_resource(grid);
+                    }
+                    Err(e) => warn!("Failed to parse grid level: {}", e),
+                },
+                Err(e) => warn!("Failed to read grid level: {}", e),
+            }
+        }
     } else {
         load_scene_into_editor(world, Scene::new("editor_empty", "Empty Scene"));
     }
@@ -254,6 +268,15 @@ pub(crate) fn save_project_impl(world: &mut World) -> Result<(), DataError> {
 
     let scene = world_to_scene(world);
     loader::save_scene(&scene, &scene_path)?;
+
+    // Save GridLevel alongside scene
+    let grid_path = scene_path.with_extension("grid.json");
+    let grid = world.resource::<super::grid::GridLevel>();
+    if let Ok(grid_json) = serde_json::to_string_pretty(&*grid) {
+        if let Err(e) = std::fs::write(&grid_path, grid_json) {
+            warn!("Failed to save grid level: {}", e);
+        }
+    }
 
     let graph_path = root_path.join(&story_graph_ref.path);
     ensure_parent_dir(&graph_path)?;
@@ -679,6 +702,7 @@ mod tests {
         world.insert_resource(ActiveStoryGraph(StoryGraphData::new("graph", "Graph")));
         world.init_resource::<EditorSnapshotBaseline>();
         world.init_resource::<EditorDirtyState>();
+        world.init_resource::<crate::editor::grid::GridLevel>();
 
         sync_editor_snapshot_baseline(&mut world).unwrap();
         world.spawn((Name::new("hero"), Transform::from_xyz(12.0, 6.0, 0.0)));

@@ -72,6 +72,11 @@ impl Plugin for EditorPlugin {
             .insert_resource(EditorUiState {
                 current_view: cli.initial_view,
                 console_open: true,
+                brush_size: 1,
+                current_tile: super::grid::TileType::Floor,
+                zoom: 1.0,
+                grid_visible: true,
+                current_entity_type: "spawn_point".to_string(),
                 ..default()
             })
             .init_resource::<ActiveStoryGraph>()
@@ -81,6 +86,9 @@ impl Plugin for EditorPlugin {
             .init_resource::<super::types::Helix3DViewerState>()
             .init_resource::<super::types::Helix3DLaunchConfig>()
             .init_resource::<LoadedCustomDocuments>()
+            .init_resource::<super::grid::GridLevel>()
+            .init_resource::<super::grid::PaintState>()
+            .init_resource::<super::history::EditorHistory>()
             .init_resource::<EditorExtensionRegistry>()
             .init_resource::<super::extensions::SelectedPreviewPreset>()
             .init_resource::<super::extensions::ToolbarActionQueue>()

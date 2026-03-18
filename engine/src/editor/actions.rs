@@ -396,6 +396,7 @@ mod tests {
         world.init_resource::<ActiveStoryGraph>();
         world.init_resource::<EditorSnapshotBaseline>();
         world.init_resource::<EditorDirtyState>();
+        world.init_resource::<crate::editor::grid::GridLevel>();
         sync_editor_snapshot_baseline(&mut world).unwrap();
         world
     }

@@ -158,4 +158,28 @@ pub struct EditorUiState {
     pub dragged_node_id: Option<String>,
     pub connection_start_id: Option<String>,
     pub selected_node_id: Option<String>,
+    // Tile editor state (ported from Helix2000)
+    pub current_tool: super::grid::EditorTool,
+    pub current_tile: super::grid::TileType,
+    pub current_layer: super::grid::LayerType,
+    pub brush_size: u8,
+    // Camera (Wave 2)
+    pub camera_offset: bevy_egui::egui::Vec2,
+    pub zoom: f32,
+    pub grid_visible: bool,
+    // Selection (Wave 2)
+    pub selected_tile_pos: Option<(i32, i32)>,
+    pub selected_entity_id: Option<String>,
+    pub current_entity_type: String,
+    // Wave 3
+    pub show_collision: bool,
+    pub selection_region: Option<(i32, i32, i32, i32)>,
+    pub region_drag_start: Option<(i32, i32)>,
+}
+
+impl EditorUiState {
+    /// Ensure brush_size is clamped to 1..=5.
+    pub fn clamped_brush_size(&self) -> u8 {
+        self.brush_size.clamp(1, 5)
+    }
 }

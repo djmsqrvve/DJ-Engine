@@ -1475,36 +1475,282 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
                 });
             }
             BrowserTab::Palette => {
-                ui.add_space(5.0);
-                ui.label(RichText::new("TOOL PALETTE").strong().color(COLOR_PRIMARY));
-                ui.add_space(5.0);
-                ui.label(RichText::new("Select item to paint:").italics());
+                use super::grid::{self, EditorTool, LayerType, DEFAULT_PALETTE};
+                use super::history::EditorHistory;
 
-                let mut selected = ui_state.selected_palette_item.clone();
+                // --- Toolbar (Undo/Redo/Save/New/Collision) ---
+                ui.add_space(3.0);
+                ui.horizontal_wrapped(|ui| {
+                    let can_undo = world.resource::<EditorHistory>().can_undo();
+                    let can_redo = world.resource::<EditorHistory>().can_redo();
+                    if ui
+                        .add_enabled(can_undo, egui::Button::new("↩ Undo"))
+                        .clicked()
+                    {
+                        let mut grid = world.resource::<grid::GridLevel>().clone();
+                        if world.resource_mut::<EditorHistory>().undo(&mut grid) {
+                            *world.resource_mut::<grid::GridLevel>() = grid;
+                        }
+                    }
+                    if ui
+                        .add_enabled(can_redo, egui::Button::new("↪ Redo"))
+                        .clicked()
+                    {
+                        let mut grid = world.resource::<grid::GridLevel>().clone();
+                        if world.resource_mut::<EditorHistory>().redo(&mut grid) {
+                            *world.resource_mut::<grid::GridLevel>() = grid;
+                        }
+                    }
+                    ui.separator();
+                    if ui.button("💾 Save").clicked() {
+                        if let Err(e) = save_project_impl(world) {
+                            warn!("Save failed: {}", e);
+                        }
+                    }
+                    if ui
+                        .button("📄 New")
+                        .on_hover_text("Reset to empty map")
+                        .clicked()
+                    {
+                        // Snapshot for undo, then reset
+                        let grid = world.resource::<grid::GridLevel>().clone();
+                        world.resource_mut::<EditorHistory>().push_snapshot(&grid);
+                        *world.resource_mut::<grid::GridLevel>() = grid::GridLevel::default();
+                        world.resource_mut::<EditorHistory>().clear();
+                        let mut st = world.resource_mut::<EditorUiState>();
+                        st.camera_offset = egui::Vec2::ZERO;
+                        st.selection_region = None;
+                        st.selected_entity_id = None;
+                        st.selected_tile_pos = None;
+                    }
+                    ui.separator();
+                    // Collision toggle
+                    let mut show_coll = ui_state.show_collision;
+                    if ui.toggle_value(&mut show_coll, "☒ Collision").changed() {
+                        ui_state.show_collision = show_coll;
+                    }
+                });
+                ui.add_space(3.0);
+                ui.separator();
 
+                // --- Boundary Controls ---
+                ui.add_space(3.0);
+                ui.horizontal(|ui| {
+                    ui.label("Bounds:");
+                    let mut bl = world.resource::<grid::GridLevel>().boundary_left;
+                    let mut br = world.resource::<grid::GridLevel>().boundary_right;
+                    let w = world.resource::<grid::GridLevel>().width;
+                    let changed_l = ui.add(egui::DragValue::new(&mut bl).prefix("L:").range(0..=w)).changed();
+                    let changed_r = ui.add(egui::DragValue::new(&mut br).prefix("R:").range(0..=w)).changed();
+                    if changed_l {
+                        world.resource_mut::<grid::GridLevel>().boundary_left = bl;
+                    }
+                    if changed_r {
+                        world.resource_mut::<grid::GridLevel>().boundary_right = br;
+                    }
+                });
+                ui.add_space(3.0);
+                ui.separator();
+
+                // --- Tool Selector ---
                 ui.add_space(5.0);
-                ui.selectable_value(
-                    &mut selected,
-                    Some("Terrain".to_string()),
-                    "🌿 Terrain Tile",
-                );
-                ui.selectable_value(
-                    &mut selected,
-                    Some("Blocker".to_string()),
-                    "🧱 Collision Block",
-                );
-                ui.selectable_value(&mut selected, Some("Actor".to_string()), "🙂 Actor Marker");
-                ui.selectable_value(&mut selected, Some("Prop".to_string()), "📦 Prop Marker");
+                ui.label(RichText::new("TOOLS").strong().color(COLOR_PRIMARY));
+                ui.add_space(3.0);
+                ui.horizontal_wrapped(|ui| {
+                    for &t in EditorTool::ALL {
+                        let label = format!("{} {}", t.icon(), t.label());
+                        if ui
+                            .selectable_label(ui_state.current_tool == t, &label)
+                            .clicked()
+                        {
+                            ui_state.current_tool = t;
+                        }
+                    }
+                });
 
-                ui.add_space(10.0);
-                if ui
-                    .button(RichText::new("❌ Clear Selection").color(COLOR_SECONDARY))
-                    .clicked()
-                {
-                    selected = None;
+                // --- Brush Size (only for brush/eraser) ---
+                if matches!(
+                    ui_state.current_tool,
+                    EditorTool::Brush | EditorTool::Eraser
+                ) {
+                    ui.add_space(5.0);
+                    ui.horizontal(|ui| {
+                        ui.label("Brush:");
+                        let mut bs = ui_state.brush_size as f32;
+                        ui.add(egui::Slider::new(&mut bs, 1.0..=5.0).step_by(1.0));
+                        ui_state.brush_size = bs as u8;
+                    });
                 }
 
-                ui_state.selected_palette_item = selected;
+                // --- Entity Type Selector (only for entity placer) ---
+                if ui_state.current_tool == EditorTool::EntityPlacer {
+                    ui.add_space(5.0);
+                    ui.label(RichText::new("ENTITY TYPE").strong().color(COLOR_PRIMARY));
+                    ui.add_space(3.0);
+                    let entity_types = [
+                        ("spawn_point", "@ Player Spawn"),
+                        ("npc_spawn", "N NPC Spawn"),
+                        ("mob", "M Mob"),
+                        ("training_dummy", "T Training Dummy"),
+                        ("teleporter", "P Teleporter"),
+                        ("chest", "C Chest"),
+                    ];
+                    for (et, label) in &entity_types {
+                        if ui
+                            .selectable_label(
+                                ui_state.current_entity_type == *et,
+                                *label,
+                            )
+                            .clicked()
+                        {
+                            ui_state.current_entity_type = et.to_string();
+                        }
+                    }
+                }
+
+                ui.add_space(8.0);
+                ui.separator();
+
+                // --- Tile Palette ---
+                ui.add_space(5.0);
+                ui.label(RichText::new("TILES").strong().color(COLOR_PRIMARY));
+                ui.add_space(3.0);
+
+                // Group by layer category
+                for &lt in LayerType::ALL {
+                    let items: Vec<_> = DEFAULT_PALETTE
+                        .iter()
+                        .filter(|p| p.layer == lt)
+                        .collect();
+                    if items.is_empty() {
+                        continue;
+                    }
+
+                    ui.add_space(3.0);
+                    ui.label(
+                        RichText::new(format!("{} {}", lt.icon(), lt.display_name()))
+                            .strong()
+                            .color(lt.color()),
+                    );
+
+                    egui::Grid::new(format!("tile_palette_{:?}", lt))
+                        .num_columns(3)
+                        .spacing([4.0, 2.0])
+                        .show(ui, |ui| {
+                            for (i, item) in items.iter().enumerate() {
+                                let is_selected = ui_state.current_tile == item.tile_type;
+                                let text = RichText::new(format!("{} {}", item.label, item.name))
+                                    .color(if is_selected {
+                                        Color32::WHITE
+                                    } else {
+                                        item.color
+                                    });
+                                if ui.selectable_label(is_selected, text).clicked() {
+                                    ui_state.current_tile = item.tile_type;
+                                    ui_state.current_layer = item.layer;
+                                    // Auto-switch to brush when picking a tile
+                                    if ui_state.current_tool == EditorTool::Select {
+                                        ui_state.current_tool = EditorTool::Brush;
+                                    }
+                                }
+                                if (i + 1) % 3 == 0 {
+                                    ui.end_row();
+                                }
+                            }
+                        });
+                }
+
+                ui.add_space(8.0);
+                ui.separator();
+
+                // --- Layer Panel ---
+                ui.add_space(5.0);
+                ui.label(RichText::new("LAYERS").strong().color(COLOR_PRIMARY));
+                ui.add_space(3.0);
+
+                let mut layer_toggles: Vec<(LayerType, bool, bool, f32)> = Vec::new();
+                {
+                    let grid = world.resource::<grid::GridLevel>();
+                    for tl in &grid.layers {
+                        layer_toggles.push((tl.name, tl.visible, tl.locked, tl.opacity));
+                    }
+                }
+
+                for (lt, visible, locked, opacity) in &layer_toggles {
+                    ui.horizontal(|ui| {
+                        let is_active = ui_state.current_layer == *lt;
+                        let bg = if is_active {
+                            lt.color().linear_multiply(0.3)
+                        } else {
+                            Color32::TRANSPARENT
+                        };
+                        let frame = egui::Frame::NONE.fill(bg).corner_radius(3.0);
+                        frame.show(ui, |ui| {
+                            // Layer select button
+                            let label = RichText::new(format!(
+                                "{} {}",
+                                lt.icon(),
+                                lt.display_name()
+                            ))
+                            .color(lt.color());
+                            if ui.selectable_label(is_active, label).clicked() {
+                                ui_state.current_layer = *lt;
+                            }
+
+                            // Visibility toggle
+                            let vis_label = if *visible { "👁" } else { "🚫" };
+                            let vis_color = if *visible {
+                                Color32::from_rgb(76, 175, 80)
+                            } else {
+                                Color32::from_rgb(244, 67, 54)
+                            };
+                            if ui
+                                .button(RichText::new(vis_label).color(vis_color))
+                                .clicked()
+                            {
+                                let mut grid = world.resource_mut::<grid::GridLevel>();
+                                if let Some(layer) = grid.layer_mut(*lt) {
+                                    layer.visible = !layer.visible;
+                                }
+                            }
+
+                            // Lock toggle
+                            let lock_label = if *locked { "🔒" } else { "🔓" };
+                            let lock_color = if *locked {
+                                Color32::from_rgb(255, 152, 0)
+                            } else {
+                                Color32::from_rgb(158, 158, 158)
+                            };
+                            if ui
+                                .button(RichText::new(lock_label).color(lock_color))
+                                .clicked()
+                            {
+                                let mut grid = world.resource_mut::<grid::GridLevel>();
+                                if let Some(layer) = grid.layer_mut(*lt) {
+                                    layer.locked = !layer.locked;
+                                }
+                            }
+
+                            // Opacity slider (only when visible)
+                            if *visible {
+                                let mut op = *opacity;
+                                if ui
+                                    .add(
+                                        egui::Slider::new(&mut op, 0.0..=1.0)
+                                            .show_value(false)
+                                            .fixed_decimals(1),
+                                    )
+                                    .changed()
+                                {
+                                    let mut grid = world.resource_mut::<grid::GridLevel>();
+                                    if let Some(layer) = grid.layer_mut(*lt) {
+                                        layer.opacity = op;
+                                    }
+                                }
+                            }
+                        });
+                    });
+                }
             }
             BrowserTab::Documents => {
                 ui.add_space(5.0);
@@ -1779,6 +2025,179 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
             None,
         );
         return;
+    }
+
+    // --- Tile / Entity Properties (Level view) ---
+    {
+        use super::grid;
+        let view = world.resource::<EditorUiState>().current_view.clone();
+        let sel_tile = world.resource::<EditorUiState>().selected_tile_pos;
+        let sel_entity = world.resource::<EditorUiState>().selected_entity_id.clone();
+
+        if view == EditorView::Level && (sel_tile.is_some() || sel_entity.is_some()) {
+            ui.add_space(5.0);
+            ui.label(RichText::new("PROPERTIES").strong().color(COLOR_PRIMARY));
+            ui.add_space(3.0);
+
+            if let Some(entity_id) = &sel_entity {
+                // --- Entity properties ---
+                let ent_data = {
+                    let g = world.resource::<grid::GridLevel>();
+                    g.entities.iter().find(|e| &e.id == entity_id).cloned()
+                };
+                if let Some(ent) = ent_data {
+                    ui.label(RichText::new(format!("Entity: {}", ent.entity_type)).strong());
+                    ui.label(format!("ID: {}", ent.id));
+                    ui.add_space(3.0);
+
+                    // Position editing
+                    let mut ex = ent.x;
+                    let mut ey = ent.y;
+                    ui.horizontal(|ui| {
+                        ui.label("X:");
+                        ui.add(egui::DragValue::new(&mut ex));
+                        ui.label("Y:");
+                        ui.add(egui::DragValue::new(&mut ey));
+                    });
+                    if ex != ent.x || ey != ent.y {
+                        world
+                            .resource_mut::<grid::GridLevel>()
+                            .move_entity(&ent.id, ex, ey);
+                    }
+
+                    // Teleporter link editor
+                    if ent.entity_type == "teleporter" {
+                        ui.add_space(5.0);
+                        ui.label(RichText::new("TELEPORTER LINK").strong().color(COLOR_PRIMARY));
+                        let link_id = ent.properties.get("teleporter_link").cloned().unwrap_or_default();
+                        let link_label = if link_id.is_empty() {
+                            "Unlinked".to_string()
+                        } else {
+                            // Show short ID + position of target
+                            let grid = world.resource::<grid::GridLevel>();
+                            grid.entities.iter()
+                                .find(|e| e.id == link_id)
+                                .map(|t| format!("TP ({},{})", t.x, t.y))
+                                .unwrap_or_else(|| format!("{}...", &link_id[..link_id.len().min(8)]))
+                        };
+                        ui.label(format!("Current: {}", link_label));
+
+                        // Dropdown of other teleporters
+                        let other_tps: Vec<(String, i32, i32)> = {
+                            let grid = world.resource::<grid::GridLevel>();
+                            grid.entities.iter()
+                                .filter(|e| e.entity_type == "teleporter" && e.id != ent.id)
+                                .map(|e| (e.id.clone(), e.x, e.y))
+                                .collect()
+                        };
+
+                        let mut new_link = link_id.clone();
+                        egui::ComboBox::from_id_salt("tp_link_combo")
+                            .selected_text(&link_label)
+                            .show_ui(ui, |ui| {
+                                if ui.selectable_label(link_id.is_empty(), "None").clicked() {
+                                    new_link = String::new();
+                                }
+                                for (tp_id, tx, ty) in &other_tps {
+                                    let label = format!("TP ({},{})", tx, ty);
+                                    if ui.selectable_label(&link_id == tp_id, label).clicked() {
+                                        new_link = tp_id.clone();
+                                    }
+                                }
+                            });
+
+                        if new_link != link_id {
+                            let ent_id = ent.id.clone();
+                            let old_link = link_id.clone();
+                            let mut grid = world.resource_mut::<grid::GridLevel>();
+                            // Clear old link on both ends
+                            if !old_link.is_empty() {
+                                if let Some(old_target) = grid.entities.iter_mut().find(|e| e.id == old_link) {
+                                    old_target.properties.remove("teleporter_link");
+                                }
+                            }
+                            // Set new bidirectional link
+                            if !new_link.is_empty() {
+                                let new_link_clone = new_link.clone();
+                                let ent_id_clone = ent_id.clone();
+                                if let Some(target) = grid.entities.iter_mut().find(|e| e.id == new_link_clone) {
+                                    target.properties.insert("teleporter_link".to_string(), ent_id_clone);
+                                }
+                                if let Some(src) = grid.entities.iter_mut().find(|e| e.id == ent_id) {
+                                    src.properties.insert("teleporter_link".to_string(), new_link);
+                                }
+                            } else {
+                                if let Some(src) = grid.entities.iter_mut().find(|e| e.id == ent_id) {
+                                    src.properties.remove("teleporter_link");
+                                }
+                            }
+                        }
+                    }
+
+                    // Custom properties (read-only display)
+                    if !ent.properties.is_empty() {
+                        ui.add_space(3.0);
+                        ui.label("Properties:");
+                        for (k, v) in &ent.properties {
+                            ui.horizontal(|ui| {
+                                ui.label(RichText::new(k).strong());
+                                ui.label(v);
+                            });
+                        }
+                    }
+
+                    ui.add_space(5.0);
+                    if ui
+                        .button(RichText::new("Remove Entity").color(COLOR_SECONDARY))
+                        .clicked()
+                    {
+                        let id = ent.id.clone();
+                        world.resource_mut::<grid::GridLevel>().remove_entity(&id);
+                        world.resource_mut::<EditorUiState>().selected_entity_id = None;
+                    }
+                } else {
+                    ui.label(
+                        RichText::new("Entity not found.")
+                            .italics()
+                            .color(Color32::GRAY),
+                    );
+                }
+            } else if let Some((tx, ty)) = sel_tile {
+                // --- Tile properties ---
+                let cur_layer = world.resource::<EditorUiState>().current_layer;
+                let tt = world.resource::<grid::GridLevel>().get_tile(cur_layer, tx, ty);
+                let layer_name = cur_layer.display_name();
+                let tile_name = grid::palette_item(tt).map_or("Empty", |p| p.name);
+                let tile_c = grid::tile_color(tt);
+
+                ui.label(RichText::new(format!("Tile at ({}, {})", tx, ty)).strong());
+                ui.horizontal(|ui| {
+                    let (r, g, b) = (tile_c.r(), tile_c.g(), tile_c.b());
+                    let rect = ui.allocate_space(egui::vec2(14.0, 14.0));
+                    ui.painter().rect_filled(
+                        rect.1,
+                        2.0,
+                        Color32::from_rgb(r, g, b),
+                    );
+                    ui.label(format!("{} ({})", tile_name, layer_name));
+                });
+
+                ui.add_space(5.0);
+                if tt != grid::TileType::Empty {
+                    if ui
+                        .button(RichText::new("Clear Tile").color(COLOR_SECONDARY))
+                        .clicked()
+                    {
+                        world
+                            .resource_mut::<grid::GridLevel>()
+                            .erase(cur_layer, tx, ty);
+                    }
+                }
+            }
+
+            ui.add_space(5.0);
+            ui.separator();
+        }
     }
 
     world.resource_scope::<EditorUiState, _>(|world, ui_state| {
