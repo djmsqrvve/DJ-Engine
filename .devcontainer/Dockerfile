@@ -28,5 +28,6 @@ RUN apt-get update \
         lld \
         cmake \
         git \
+        mingw-w64 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

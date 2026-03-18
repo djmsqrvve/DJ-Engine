@@ -1,6 +1,6 @@
 # DJ Engine - Unified Command Interface
 
-.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts validate helix-import helix-import-toml helix-export helix-dashboard helix-editor helix-preview dev-exe
+.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts validate helix-import helix-import-toml helix-export helix-dashboard helix-editor helix-preview dev-exe linux-exe
 
 # Ensure rustup toolchain takes precedence over system cargo/rustc
 export PATH := $(HOME)/.cargo/bin:$(PATH)
@@ -29,7 +29,8 @@ help:
 	@echo "  make minimal      Run minimal rendering binary"
 	@echo ""
 	@echo "Distribution:"
-	@echo "  make dev-exe      Build standalone editor exe (release, static, stripped)"
+	@echo "  make dev-exe      Build Windows .exe (cross-compile, release, stripped)"
+	@echo "  make linux-exe    Build Linux binary (release, stripped)"
 	@echo ""
 	@echo "Quality:"
 	@echo "  make check        cargo check --workspace"
@@ -118,21 +119,33 @@ minimal:
 DIST_DIR := dist
 BUILD_LATEST := /tmp/dj-engine-builds/latest
 VERSION := $(shell date +%Y%m%d-%H%M%S)
+WINDOWS_TARGET := x86_64-pc-windows-gnu
 
 dev-exe:
-	@echo "Building DJ Engine editor (release, static linking, stripped)..."
+	@echo "Building DJ Engine editor (Windows .exe, release, stripped)..."
+	@cargo build -p dj_engine --bin dj_engine --release --no-default-features --target $(WINDOWS_TARGET)
+	@mkdir -p $(DIST_DIR)
+	@cp $(CARGO_TARGET_DIR)/$(WINDOWS_TARGET)/release/dj_engine.exe $(DIST_DIR)/dj_engine.exe
+	@mkdir -p $(BUILD_LATEST)
+	@cp $(CARGO_TARGET_DIR)/$(WINDOWS_TARGET)/release/dj_engine.exe $(BUILD_LATEST)/dj_engine.exe
+	@cp $(CARGO_TARGET_DIR)/$(WINDOWS_TARGET)/release/dj_engine.exe $(BUILD_LATEST)/dj_engine-$(VERSION).exe
+	@ls -lh $(BUILD_LATEST)/dj_engine.exe
+	@echo ""
+	@echo "Build complete:"
+	@echo "  Local:   $(DIST_DIR)/dj_engine.exe"
+	@echo "  Latest:  $(BUILD_LATEST)/dj_engine.exe"
+	@echo "  Tagged:  $(BUILD_LATEST)/dj_engine-$(VERSION).exe"
+
+linux-exe:
+	@echo "Building DJ Engine editor (Linux, release, stripped)..."
 	@cargo build -p dj_engine --bin dj_engine --release --no-default-features
 	@mkdir -p $(DIST_DIR)
 	@cp $(CARGO_TARGET_DIR)/release/dj_engine $(DIST_DIR)/dj_engine
 	@mkdir -p $(BUILD_LATEST)
 	@cp $(CARGO_TARGET_DIR)/release/dj_engine $(BUILD_LATEST)/dj_engine
-	@cp $(CARGO_TARGET_DIR)/release/dj_engine $(BUILD_LATEST)/dj_engine-$(VERSION)
-	@ls -lh $(BUILD_LATEST)/dj_engine
+	@ls -lh $(DIST_DIR)/dj_engine
 	@echo ""
-	@echo "Build complete:"
-	@echo "  Local:   $(DIST_DIR)/dj_engine"
-	@echo "  Latest:  $(BUILD_LATEST)/dj_engine"
-	@echo "  Tagged:  $(BUILD_LATEST)/dj_engine-$(VERSION)"
+	@echo "Linux build: $(DIST_DIR)/dj_engine"
 
 # Quality
 
