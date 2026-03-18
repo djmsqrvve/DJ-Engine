@@ -487,6 +487,153 @@ pub struct ZoneRow {
     pub description: LocalizedString,
 }
 
+/// Aura (buff/debuff/passive) definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct AuraRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    /// buff, debuff, passive
+    #[serde(default)]
+    pub aura_type: String,
+    #[serde(default)]
+    pub duration: f64,
+    #[serde(default)]
+    pub max_stacks: u32,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Playable class definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct ClassDataRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    /// tank, healer, melee_dps, ranged_dps, hybrid
+    #[serde(default)]
+    pub role: String,
+    /// mana, rage, energy, focus, runic_power
+    #[serde(default)]
+    pub resource_type: String,
+    #[serde(default)]
+    pub abilities: Vec<String>,
+    #[serde(default)]
+    pub talent_trees: Vec<String>,
+}
+
+/// Raid/dungeon instance definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct RaidRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub zone_id: String,
+    #[serde(default)]
+    pub size: u32,
+    /// normal, heroic, mythic
+    #[serde(default)]
+    pub difficulty: String,
+    #[serde(default)]
+    pub bosses: Vec<String>,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Talent tree node definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct TalentRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub class_id: String,
+    #[serde(default)]
+    pub tree: String,
+    #[serde(default)]
+    pub tier: u32,
+    #[serde(default)]
+    pub column: u32,
+    #[serde(default)]
+    pub max_rank: u32,
+    #[serde(default)]
+    pub prerequisite_talent: Option<String>,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Profession (crafting/gathering) definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct ProfessionRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    /// primary, gathering, crafting, secondary
+    #[serde(default)]
+    pub profession_type: String,
+    #[serde(default)]
+    pub max_skill: u32,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// PvP content definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct PvpRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    /// battleground, arena, world_pvp, object
+    #[serde(default)]
+    pub pvp_type: String,
+    #[serde(default)]
+    pub team_size: u32,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Achievement definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct AchievementRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub points: u32,
+    #[serde(default)]
+    pub criteria: Vec<String>,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Mount definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct MountRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    /// ground, flying, aquatic
+    #[serde(default)]
+    pub mount_type: String,
+    #[serde(default)]
+    pub speed_modifier: f64,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Guild template definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct GuildRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub max_members: u32,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
 /// HashMap indices for O(1) lookups by entity ID.
 #[derive(Debug, Clone, Default)]
 pub struct DatabaseIndices {
@@ -498,6 +645,15 @@ pub struct DatabaseIndices {
     pub quests: HashMap<String, usize>,
     pub abilities: HashMap<String, usize>,
     pub zones: HashMap<String, usize>,
+    pub auras: HashMap<String, usize>,
+    pub class_data: HashMap<String, usize>,
+    pub raids: HashMap<String, usize>,
+    pub talents: HashMap<String, usize>,
+    pub professions: HashMap<String, usize>,
+    pub pvp: HashMap<String, usize>,
+    pub achievements: HashMap<String, usize>,
+    pub mounts: HashMap<String, usize>,
+    pub guilds: HashMap<String, usize>,
 }
 
 impl PartialEq for DatabaseIndices {
@@ -535,6 +691,33 @@ pub struct Database {
     /// Zone definitions
     #[serde(default)]
     pub zones: Vec<ZoneRow>,
+    /// Aura definitions
+    #[serde(default)]
+    pub auras: Vec<AuraRow>,
+    /// Class definitions
+    #[serde(default)]
+    pub class_data: Vec<ClassDataRow>,
+    /// Raid definitions
+    #[serde(default)]
+    pub raids: Vec<RaidRow>,
+    /// Talent definitions
+    #[serde(default)]
+    pub talents: Vec<TalentRow>,
+    /// Profession definitions
+    #[serde(default)]
+    pub professions: Vec<ProfessionRow>,
+    /// PvP content definitions
+    #[serde(default)]
+    pub pvp: Vec<PvpRow>,
+    /// Achievement definitions
+    #[serde(default)]
+    pub achievements: Vec<AchievementRow>,
+    /// Mount definitions
+    #[serde(default)]
+    pub mounts: Vec<MountRow>,
+    /// Guild definitions
+    #[serde(default)]
+    pub guilds: Vec<GuildRow>,
     /// Lookup indices (not serialized)
     #[serde(skip)]
     pub indices: DatabaseIndices,
@@ -578,6 +761,33 @@ impl Database {
         }
         for (i, row) in self.zones.iter().enumerate() {
             self.indices.zones.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.auras.iter().enumerate() {
+            self.indices.auras.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.class_data.iter().enumerate() {
+            self.indices.class_data.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.raids.iter().enumerate() {
+            self.indices.raids.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.talents.iter().enumerate() {
+            self.indices.talents.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.professions.iter().enumerate() {
+            self.indices.professions.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.pvp.iter().enumerate() {
+            self.indices.pvp.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.achievements.iter().enumerate() {
+            self.indices.achievements.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.mounts.iter().enumerate() {
+            self.indices.mounts.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.guilds.iter().enumerate() {
+            self.indices.guilds.insert(row.id.clone(), i);
         }
     }
 
@@ -650,6 +860,87 @@ impl Database {
             self.zones.get(idx)
         } else {
             self.zones.iter().find(|z| z.id == id)
+        }
+    }
+
+    /// Find an aura by ID (O(1) with index, O(n) fallback).
+    pub fn find_aura(&self, id: &str) -> Option<&AuraRow> {
+        if let Some(&idx) = self.indices.auras.get(id) {
+            self.auras.get(idx)
+        } else {
+            self.auras.iter().find(|a| a.id == id)
+        }
+    }
+
+    /// Find a class by ID (O(1) with index, O(n) fallback).
+    pub fn find_class_data(&self, id: &str) -> Option<&ClassDataRow> {
+        if let Some(&idx) = self.indices.class_data.get(id) {
+            self.class_data.get(idx)
+        } else {
+            self.class_data.iter().find(|c| c.id == id)
+        }
+    }
+
+    /// Find a raid by ID (O(1) with index, O(n) fallback).
+    pub fn find_raid(&self, id: &str) -> Option<&RaidRow> {
+        if let Some(&idx) = self.indices.raids.get(id) {
+            self.raids.get(idx)
+        } else {
+            self.raids.iter().find(|r| r.id == id)
+        }
+    }
+
+    /// Find a talent by ID (O(1) with index, O(n) fallback).
+    pub fn find_talent(&self, id: &str) -> Option<&TalentRow> {
+        if let Some(&idx) = self.indices.talents.get(id) {
+            self.talents.get(idx)
+        } else {
+            self.talents.iter().find(|t| t.id == id)
+        }
+    }
+
+    /// Find a profession by ID (O(1) with index, O(n) fallback).
+    pub fn find_profession(&self, id: &str) -> Option<&ProfessionRow> {
+        if let Some(&idx) = self.indices.professions.get(id) {
+            self.professions.get(idx)
+        } else {
+            self.professions.iter().find(|p| p.id == id)
+        }
+    }
+
+    /// Find a PvP entry by ID (O(1) with index, O(n) fallback).
+    pub fn find_pvp(&self, id: &str) -> Option<&PvpRow> {
+        if let Some(&idx) = self.indices.pvp.get(id) {
+            self.pvp.get(idx)
+        } else {
+            self.pvp.iter().find(|p| p.id == id)
+        }
+    }
+
+    /// Find an achievement by ID (O(1) with index, O(n) fallback).
+    pub fn find_achievement(&self, id: &str) -> Option<&AchievementRow> {
+        if let Some(&idx) = self.indices.achievements.get(id) {
+            self.achievements.get(idx)
+        } else {
+            self.achievements.iter().find(|a| a.id == id)
+        }
+    }
+
+    /// Find a mount by ID (O(1) with index, O(n) fallback).
+    pub fn find_mount(&self, id: &str) -> Option<&MountRow> {
+        if let Some(&idx) = self.indices.mounts.get(id) {
+            self.mounts.get(idx)
+        } else {
+            self.mounts.iter().find(|m| m.id == id)
+        }
+    }
+
+    /// Find a guild by ID (O(1) with index, O(n) fallback).
+    pub fn find_guild(&self, id: &str) -> Option<&GuildRow> {
+        if let Some(&idx) = self.indices.guilds.get(id) {
+            self.guilds.get(idx)
+        } else {
+            self.guilds.iter().find(|g| g.id == id)
         }
     }
 }
@@ -775,5 +1066,191 @@ mod tests {
 
         // JSON doesn't contain index fields
         assert!(!json.contains("indices"));
+    }
+
+    #[test]
+    fn test_new_row_types_serialize() {
+        let rows: Vec<Box<dyn std::fmt::Debug>> = vec![
+            Box::new(AuraRow {
+                id: "blessing".into(),
+                aura_type: "buff".into(),
+                duration: 1800.0,
+                max_stacks: 1,
+                ..Default::default()
+            }),
+            Box::new(ClassDataRow {
+                id: "warrior".into(),
+                role: "tank".into(),
+                resource_type: "rage".into(),
+                abilities: vec!["charge".into()],
+                talent_trees: vec!["arms".into(), "fury".into()],
+                ..Default::default()
+            }),
+            Box::new(RaidRow {
+                id: "molten_core".into(),
+                zone_id: "mc_zone".into(),
+                size: 40,
+                difficulty: "normal".into(),
+                bosses: vec!["ragnaros".into()],
+                ..Default::default()
+            }),
+            Box::new(TalentRow {
+                id: "mortal_strike".into(),
+                class_id: "warrior".into(),
+                tree: "arms".into(),
+                tier: 6,
+                column: 1,
+                max_rank: 1,
+                prerequisite_talent: Some("deep_wounds".into()),
+                ..Default::default()
+            }),
+            Box::new(ProfessionRow {
+                id: "blacksmithing".into(),
+                profession_type: "crafting".into(),
+                max_skill: 300,
+                ..Default::default()
+            }),
+            Box::new(PvpRow {
+                id: "warsong_gulch".into(),
+                pvp_type: "battleground".into(),
+                team_size: 10,
+                ..Default::default()
+            }),
+            Box::new(AchievementRow {
+                id: "explore_world".into(),
+                points: 50,
+                criteria: vec!["visit_all_zones".into()],
+                ..Default::default()
+            }),
+            Box::new(MountRow {
+                id: "epic_horse".into(),
+                mount_type: "ground".into(),
+                speed_modifier: 2.0,
+                ..Default::default()
+            }),
+            Box::new(GuildRow {
+                id: "default_guild".into(),
+                max_members: 500,
+                ..Default::default()
+            }),
+        ];
+
+        // Roundtrip each through JSON
+        let aura = AuraRow {
+            id: "blessing".into(),
+            aura_type: "buff".into(),
+            duration: 1800.0,
+            max_stacks: 1,
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&aura).unwrap();
+        let parsed: AuraRow = serde_json::from_str(&json).unwrap();
+        assert_eq!(aura, parsed);
+
+        let class = ClassDataRow {
+            id: "warrior".into(),
+            role: "tank".into(),
+            resource_type: "rage".into(),
+            abilities: vec!["charge".into()],
+            talent_trees: vec!["arms".into()],
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&class).unwrap();
+        let parsed: ClassDataRow = serde_json::from_str(&json).unwrap();
+        assert_eq!(class, parsed);
+
+        let raid = RaidRow {
+            id: "mc".into(),
+            size: 40,
+            bosses: vec!["rag".into()],
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&raid).unwrap();
+        let parsed: RaidRow = serde_json::from_str(&json).unwrap();
+        assert_eq!(raid, parsed);
+
+        // Verify all rows are constructible (type check)
+        assert_eq!(rows.len(), 9);
+    }
+
+    #[test]
+    fn test_new_row_find_methods() {
+        let mut db = Database::new();
+
+        db.auras.push(AuraRow {
+            id: "blessing".into(),
+            aura_type: "buff".into(),
+            ..Default::default()
+        });
+        db.class_data.push(ClassDataRow {
+            id: "warrior".into(),
+            role: "tank".into(),
+            ..Default::default()
+        });
+        db.raids.push(RaidRow {
+            id: "molten_core".into(),
+            size: 40,
+            ..Default::default()
+        });
+        db.talents.push(TalentRow {
+            id: "mortal_strike".into(),
+            class_id: "warrior".into(),
+            tree: "arms".into(),
+            ..Default::default()
+        });
+        db.professions.push(ProfessionRow {
+            id: "blacksmithing".into(),
+            profession_type: "crafting".into(),
+            ..Default::default()
+        });
+        db.pvp.push(PvpRow {
+            id: "warsong_gulch".into(),
+            pvp_type: "battleground".into(),
+            ..Default::default()
+        });
+        db.achievements.push(AchievementRow {
+            id: "explore_world".into(),
+            points: 50,
+            ..Default::default()
+        });
+        db.mounts.push(MountRow {
+            id: "epic_horse".into(),
+            mount_type: "ground".into(),
+            ..Default::default()
+        });
+        db.guilds.push(GuildRow {
+            id: "default_guild".into(),
+            max_members: 500,
+            ..Default::default()
+        });
+
+        db.rebuild_indices();
+
+        assert_eq!(db.find_aura("blessing").unwrap().aura_type, "buff");
+        assert_eq!(db.find_class_data("warrior").unwrap().role, "tank");
+        assert_eq!(db.find_raid("molten_core").unwrap().size, 40);
+        assert_eq!(db.find_talent("mortal_strike").unwrap().class_id, "warrior");
+        assert_eq!(
+            db.find_profession("blacksmithing").unwrap().profession_type,
+            "crafting"
+        );
+        assert_eq!(
+            db.find_pvp("warsong_gulch").unwrap().pvp_type,
+            "battleground"
+        );
+        assert_eq!(db.find_achievement("explore_world").unwrap().points, 50);
+        assert_eq!(db.find_mount("epic_horse").unwrap().mount_type, "ground");
+        assert_eq!(db.find_guild("default_guild").unwrap().max_members, 500);
+
+        // Missing returns None
+        assert!(db.find_aura("nonexistent").is_none());
+        assert!(db.find_class_data("nonexistent").is_none());
+        assert!(db.find_raid("nonexistent").is_none());
+        assert!(db.find_talent("nonexistent").is_none());
+        assert!(db.find_profession("nonexistent").is_none());
+        assert!(db.find_pvp("nonexistent").is_none());
+        assert!(db.find_achievement("nonexistent").is_none());
+        assert!(db.find_mount("nonexistent").is_none());
+        assert!(db.find_guild("nonexistent").is_none());
     }
 }

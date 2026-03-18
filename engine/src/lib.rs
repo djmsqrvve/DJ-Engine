@@ -77,10 +77,11 @@ pub mod prelude {
     // Data model types (for editor and runtime)
     pub use crate::data::spawner::{LoadedScene, SceneDataPlugin};
     pub use crate::data::{
-        load_database, load_project, load_scene, load_story_graph, AssetIndex, DataError, Database,
-        EditorPreferences, EnemyRow, Entity, EntityType, ItemRow, Layer, LootTableRow, NpcRow,
-        Prefab, Project, ProjectSettings, QuestRow, Scene, SceneType, StoryGraphData,
-        StoryNodeData, StoryNodeType, TowerRow,
+        load_database, load_project, load_scene, load_story_graph, AchievementRow, AssetIndex,
+        AuraRow, ClassDataRow, DataError, Database, EditorPreferences, EnemyRow, Entity,
+        EntityType, GuildRow, ItemRow, Layer, LootTableRow, MountRow, NpcRow, Prefab,
+        ProfessionRow, Project, ProjectSettings, PvpRow, QuestRow, RaidRow, Scene, SceneType,
+        StoryGraphData, StoryNodeData, StoryNodeType, TalentRow, TowerRow, ZoneRow,
     };
 
     // Re-export commonly used rendering items

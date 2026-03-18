@@ -7,7 +7,8 @@
 use crate::balance::BalanceOverlay;
 use crate::registries::HelixRegistries;
 use dj_engine::data::database::{
-    Database, EnemyRow, ItemRow, ItemType, NpcRow, QuestRewards, QuestRow, Rarity,
+    AchievementRow, AuraRow, ClassDataRow, Database, EnemyRow, GuildRow, ItemRow, ItemType,
+    MountRow, NpcRow, ProfessionRow, PvpRow, QuestRewards, QuestRow, RaidRow, Rarity, TalentRow,
 };
 use std::collections::HashMap;
 
@@ -199,11 +200,155 @@ pub fn zone_to_zone_row(
     }
 }
 
+/// Convert a helix Aura to a DJ Engine AuraRow.
+pub fn aura_to_aura_row(
+    id: &str,
+    aura: &helix_data::aura::Aura,
+    _balance: Option<&BalanceOverlay>,
+) -> AuraRow {
+    AuraRow {
+        id: id.to_string(),
+        name: convert_localized_string(&aura.base.name),
+        aura_type: format!("{:?}", aura.aura_type).to_lowercase(),
+        duration: aura.duration,
+        max_stacks: aura.max_stacks,
+        description: convert_localized_string(&aura.base.description),
+    }
+}
+
+/// Convert a helix ClassData to a DJ Engine ClassDataRow.
+pub fn class_data_to_class_data_row(
+    id: &str,
+    class: &helix_data::class_data::ClassData,
+    _balance: Option<&BalanceOverlay>,
+) -> ClassDataRow {
+    ClassDataRow {
+        id: id.to_string(),
+        name: convert_localized_string(&class.base.name),
+        role: format!("{:?}", class.role).to_lowercase(),
+        resource_type: format!("{:?}", class.resource_type).to_lowercase(),
+        abilities: class.abilities.clone(),
+        talent_trees: class.talent_trees.clone(),
+    }
+}
+
+/// Convert a helix Raid to a DJ Engine RaidRow.
+pub fn raid_to_raid_row(
+    id: &str,
+    raid: &helix_data::raid::Raid,
+    _balance: Option<&BalanceOverlay>,
+) -> RaidRow {
+    RaidRow {
+        id: id.to_string(),
+        name: convert_localized_string(&raid.base.name),
+        zone_id: raid.zone_id.clone().unwrap_or_default(),
+        size: raid.size,
+        difficulty: format!("{:?}", raid.difficulty).to_lowercase(),
+        bosses: raid.bosses.clone(),
+        description: convert_localized_string(&raid.base.description),
+    }
+}
+
+/// Convert a helix Talent to a DJ Engine TalentRow.
+pub fn talent_to_talent_row(
+    id: &str,
+    talent: &helix_data::talent::Talent,
+    _balance: Option<&BalanceOverlay>,
+) -> TalentRow {
+    TalentRow {
+        id: id.to_string(),
+        name: convert_localized_string(&talent.base.name),
+        class_id: talent.class_id.clone(),
+        tree: talent.tree.clone(),
+        tier: talent.tier,
+        column: talent.column,
+        max_rank: talent.max_rank,
+        prerequisite_talent: talent.prerequisite_talent.clone(),
+        description: convert_localized_string(&talent.base.description),
+    }
+}
+
+/// Convert a helix Profession to a DJ Engine ProfessionRow.
+pub fn profession_to_profession_row(
+    id: &str,
+    prof: &helix_data::profession::Profession,
+    _balance: Option<&BalanceOverlay>,
+) -> ProfessionRow {
+    ProfessionRow {
+        id: id.to_string(),
+        name: convert_localized_string(&prof.base.name),
+        profession_type: format!("{:?}", prof.profession_type).to_lowercase(),
+        max_skill: prof.max_skill,
+        description: convert_localized_string(&prof.base.description),
+    }
+}
+
+/// Convert a helix PvpData to a DJ Engine PvpRow.
+pub fn pvp_to_pvp_row(
+    id: &str,
+    pvp: &helix_data::pvp::PvpData,
+    _balance: Option<&BalanceOverlay>,
+) -> PvpRow {
+    PvpRow {
+        id: id.to_string(),
+        name: convert_localized_string(&pvp.base.name),
+        pvp_type: format!("{:?}", pvp.pvp_type).to_lowercase(),
+        team_size: pvp.team_size[1], // max team size
+        description: convert_localized_string(&pvp.base.description),
+    }
+}
+
+/// Convert a helix Achievement to a DJ Engine AchievementRow.
+pub fn achievement_to_achievement_row(
+    id: &str,
+    ach: &helix_data::achievement::Achievement,
+    _balance: Option<&BalanceOverlay>,
+) -> AchievementRow {
+    AchievementRow {
+        id: id.to_string(),
+        name: convert_localized_string(&ach.base.name),
+        points: ach.points,
+        criteria: ach.criteria.clone(),
+        description: convert_localized_string(&ach.base.description),
+    }
+}
+
+/// Convert a helix Mount to a DJ Engine MountRow.
+pub fn mount_to_mount_row(
+    id: &str,
+    mount: &helix_data::mount::Mount,
+    _balance: Option<&BalanceOverlay>,
+) -> MountRow {
+    MountRow {
+        id: id.to_string(),
+        name: convert_localized_string(&mount.base.name),
+        mount_type: format!("{:?}", mount.mount_type).to_lowercase(),
+        speed_modifier: mount.speed_modifier,
+        description: convert_localized_string(&mount.base.description),
+    }
+}
+
+/// Convert a helix Guild to a DJ Engine GuildRow.
+pub fn guild_to_guild_row(
+    id: &str,
+    guild: &helix_data::guild::Guild,
+    _balance: Option<&BalanceOverlay>,
+) -> GuildRow {
+    GuildRow {
+        id: id.to_string(),
+        name: convert_localized_string(&guild.base.name),
+        max_members: guild.max_members,
+        description: convert_localized_string(&guild.base.description),
+    }
+}
+
 /// Populate a DJ Engine `Database` from all typed Helix registries.
 ///
 /// Converts abilities→abilities, zones→zones, mobs→enemies, items→items,
-/// npcs→npcs, quests→quests. Balance overlays (if provided) are applied
-/// during conversion.
+/// npcs→npcs, quests→quests, auras→auras, class_data→class_data,
+/// raids→raids, talents→talents, professions→professions, pvp→pvp,
+/// achievements→achievements, mounts→mounts, guilds→guilds.
+/// Balance overlays (if provided) are applied during conversion.
 pub fn populate_database_from_helix(
     registries: &HelixRegistries,
     balance: Option<&crate::balance::BalanceOverlays>,
@@ -239,6 +384,54 @@ pub fn populate_database_from_helix(
     for (id, quest) in registries.quests.iter() {
         let overlay = balance.and_then(|b| b.get("quests", id));
         db.quests.push(quest_to_quest_row(id, quest, overlay));
+    }
+
+    for (id, aura) in registries.auras.iter() {
+        let overlay = balance.and_then(|b| b.get("auras", id));
+        db.auras.push(aura_to_aura_row(id, aura, overlay));
+    }
+
+    for (id, class) in registries.class_data.iter() {
+        let overlay = balance.and_then(|b| b.get("class_data", id));
+        db.class_data
+            .push(class_data_to_class_data_row(id, class, overlay));
+    }
+
+    for (id, raid) in registries.raids.iter() {
+        let overlay = balance.and_then(|b| b.get("raids", id));
+        db.raids.push(raid_to_raid_row(id, raid, overlay));
+    }
+
+    for (id, talent) in registries.talents.iter() {
+        let overlay = balance.and_then(|b| b.get("talents", id));
+        db.talents.push(talent_to_talent_row(id, talent, overlay));
+    }
+
+    for (id, prof) in registries.professions.iter() {
+        let overlay = balance.and_then(|b| b.get("professions", id));
+        db.professions
+            .push(profession_to_profession_row(id, prof, overlay));
+    }
+
+    for (id, pvp) in registries.pvp.iter() {
+        let overlay = balance.and_then(|b| b.get("pvp", id));
+        db.pvp.push(pvp_to_pvp_row(id, pvp, overlay));
+    }
+
+    for (id, ach) in registries.achievements.iter() {
+        let overlay = balance.and_then(|b| b.get("achievements", id));
+        db.achievements
+            .push(achievement_to_achievement_row(id, ach, overlay));
+    }
+
+    for (id, mount) in registries.mounts.iter() {
+        let overlay = balance.and_then(|b| b.get("mounts", id));
+        db.mounts.push(mount_to_mount_row(id, mount, overlay));
+    }
+
+    for (id, guild) in registries.guilds.iter() {
+        let overlay = balance.and_then(|b| b.get("guilds", id));
+        db.guilds.push(guild_to_guild_row(id, guild, overlay));
     }
 
     db

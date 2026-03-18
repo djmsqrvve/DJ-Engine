@@ -300,30 +300,42 @@ impl Plugin for HelixDataPlugin {
                 )
                 .with_validator(validate_helix_achievement_document),
             )
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_AURA_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_CLASS_DATA_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_CONSUMABLE_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_CURRENCY_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_AURA_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_aura_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_CLASS_DATA_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_class_data_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_CONSUMABLE_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_consumable_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_CURRENCY_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_currency_document),
+            )
             .register_custom_document(
                 CustomDocumentRegistration::<Value>::new(
                     HELIX_EQUIPMENT_KIND,
@@ -333,24 +345,33 @@ impl Plugin for HelixDataPlugin {
                 )
                 .with_validator(validate_helix_equipment_document),
             )
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_GUILD_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_INVENTORY_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_MOUNT_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_GUILD_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_guild_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_INVENTORY_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_inventory_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_MOUNT_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_mount_document),
+            )
             .register_custom_document(
                 CustomDocumentRegistration::<Value>::new(
                     HELIX_NPC_KIND,
@@ -360,18 +381,24 @@ impl Plugin for HelixDataPlugin {
                 )
                 .with_validator(validate_helix_npc_document),
             )
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_PROFESSION_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_PVP_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_PROFESSION_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_profession_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_PVP_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_pvp_document),
+            )
             .register_custom_document(
                 CustomDocumentRegistration::<Value>::new(
                     HELIX_QUEST_KIND,
@@ -381,36 +408,51 @@ impl Plugin for HelixDataPlugin {
                 )
                 .with_validator(validate_helix_quest_document),
             )
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_RAID_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_TALENT_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_TITLE_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_TRADE_GOOD_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
-            .register_custom_document(CustomDocumentRegistration::<Value>::new(
-                HELIX_WEAPON_SKILL_KIND,
-                1,
-                EditorDocumentRoute::Table,
-                HELIX_GENERIC_SCHEMA_JSON,
-            ))
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_RAID_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_raid_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_TALENT_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_talent_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_TITLE_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_title_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_TRADE_GOOD_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_trade_good_document),
+            )
+            .register_custom_document(
+                CustomDocumentRegistration::<Value>::new(
+                    HELIX_WEAPON_SKILL_KIND,
+                    1,
+                    EditorDocumentRoute::Table,
+                    HELIX_GENERIC_SCHEMA_JSON,
+                )
+                .with_validator(validate_helix_weapon_skill_document),
+            )
             .register_custom_document(
                 CustomDocumentRegistration::<Value>::new(
                     HELIX_ZONE_KIND,
@@ -898,6 +940,211 @@ fn validate_helix_equipment_document(
     }
 }
 
+fn validate_helix_aura_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_AURA_KIND, document, issues);
+    validate_helix_localized_name(HELIX_AURA_KIND, document, issues);
+}
+
+fn validate_helix_class_data_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_CLASS_DATA_KIND, document, issues);
+    validate_helix_localized_name(HELIX_CLASS_DATA_KIND, document, issues);
+}
+
+fn validate_helix_consumable_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_CONSUMABLE_KIND, document, issues);
+    validate_helix_localized_name(HELIX_CONSUMABLE_KIND, document, issues);
+
+    // Validate consumable_type if present.
+    if let Some(ct) = document
+        .payload
+        .get("consumable_type")
+        .and_then(Value::as_str)
+    {
+        const VALID_TYPES: &[&str] = &[
+            "potion",
+            "food",
+            "drink",
+            "elixir",
+            "flask",
+            "bandage",
+            "scroll",
+            "consumable",
+        ];
+        if !VALID_TYPES.contains(&ct) {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_unknown_consumable_type".into(),
+                source_kind: Some(HELIX_CONSUMABLE_KIND.to_string()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("payload.consumable_type".into()),
+                message: format!("Unrecognized consumable_type '{ct}'."),
+                related_refs: Vec::new(),
+            });
+        }
+    }
+}
+
+fn validate_helix_currency_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_CURRENCY_KIND, document, issues);
+    validate_helix_localized_name(HELIX_CURRENCY_KIND, document, issues);
+}
+
+fn validate_helix_guild_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_GUILD_KIND, document, issues);
+    validate_helix_localized_name(HELIX_GUILD_KIND, document, issues);
+}
+
+fn validate_helix_inventory_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_INVENTORY_KIND, document, issues);
+    validate_helix_localized_name(HELIX_INVENTORY_KIND, document, issues);
+}
+
+fn validate_helix_mount_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_MOUNT_KIND, document, issues);
+    validate_helix_localized_name(HELIX_MOUNT_KIND, document, issues);
+}
+
+fn validate_helix_profession_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_PROFESSION_KIND, document, issues);
+    validate_helix_localized_name(HELIX_PROFESSION_KIND, document, issues);
+}
+
+fn validate_helix_pvp_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_PVP_KIND, document, issues);
+    validate_helix_localized_name(HELIX_PVP_KIND, document, issues);
+}
+
+fn validate_helix_raid_document(
+    document: &CustomDocument<Value>,
+    loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_RAID_KIND, document, issues);
+    validate_helix_localized_name(HELIX_RAID_KIND, document, issues);
+
+    // Cross-reference: zone_id must exist in helix_zones.
+    if let Some(zone_id) = document.payload.get("zone_id").and_then(Value::as_str) {
+        if loaded.get(HELIX_ZONE_KIND, zone_id).is_none() {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_broken_raid_zone_ref".into(),
+                source_kind: Some(HELIX_RAID_KIND.to_string()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("payload.zone_id".into()),
+                message: format!(
+                    "Referenced zone '{}' not found in loaded documents.",
+                    zone_id
+                ),
+                related_refs: vec![format!("{HELIX_ZONE_KIND}:{zone_id}")],
+            });
+        }
+    }
+}
+
+fn validate_helix_talent_document(
+    document: &CustomDocument<Value>,
+    loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_TALENT_KIND, document, issues);
+    validate_helix_localized_name(HELIX_TALENT_KIND, document, issues);
+
+    // Cross-reference: class_id must exist in helix_class_data.
+    if let Some(class_id) = document.payload.get("class_id").and_then(Value::as_str) {
+        if loaded.get(HELIX_CLASS_DATA_KIND, class_id).is_none() {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_broken_talent_class_ref".into(),
+                source_kind: Some(HELIX_TALENT_KIND.to_string()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("payload.class_id".into()),
+                message: format!(
+                    "Referenced class '{}' not found in loaded documents.",
+                    class_id
+                ),
+                related_refs: vec![format!("{HELIX_CLASS_DATA_KIND}:{class_id}")],
+            });
+        }
+    }
+}
+
+fn validate_helix_title_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_TITLE_KIND, document, issues);
+    validate_helix_localized_name(HELIX_TITLE_KIND, document, issues);
+}
+
+fn validate_helix_trade_good_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_TRADE_GOOD_KIND, document, issues);
+    validate_helix_localized_name(HELIX_TRADE_GOOD_KIND, document, issues);
+}
+
+fn validate_helix_weapon_skill_document(
+    document: &CustomDocument<Value>,
+    _loaded: &LoadedCustomDocuments,
+    _project: &dj_engine::data::Project,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_helix_document_payload(HELIX_WEAPON_SKILL_KIND, document, issues);
+    validate_helix_localized_name(HELIX_WEAPON_SKILL_KIND, document, issues);
+}
+
 fn validate_helix_localized_name(
     kind: &str,
     document: &CustomDocument<Value>,
@@ -1051,6 +1298,321 @@ mod tests {
 
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].code, "helix_unknown_equip_slot");
+    }
+
+    /// Helper: make a minimal document for a given kind with the specified payload.
+    fn make_doc(kind: &str, id: &str, payload: Value) -> CustomDocument<Value> {
+        CustomDocument {
+            kind: kind.into(),
+            id: id.into(),
+            schema_version: 1,
+            label: None,
+            tags: Vec::new(),
+            references: Vec::new(),
+            payload,
+        }
+    }
+
+    /// Helper: make a LoadedCustomDocument entry for cross-ref lookups.
+    fn make_loaded_entry(kind: &str, id: &str) -> dj_engine::data::LoadedCustomDocument {
+        dj_engine::data::LoadedCustomDocument {
+            entry: dj_engine::data::CustomDocumentEntry {
+                kind: kind.into(),
+                id: id.into(),
+                path: format!("{kind}/{id}.toml"),
+                schema_version: 1,
+                editor_route: EditorDocumentRoute::Table,
+                tags: Vec::new(),
+            },
+            raw_json: String::new(),
+            document: Some(CustomDocument {
+                kind: kind.into(),
+                id: id.into(),
+                schema_version: 1,
+                label: None,
+                tags: Vec::new(),
+                references: Vec::new(),
+                payload: json!({ "id": id }),
+            }),
+            parse_error: None,
+            resolved_route: EditorDocumentRoute::Table,
+        }
+    }
+
+    #[test]
+    fn test_new_validators_no_panic_on_empty_payload() {
+        let project = dj_engine::data::Project::new("Test");
+        let loaded = LoadedCustomDocuments::default();
+
+        // Each new validator should handle an empty object payload without panicking.
+        let validators: Vec<(
+            &str,
+            fn(
+                &CustomDocument<Value>,
+                &LoadedCustomDocuments,
+                &dj_engine::data::Project,
+                &mut Vec<ValidationIssue>,
+            ),
+        )> = vec![
+            (HELIX_AURA_KIND, validate_helix_aura_document),
+            (HELIX_CLASS_DATA_KIND, validate_helix_class_data_document),
+            (HELIX_CONSUMABLE_KIND, validate_helix_consumable_document),
+            (HELIX_CURRENCY_KIND, validate_helix_currency_document),
+            (HELIX_GUILD_KIND, validate_helix_guild_document),
+            (HELIX_INVENTORY_KIND, validate_helix_inventory_document),
+            (HELIX_MOUNT_KIND, validate_helix_mount_document),
+            (HELIX_PROFESSION_KIND, validate_helix_profession_document),
+            (HELIX_PVP_KIND, validate_helix_pvp_document),
+            (HELIX_RAID_KIND, validate_helix_raid_document),
+            (HELIX_TALENT_KIND, validate_helix_talent_document),
+            (HELIX_TITLE_KIND, validate_helix_title_document),
+            (HELIX_TRADE_GOOD_KIND, validate_helix_trade_good_document),
+            (
+                HELIX_WEAPON_SKILL_KIND,
+                validate_helix_weapon_skill_document,
+            ),
+        ];
+
+        for (kind, validator) in &validators {
+            let doc = make_doc(kind, "test_id", json!({}));
+            let mut issues = Vec::new();
+            validator(&doc, &loaded, &project, &mut issues);
+            // Should produce issues (missing id, missing name) but never panic.
+            assert!(
+                !issues.is_empty(),
+                "{kind} validator produced no issues on empty payload"
+            );
+        }
+    }
+
+    #[test]
+    fn test_new_validators_no_panic_on_non_object_payload() {
+        let project = dj_engine::data::Project::new("Test");
+        let loaded = LoadedCustomDocuments::default();
+
+        let validators: Vec<(
+            &str,
+            fn(
+                &CustomDocument<Value>,
+                &LoadedCustomDocuments,
+                &dj_engine::data::Project,
+                &mut Vec<ValidationIssue>,
+            ),
+        )> = vec![
+            (HELIX_AURA_KIND, validate_helix_aura_document),
+            (HELIX_CLASS_DATA_KIND, validate_helix_class_data_document),
+            (HELIX_CONSUMABLE_KIND, validate_helix_consumable_document),
+            (HELIX_CURRENCY_KIND, validate_helix_currency_document),
+            (HELIX_GUILD_KIND, validate_helix_guild_document),
+            (HELIX_INVENTORY_KIND, validate_helix_inventory_document),
+            (HELIX_MOUNT_KIND, validate_helix_mount_document),
+            (HELIX_PROFESSION_KIND, validate_helix_profession_document),
+            (HELIX_PVP_KIND, validate_helix_pvp_document),
+            (HELIX_RAID_KIND, validate_helix_raid_document),
+            (HELIX_TALENT_KIND, validate_helix_talent_document),
+            (HELIX_TITLE_KIND, validate_helix_title_document),
+            (HELIX_TRADE_GOOD_KIND, validate_helix_trade_good_document),
+            (
+                HELIX_WEAPON_SKILL_KIND,
+                validate_helix_weapon_skill_document,
+            ),
+        ];
+
+        for (kind, validator) in &validators {
+            let doc = make_doc(kind, "test_id", json!("not_an_object"));
+            let mut issues = Vec::new();
+            validator(&doc, &loaded, &project, &mut issues);
+            assert!(
+                issues.iter().any(|i| i.code == "helix_payload_not_object"),
+                "{kind} validator did not catch non-object payload"
+            );
+        }
+    }
+
+    #[test]
+    fn test_new_validators_clean_on_valid_document() {
+        let project = dj_engine::data::Project::new("Test");
+        let loaded = LoadedCustomDocuments::default();
+
+        // A valid document with matching id and name.en should produce no issues
+        // for simple validators (those without cross-ref checks).
+        let simple_kinds: &[(
+            &str,
+            fn(
+                &CustomDocument<Value>,
+                &LoadedCustomDocuments,
+                &dj_engine::data::Project,
+                &mut Vec<ValidationIssue>,
+            ),
+        )] = &[
+            (HELIX_AURA_KIND, validate_helix_aura_document),
+            (HELIX_CLASS_DATA_KIND, validate_helix_class_data_document),
+            (HELIX_CURRENCY_KIND, validate_helix_currency_document),
+            (HELIX_GUILD_KIND, validate_helix_guild_document),
+            (HELIX_INVENTORY_KIND, validate_helix_inventory_document),
+            (HELIX_MOUNT_KIND, validate_helix_mount_document),
+            (HELIX_PROFESSION_KIND, validate_helix_profession_document),
+            (HELIX_PVP_KIND, validate_helix_pvp_document),
+            (HELIX_TITLE_KIND, validate_helix_title_document),
+            (HELIX_TRADE_GOOD_KIND, validate_helix_trade_good_document),
+            (
+                HELIX_WEAPON_SKILL_KIND,
+                validate_helix_weapon_skill_document,
+            ),
+        ];
+
+        for (kind, validator) in simple_kinds {
+            let doc = make_doc(
+                kind,
+                "valid_id",
+                json!({ "id": "valid_id", "name": { "en": "Valid Name" } }),
+            );
+            let mut issues = Vec::new();
+            validator(&doc, &loaded, &project, &mut issues);
+            assert!(
+                issues.is_empty(),
+                "{kind} validator produced issues on valid document: {:?}",
+                issues
+            );
+        }
+    }
+
+    #[test]
+    fn test_consumable_validator_catches_invalid_type() {
+        let project = dj_engine::data::Project::new("Test");
+        let loaded = LoadedCustomDocuments::default();
+
+        let doc = make_doc(
+            HELIX_CONSUMABLE_KIND,
+            "bad_potion",
+            json!({
+                "id": "bad_potion",
+                "name": { "en": "Bad Potion" },
+                "consumable_type": "nasal_spray"
+            }),
+        );
+        let mut issues = Vec::new();
+        validate_helix_consumable_document(&doc, &loaded, &project, &mut issues);
+        assert!(issues
+            .iter()
+            .any(|i| i.code == "helix_unknown_consumable_type"));
+    }
+
+    #[test]
+    fn test_consumable_validator_accepts_valid_type() {
+        let project = dj_engine::data::Project::new("Test");
+        let loaded = LoadedCustomDocuments::default();
+
+        let doc = make_doc(
+            HELIX_CONSUMABLE_KIND,
+            "health_pot",
+            json!({
+                "id": "health_pot",
+                "name": { "en": "Health Potion" },
+                "consumable_type": "potion"
+            }),
+        );
+        let mut issues = Vec::new();
+        validate_helix_consumable_document(&doc, &loaded, &project, &mut issues);
+        assert!(
+            issues.is_empty(),
+            "valid consumable produced issues: {:?}",
+            issues
+        );
+    }
+
+    #[test]
+    fn test_talent_validator_catches_missing_class_ref() {
+        let project = dj_engine::data::Project::new("Test");
+        let loaded = LoadedCustomDocuments::default();
+
+        let doc = make_doc(
+            HELIX_TALENT_KIND,
+            "mortal_strike",
+            json!({
+                "id": "mortal_strike",
+                "name": { "en": "Mortal Strike" },
+                "class_id": "nonexistent_class"
+            }),
+        );
+        let mut issues = Vec::new();
+        validate_helix_talent_document(&doc, &loaded, &project, &mut issues);
+        assert!(issues
+            .iter()
+            .any(|i| i.code == "helix_broken_talent_class_ref"));
+    }
+
+    #[test]
+    fn test_talent_validator_passes_with_valid_class_ref() {
+        let project = dj_engine::data::Project::new("Test");
+        let mut loaded = LoadedCustomDocuments::default();
+        loaded
+            .documents
+            .push(make_loaded_entry(HELIX_CLASS_DATA_KIND, "warrior"));
+
+        let doc = make_doc(
+            HELIX_TALENT_KIND,
+            "mortal_strike",
+            json!({
+                "id": "mortal_strike",
+                "name": { "en": "Mortal Strike" },
+                "class_id": "warrior"
+            }),
+        );
+        let mut issues = Vec::new();
+        validate_helix_talent_document(&doc, &loaded, &project, &mut issues);
+        assert!(
+            issues.is_empty(),
+            "talent with valid class_id produced issues: {:?}",
+            issues
+        );
+    }
+
+    #[test]
+    fn test_raid_validator_catches_missing_zone_ref() {
+        let project = dj_engine::data::Project::new("Test");
+        let loaded = LoadedCustomDocuments::default();
+
+        let doc = make_doc(
+            HELIX_RAID_KIND,
+            "molten_core",
+            json!({
+                "id": "molten_core",
+                "name": { "en": "Molten Core" },
+                "zone_id": "nonexistent_zone"
+            }),
+        );
+        let mut issues = Vec::new();
+        validate_helix_raid_document(&doc, &loaded, &project, &mut issues);
+        assert!(issues
+            .iter()
+            .any(|i| i.code == "helix_broken_raid_zone_ref"));
+    }
+
+    #[test]
+    fn test_raid_validator_passes_with_valid_zone_ref() {
+        let project = dj_engine::data::Project::new("Test");
+        let mut loaded = LoadedCustomDocuments::default();
+        loaded
+            .documents
+            .push(make_loaded_entry(HELIX_ZONE_KIND, "mc_zone"));
+
+        let doc = make_doc(
+            HELIX_RAID_KIND,
+            "molten_core",
+            json!({
+                "id": "molten_core",
+                "name": { "en": "Molten Core" },
+                "zone_id": "mc_zone"
+            }),
+        );
+        let mut issues = Vec::new();
+        validate_helix_raid_document(&doc, &loaded, &project, &mut issues);
+        assert!(
+            issues.is_empty(),
+            "raid with valid zone_id produced issues: {:?}",
+            issues
+        );
     }
 
     #[test]
