@@ -14,12 +14,14 @@ use std::path::PathBuf;
 pub mod balance;
 pub mod bridge;
 pub mod dashboard;
+pub mod exporter;
 pub mod importer;
 pub mod registries;
 pub mod toml_loader;
 
 pub use balance::{BalanceOverlay, BalanceOverlays};
 pub use bridge::populate_database_from_helix;
+pub use exporter::{export_to_helix3d, ExportError, ExportSummary};
 pub use importer::{
     import_helix_project, parse_helix_import_cli_args, HelixImportCliOptions, HelixImportError,
     HelixImportSummary,

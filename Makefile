@@ -1,6 +1,6 @@
 # DJ Engine - Unified Command Interface
 
-.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts validate helix-import helix-import-toml helix-dashboard helix-editor helix-preview
+.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts validate helix-import helix-import-toml helix-export helix-dashboard helix-editor helix-preview
 
 # Ensure rustup toolchain takes precedence over system cargo/rustc
 export PATH := $(HOME)/.cargo/bin:$(PATH)
@@ -20,6 +20,7 @@ help:
 	@echo "  make preview      Launch runtime preview (PROJECT=<dir|project.json>)"
 	@echo "  make helix-import Import Helix dist into a mounted project (HELIX_DIST=<dir> PROJECT=<dir|project.json>)"
 	@echo "  make helix-import-toml Load typed TOML registries (HELIX3D=<dir>)"
+	@echo "  make helix-export Export LoadedCustomDocuments back to helix3d TOML (HELIX3D=<input> OUTPUT=<dir>)"
 	@echo "  make helix-dashboard Run Helix data contract validation (HELIX3D=<dir>)"
 	@echo "  make helix-editor Launch the Helix editor wrapper (PROJECT=<dir|project.json> optional)"
 	@echo "  make helix-preview Launch the Helix runtime preview wrapper (PROJECT=<dir|project.json>)"
@@ -71,6 +72,11 @@ helix-import:
 helix-import-toml:
 	@test -n "$(HELIX3D)" || (echo "HELIX3D is required: make helix-import-toml HELIX3D=<dir>"; exit 1)
 	@cargo run -p dj_engine_helix --bin helix_import -- --helix3d "$(HELIX3D)"
+
+helix-export:
+	@test -n "$(HELIX3D)" || (echo "HELIX3D is required: make helix-export HELIX3D=<input_dir> OUTPUT=<output_dir>"; exit 1)
+	@test -n "$(OUTPUT)" || (echo "OUTPUT is required: make helix-export HELIX3D=<input_dir> OUTPUT=<output_dir>"; exit 1)
+	@cargo run -p dj_engine_helix --bin helix_export -- --helix3d "$(HELIX3D)" --output "$(OUTPUT)"
 
 helix-dashboard:
 	@test -n "$(HELIX3D)" || (echo "HELIX3D is required: make helix-dashboard HELIX3D=<dir>"; exit 1)
