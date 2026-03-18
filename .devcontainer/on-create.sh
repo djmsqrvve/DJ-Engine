@@ -3,4 +3,4 @@
 set -euo pipefail
 
 rustup show
-cargo fetch --locked
+cargo fetch
