@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 default-run = "dj_engine"
 
+[features]
+default = ["dev"]
+dev = ["bevy/dynamic_linking"]
+
 [dependencies]
 bevy = { workspace = true }
 thiserror = { workspace = true }

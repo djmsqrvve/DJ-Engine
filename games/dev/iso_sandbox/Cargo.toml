@@ -3,8 +3,12 @@ name = "iso_sandbox"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["dev"]
+dev = ["bevy/dynamic_linking"]
+
 [dependencies]
-bevy = { workspace = true, features = ["dynamic_linking"] }
+bevy = { workspace = true }
 serde = { workspace = true }
 rand = { workspace = true }
 dj_engine = { path = "../../../engine" }

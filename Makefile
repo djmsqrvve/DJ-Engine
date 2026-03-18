@@ -1,6 +1,6 @@
 # DJ Engine - Unified Command Interface
 
-.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts validate helix-import helix-import-toml helix-export helix-dashboard helix-editor helix-preview
+.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts validate helix-import helix-import-toml helix-export helix-dashboard helix-editor helix-preview dev-exe
 
 # Ensure rustup toolchain takes precedence over system cargo/rustc
 export PATH := $(HOME)/.cargo/bin:$(PATH)
@@ -27,6 +27,9 @@ help:
 	@echo "  make game         Run the sample DoomExe game"
 	@echo "  make doom         Alias for 'make game'"
 	@echo "  make minimal      Run minimal rendering binary"
+	@echo ""
+	@echo "Distribution:"
+	@echo "  make dev-exe      Build standalone editor exe (release, static, stripped)"
 	@echo ""
 	@echo "Quality:"
 	@echo "  make check        cargo check --workspace"
@@ -109,6 +112,27 @@ iso:
 
 minimal:
 	@cargo run -p dj_engine --bin minimal
+
+# Distribution
+
+DIST_DIR := dist
+BUILD_LATEST := /tmp/dj-engine-builds/latest
+VERSION := $(shell date +%Y%m%d-%H%M%S)
+
+dev-exe:
+	@echo "Building DJ Engine editor (release, static linking, stripped)..."
+	@cargo build -p dj_engine --bin dj_engine --release --no-default-features
+	@mkdir -p $(DIST_DIR)
+	@cp $(CARGO_TARGET_DIR)/release/dj_engine $(DIST_DIR)/dj_engine
+	@mkdir -p $(BUILD_LATEST)
+	@cp $(CARGO_TARGET_DIR)/release/dj_engine $(BUILD_LATEST)/dj_engine
+	@cp $(CARGO_TARGET_DIR)/release/dj_engine $(BUILD_LATEST)/dj_engine-$(VERSION)
+	@ls -lh $(BUILD_LATEST)/dj_engine
+	@echo ""
+	@echo "Build complete:"
+	@echo "  Local:   $(DIST_DIR)/dj_engine"
+	@echo "  Latest:  $(BUILD_LATEST)/dj_engine"
+	@echo "  Tagged:  $(BUILD_LATEST)/dj_engine-$(VERSION)"
 
 # Quality
 

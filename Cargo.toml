@@ -11,7 +11,7 @@ members = [
 default-members = ["engine"]
 
 [workspace.dependencies]
-bevy = { version = "0.18", features = ["dynamic_linking", "wav"] }
+bevy = { version = "0.18", features = ["wav"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 mlua = { version = "0.10", features = ["lua54", "vendored", "send"] }
@@ -31,6 +31,7 @@ opt-level = 3 # Optimize dependencies even in dev mode
 opt-level = 3
 lto = true
 codegen-units = 1
+strip = true
 
 [profile.dev-full]
 inherits = "release"
