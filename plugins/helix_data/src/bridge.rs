@@ -99,6 +99,11 @@ pub fn mob_to_enemy_row(
             .unwrap_or(mob.experience_value as f64) as i32,
         loot_table_id: mob.loot_table_id.clone().unwrap_or_default(),
         behavior_profile_id: mob.ai_type.clone().unwrap_or_default(),
+        faction: mob.faction.clone().unwrap_or_default(),
+        respawn_time: mob.respawn_time as f32,
+        attack_speed: balance
+            .and_then(|b| b.get_f64("attack_speed"))
+            .unwrap_or(mob.attack_speed) as f32,
     }
 }
 
@@ -117,6 +122,7 @@ pub fn npc_to_npc_row(
         default_quest_ids: npc.quests.clone(),
         loot_table_id: None,
         portrait_id: String::new(),
+        vendor_items: npc.vendor_items.clone(),
     }
 }
 
@@ -150,6 +156,9 @@ pub fn quest_to_quest_row(
             item_rewards: Vec::new(),
             flags: HashMap::new(),
         },
+        is_daily: quest.is_daily,
+        is_repeatable: quest.is_repeatable,
+        sharable: quest.sharable,
     }
 }
 

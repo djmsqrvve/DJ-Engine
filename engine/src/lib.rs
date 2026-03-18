@@ -49,7 +49,7 @@ pub mod prelude {
     pub use crate::audio::{AudioCommand, AudioState, BgmSource, DJAudioPlugin, SfxSource};
     pub use crate::collision::{
         CollisionPlugin, CollisionSet, MovementIntent, RuntimeCollider, RuntimeColliderShape,
-        TriggerContactEvent, TriggerContacts,
+        SpatialHash, TriggerContactEvent, TriggerContacts,
     };
     pub use crate::diagnostics::DiagnosticsPlugin;
     pub use crate::input::{ActionState, DJInputPlugin, InputAction, InputConfig};

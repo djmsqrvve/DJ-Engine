@@ -9,6 +9,7 @@ pub mod common;
 pub mod entity;
 pub mod gameplay;
 pub mod interaction;
+pub mod player;
 pub mod rendering;
 
 pub use audio::AudioSourceComponent;
@@ -20,6 +21,10 @@ pub use gameplay::{
     SpawnerWave, TargetingMode, TowerComponent,
 };
 pub use interaction::{InteractivityComponent, InteractivityEvents, TriggerType};
+pub use player::{
+    AbilityCooldownsComponent, ActiveEffect, EquipmentSlotsComponent, PlayerCharacterComponent,
+    StatusEffectsComponent,
+};
 pub use rendering::{
     AnimationData, CameraAnchorComponent, CameraBounds, SpriteComponent, TransformComponent,
 };
@@ -33,4 +38,5 @@ pub(crate) fn register_types(app: &mut App) {
     interaction::register_types(app);
     gameplay::register_types(app);
     audio::register_types(app);
+    player::register_types(app);
 }

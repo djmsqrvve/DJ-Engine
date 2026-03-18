@@ -18,6 +18,9 @@ pub enum ItemType {
     Potion,
     Currency,
     QuestItem,
+    Container,
+    Reagent,
+    TradeGood,
     #[default]
     Misc,
 }
@@ -32,6 +35,7 @@ pub enum Rarity {
     Rare,
     Epic,
     Legendary,
+    Artifact,
 }
 
 /// Script hooks for items.
@@ -158,6 +162,9 @@ pub struct NpcRow {
     /// Portrait sprite ID
     #[serde(default)]
     pub portrait_id: String,
+    /// Item IDs this NPC sells as a vendor
+    #[serde(default)]
+    pub vendor_items: Vec<String>,
 }
 
 impl NpcRow {
@@ -272,6 +279,15 @@ pub struct EnemyRow {
     /// AI behavior profile ID
     #[serde(default)]
     pub behavior_profile_id: String,
+    /// Faction affiliation
+    #[serde(default)]
+    pub faction: String,
+    /// Respawn time in seconds
+    #[serde(default)]
+    pub respawn_time: f32,
+    /// Attack speed multiplier
+    #[serde(default)]
+    pub attack_speed: f32,
 }
 
 fn default_hp() -> i32 {
@@ -292,6 +308,9 @@ impl Default for EnemyRow {
             experience: 50,
             loot_table_id: String::new(),
             behavior_profile_id: String::new(),
+            faction: String::new(),
+            respawn_time: 0.0,
+            attack_speed: 0.0,
         }
     }
 }
@@ -410,6 +429,15 @@ pub struct QuestRow {
     /// Rewards on completion
     #[serde(default)]
     pub rewards: QuestRewards,
+    /// Whether this quest resets daily
+    #[serde(default)]
+    pub is_daily: bool,
+    /// Whether this quest can be repeated
+    #[serde(default)]
+    pub is_repeatable: bool,
+    /// Whether this quest can be shared with party members
+    #[serde(default)]
+    pub sharable: bool,
 }
 
 impl QuestRow {
@@ -459,6 +487,27 @@ pub struct ZoneRow {
     pub description: LocalizedString,
 }
 
+/// HashMap indices for O(1) lookups by entity ID.
+#[derive(Debug, Clone, Default)]
+pub struct DatabaseIndices {
+    pub items: HashMap<String, usize>,
+    pub npcs: HashMap<String, usize>,
+    pub towers: HashMap<String, usize>,
+    pub enemies: HashMap<String, usize>,
+    pub loot_tables: HashMap<String, usize>,
+    pub quests: HashMap<String, usize>,
+    pub abilities: HashMap<String, usize>,
+    pub zones: HashMap<String, usize>,
+}
+
+impl PartialEq for DatabaseIndices {
+    fn eq(&self, _other: &Self) -> bool {
+        // Indices are derived from data; two databases with the same data
+        // always produce the same indices, so we treat them as equal.
+        true
+    }
+}
+
 /// The complete game database.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Database {
@@ -486,6 +535,9 @@ pub struct Database {
     /// Zone definitions
     #[serde(default)]
     pub zones: Vec<ZoneRow>,
+    /// Lookup indices (not serialized)
+    #[serde(skip)]
+    pub indices: DatabaseIndices,
 }
 
 impl Database {
@@ -494,44 +546,111 @@ impl Database {
         Self::default()
     }
 
-    /// Find an item by ID.
+    /// Builder that populates indices after construction/deserialization.
+    pub fn with_indices(mut self) -> Self {
+        self.rebuild_indices();
+        self
+    }
+
+    /// Rebuild all HashMap indices from the current Vec contents.
+    pub fn rebuild_indices(&mut self) {
+        self.indices = DatabaseIndices::default();
+        for (i, row) in self.items.iter().enumerate() {
+            self.indices.items.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.npcs.iter().enumerate() {
+            self.indices.npcs.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.towers.iter().enumerate() {
+            self.indices.towers.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.enemies.iter().enumerate() {
+            self.indices.enemies.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.loot_tables.iter().enumerate() {
+            self.indices.loot_tables.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.quests.iter().enumerate() {
+            self.indices.quests.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.abilities.iter().enumerate() {
+            self.indices.abilities.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.zones.iter().enumerate() {
+            self.indices.zones.insert(row.id.clone(), i);
+        }
+    }
+
+    /// Find an item by ID (O(1) with index, O(n) fallback).
     pub fn find_item(&self, id: &str) -> Option<&ItemRow> {
-        self.items.iter().find(|i| i.id == id)
+        if let Some(&idx) = self.indices.items.get(id) {
+            self.items.get(idx)
+        } else {
+            self.items.iter().find(|i| i.id == id)
+        }
     }
 
-    /// Find an NPC by ID.
+    /// Find an NPC by ID (O(1) with index, O(n) fallback).
     pub fn find_npc(&self, id: &str) -> Option<&NpcRow> {
-        self.npcs.iter().find(|n| n.id == id)
+        if let Some(&idx) = self.indices.npcs.get(id) {
+            self.npcs.get(idx)
+        } else {
+            self.npcs.iter().find(|n| n.id == id)
+        }
     }
 
-    /// Find a tower by ID.
+    /// Find a tower by ID (O(1) with index, O(n) fallback).
     pub fn find_tower(&self, id: &str) -> Option<&TowerRow> {
-        self.towers.iter().find(|t| t.id == id)
+        if let Some(&idx) = self.indices.towers.get(id) {
+            self.towers.get(idx)
+        } else {
+            self.towers.iter().find(|t| t.id == id)
+        }
     }
 
-    /// Find an enemy by ID.
+    /// Find an enemy by ID (O(1) with index, O(n) fallback).
     pub fn find_enemy(&self, id: &str) -> Option<&EnemyRow> {
-        self.enemies.iter().find(|e| e.id == id)
+        if let Some(&idx) = self.indices.enemies.get(id) {
+            self.enemies.get(idx)
+        } else {
+            self.enemies.iter().find(|e| e.id == id)
+        }
     }
 
-    /// Find a loot table by ID.
+    /// Find a loot table by ID (O(1) with index, O(n) fallback).
     pub fn find_loot_table(&self, id: &str) -> Option<&LootTableRow> {
-        self.loot_tables.iter().find(|l| l.id == id)
+        if let Some(&idx) = self.indices.loot_tables.get(id) {
+            self.loot_tables.get(idx)
+        } else {
+            self.loot_tables.iter().find(|l| l.id == id)
+        }
     }
 
-    /// Find a quest by ID.
+    /// Find a quest by ID (O(1) with index, O(n) fallback).
     pub fn find_quest(&self, id: &str) -> Option<&QuestRow> {
-        self.quests.iter().find(|q| q.id == id)
+        if let Some(&idx) = self.indices.quests.get(id) {
+            self.quests.get(idx)
+        } else {
+            self.quests.iter().find(|q| q.id == id)
+        }
     }
 
-    /// Find an ability by ID.
+    /// Find an ability by ID (O(1) with index, O(n) fallback).
     pub fn find_ability(&self, id: &str) -> Option<&AbilityRow> {
-        self.abilities.iter().find(|a| a.id == id)
+        if let Some(&idx) = self.indices.abilities.get(id) {
+            self.abilities.get(idx)
+        } else {
+            self.abilities.iter().find(|a| a.id == id)
+        }
     }
 
-    /// Find a zone by ID.
+    /// Find a zone by ID (O(1) with index, O(n) fallback).
     pub fn find_zone(&self, id: &str) -> Option<&ZoneRow> {
-        self.zones.iter().find(|z| z.id == id)
+        if let Some(&idx) = self.indices.zones.get(id) {
+            self.zones.get(idx)
+        } else {
+            self.zones.iter().find(|z| z.id == id)
+        }
     }
 }
 
@@ -561,5 +680,100 @@ mod tests {
         loot.add_entry("potion_hp", 0.5, 1);
 
         assert_eq!(loot.entries.len(), 2);
+    }
+
+    // --- Index tests ---
+
+    #[test]
+    fn test_index_lookup_works() {
+        let mut db = Database::new();
+        db.items
+            .push(ItemRow::new("sword_01", "Iron Sword").with_type(ItemType::Weapon));
+        db.npcs.push(NpcRow::new("merchant_01", "Merchant"));
+        db.enemies.push(EnemyRow::new("goblin_01", "Goblin"));
+        db.quests.push(QuestRow::new("quest_01", "First Quest"));
+        db.towers.push(TowerRow::new("tower_01", "Arrow Tower"));
+        db.loot_tables.push(LootTableRow::new("loot_01"));
+        db.abilities.push(AbilityRow {
+            id: "fireball".to_string(),
+            ..Default::default()
+        });
+        db.zones.push(ZoneRow {
+            id: "zone_01".to_string(),
+            ..Default::default()
+        });
+        db.rebuild_indices();
+
+        assert_eq!(db.find_item("sword_01").unwrap().id, "sword_01");
+        assert_eq!(db.find_npc("merchant_01").unwrap().id, "merchant_01");
+        assert_eq!(db.find_enemy("goblin_01").unwrap().id, "goblin_01");
+        assert_eq!(db.find_quest("quest_01").unwrap().id, "quest_01");
+        assert_eq!(db.find_tower("tower_01").unwrap().id, "tower_01");
+        assert_eq!(db.find_loot_table("loot_01").unwrap().id, "loot_01");
+        assert_eq!(db.find_ability("fireball").unwrap().id, "fireball");
+        assert_eq!(db.find_zone("zone_01").unwrap().id, "zone_01");
+    }
+
+    #[test]
+    fn test_index_missing_returns_none() {
+        let mut db = Database::new();
+        db.items.push(ItemRow::new("sword_01", "Iron Sword"));
+        db.rebuild_indices();
+
+        assert!(db.find_item("nonexistent").is_none());
+        assert!(db.find_npc("nonexistent").is_none());
+        assert!(db.find_enemy("nonexistent").is_none());
+        assert!(db.find_quest("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_rebuild_after_push() {
+        let mut db = Database::new();
+        db.items.push(ItemRow::new("sword_01", "Iron Sword"));
+        db.rebuild_indices();
+
+        assert!(db.find_item("sword_01").is_some());
+        assert!(db.find_item("shield_01").is_none());
+
+        // Push a new item and rebuild
+        db.items.push(ItemRow::new("shield_01", "Wooden Shield"));
+        db.rebuild_indices();
+
+        assert!(db.find_item("shield_01").is_some());
+        assert_eq!(db.indices.items.len(), 2);
+    }
+
+    #[test]
+    fn test_serialization_roundtrip_preserves_data() {
+        let mut db = Database::new();
+        db.items
+            .push(ItemRow::new("sword_01", "Iron Sword").with_type(ItemType::Weapon));
+        db.npcs.push(NpcRow::new("merchant_01", "Merchant"));
+        db.enemies.push(EnemyRow::new("goblin_01", "Goblin"));
+        db.quests.push(QuestRow::new("quest_01", "First Quest"));
+        db.rebuild_indices();
+
+        // Serialize (indices are skipped)
+        let json = serde_json::to_string_pretty(&db).unwrap();
+
+        // Deserialize and rebuild indices
+        let parsed: Database = serde_json::from_str::<Database>(&json)
+            .unwrap()
+            .with_indices();
+
+        // Data preserved
+        assert_eq!(db.items.len(), parsed.items.len());
+        assert_eq!(db.npcs.len(), parsed.npcs.len());
+        assert_eq!(db.enemies.len(), parsed.enemies.len());
+        assert_eq!(db.quests.len(), parsed.quests.len());
+
+        // Indices work after roundtrip
+        assert_eq!(parsed.find_item("sword_01").unwrap().id, "sword_01");
+        assert_eq!(parsed.find_npc("merchant_01").unwrap().id, "merchant_01");
+        assert_eq!(parsed.find_enemy("goblin_01").unwrap().id, "goblin_01");
+        assert_eq!(parsed.find_quest("quest_01").unwrap().id, "quest_01");
+
+        // JSON doesn't contain index fields
+        assert!(!json.contains("indices"));
     }
 }

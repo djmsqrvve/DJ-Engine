@@ -3,6 +3,9 @@
 //! This module keeps the engine dependency-light by providing a small custom
 //! collision layer that is sufficient for overworld blockers and trigger zones.
 
+pub mod spatial;
+pub use spatial::SpatialHash;
+
 use crate::data::components::{BodyType, CollisionComponent, CollisionShape, Vec3Data};
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -186,6 +189,7 @@ impl Plugin for CollisionPlugin {
         app.init_resource::<CollisionLayers>()
             .init_resource::<TriggerContacts>()
             .init_resource::<TriggerPairState>()
+            .insert_resource(SpatialHash::new(64.0))
             .register_type::<MovementIntent>()
             .register_type::<RuntimeCollider>()
             .register_type::<RuntimeColliderShape>()
@@ -202,7 +206,9 @@ impl Plugin for CollisionPlugin {
             .add_systems(
                 Update,
                 (
-                    sync_runtime_colliders.in_set(CollisionSet::SyncData),
+                    (sync_runtime_colliders, rebuild_spatial_hash)
+                        .chain()
+                        .in_set(CollisionSet::SyncData),
                     apply_movement_intents.in_set(CollisionSet::MoveBodies),
                     detect_trigger_contacts.in_set(CollisionSet::DetectTriggers),
                 ),
@@ -212,9 +218,10 @@ impl Plugin for CollisionPlugin {
         app.register_contract(PluginContract {
             name: "CollisionPlugin".into(),
             description: "AABB collision detection and trigger zones".into(),
-            resources: vec![ContractEntry::of::<TriggerContacts>(
-                "Active trigger overlaps by entity",
-            )],
+            resources: vec![
+                ContractEntry::of::<TriggerContacts>("Active trigger overlaps by entity"),
+                ContractEntry::of::<SpatialHash>("Grid-based spatial index for neighbor queries"),
+            ],
             components: vec![
                 ContractEntry::of::<MovementIntent>("Per-frame movement delta"),
                 ContractEntry::of::<RuntimeCollider>("Runtime collider shape and config"),
@@ -238,6 +245,18 @@ impl Plugin for CollisionPlugin {
             ],
         });
     }
+}
+
+fn rebuild_spatial_hash(
+    mut spatial_hash: ResMut<SpatialHash>,
+    query: Query<(Entity, &Transform, &RuntimeCollider)>,
+) {
+    spatial_hash.rebuild(
+        query
+            .iter()
+            .filter(|(_, _, collider)| collider.enabled)
+            .map(|(entity, transform, _)| (entity, transform.translation.truncate())),
+    );
 }
 
 #[allow(clippy::type_complexity)]
@@ -437,34 +456,42 @@ fn resolve_axis(
 
 fn detect_trigger_contacts(
     query: Query<(Entity, &Transform, &RuntimeCollider)>,
+    spatial_hash: Res<SpatialHash>,
     mut contacts: ResMut<TriggerContacts>,
     mut state: ResMut<TriggerPairState>,
     mut events: MessageWriter<TriggerContactEvent>,
 ) {
-    let colliders: Vec<(Entity, Vec3, RuntimeCollider)> = query
+    let colliders: HashMap<Entity, (Vec3, RuntimeCollider)> = query
         .iter()
-        .map(|(entity, transform, collider)| (entity, transform.translation, *collider))
+        .map(|(entity, transform, collider)| (entity, (transform.translation, *collider)))
         .collect();
 
     let mut current_pairs = HashMap::new();
     let mut by_entity: HashMap<Entity, Vec<Entity>> = HashMap::new();
 
-    for i in 0..colliders.len() {
-        for j in (i + 1)..colliders.len() {
-            let (entity_a, translation_a, collider_a) = colliders[i];
-            let (entity_b, translation_b, collider_b) = colliders[j];
+    for (entity_a, (translation_a, collider_a)) in &colliders {
+        if !collider_a.enabled || !collider_a.is_trigger {
+            continue;
+        }
 
-            if !collider_a.enabled
-                || !collider_b.enabled
-                || !(collider_a.is_trigger || collider_b.is_trigger)
-                || !should_collide(collider_a, collider_b)
-                || !colliders_overlap(collider_a, translation_a, collider_b, translation_b)
+        let neighbors = spatial_hash.query_neighbors(translation_a.truncate());
+        for entity_b in neighbors {
+            if entity_b == *entity_a {
+                continue;
+            }
+            let Some((translation_b, collider_b)) = colliders.get(&entity_b) else {
+                continue;
+            };
+
+            if !collider_b.enabled
+                || !should_collide(*collider_a, *collider_b)
+                || !colliders_overlap(*collider_a, *translation_a, *collider_b, *translation_b)
             {
                 continue;
             }
 
             let (pair, info) = canonical_pair(
-                entity_a,
+                *entity_a,
                 entity_b,
                 TriggerPairInfo {
                     first_is_trigger: collider_a.is_trigger,
@@ -472,8 +499,8 @@ fn detect_trigger_contacts(
                 },
             );
             current_pairs.insert(pair, info);
-            by_entity.entry(entity_a).or_default().push(entity_b);
-            by_entity.entry(entity_b).or_default().push(entity_a);
+            by_entity.entry(*entity_a).or_default().push(entity_b);
+            by_entity.entry(entity_b).or_default().push(*entity_a);
         }
     }
 
@@ -774,5 +801,81 @@ mod tests {
             .iter_current_update_messages()
             .any(|event| matches!(event, TriggerContactEvent::Exit { trigger: entity, other } if *entity == trigger && *other == mover));
         assert!(saw_exit);
+    }
+
+    fn spawn_test_entities(count: usize) -> (bevy::ecs::world::World, Vec<Entity>) {
+        let mut world = bevy::ecs::world::World::new();
+        let entities: Vec<Entity> = (0..count).map(|_| world.spawn_empty().id()).collect();
+        (world, entities)
+    }
+
+    #[test]
+    fn test_spatial_hash_basic_query() {
+        let (_world, entities) = spawn_test_entities(3);
+        let e0 = entities[0];
+        let e1 = entities[1];
+        let e2 = entities[2];
+
+        let mut hash = SpatialHash::new(64.0);
+        hash.rebuild(
+            vec![
+                (e0, Vec2::new(10.0, 10.0)),
+                (e1, Vec2::new(30.0, 30.0)),
+                (e2, Vec2::new(60.0, 60.0)),
+            ]
+            .into_iter(),
+        );
+
+        // All three are within the same cell or neighboring cells of e0
+        let neighbors = hash.query_neighbors(Vec2::new(10.0, 10.0));
+        assert!(neighbors.contains(&e0));
+        assert!(neighbors.contains(&e1));
+        assert!(neighbors.contains(&e2));
+    }
+
+    #[test]
+    fn test_spatial_hash_distant_entities_not_neighbors() {
+        let (_world, entities) = spawn_test_entities(2);
+        let e0 = entities[0];
+        let e1 = entities[1];
+
+        let mut hash = SpatialHash::new(64.0);
+        hash.rebuild(vec![(e0, Vec2::new(0.0, 0.0)), (e1, Vec2::new(1000.0, 1000.0))].into_iter());
+
+        let neighbors = hash.query_neighbors(Vec2::new(0.0, 0.0));
+        assert!(neighbors.contains(&e0));
+        assert!(!neighbors.contains(&e1));
+
+        let neighbors = hash.query_neighbors(Vec2::new(1000.0, 1000.0));
+        assert!(neighbors.contains(&e1));
+        assert!(!neighbors.contains(&e0));
+    }
+
+    #[test]
+    fn test_spatial_hash_empty() {
+        let hash = SpatialHash::new(64.0);
+        let neighbors = hash.query_neighbors(Vec2::new(0.0, 0.0));
+        assert!(neighbors.is_empty());
+    }
+
+    #[test]
+    fn test_spatial_hash_rebuild_clears_old() {
+        let (_world, entities) = spawn_test_entities(2);
+        let e0 = entities[0];
+        let e1 = entities[1];
+
+        let mut hash = SpatialHash::new(64.0);
+
+        // First rebuild with e0
+        hash.rebuild(vec![(e0, Vec2::new(10.0, 10.0))].into_iter());
+        let neighbors = hash.query_neighbors(Vec2::new(10.0, 10.0));
+        assert!(neighbors.contains(&e0));
+        assert!(!neighbors.contains(&e1));
+
+        // Second rebuild replaces with e1 only
+        hash.rebuild(vec![(e1, Vec2::new(10.0, 10.0))].into_iter());
+        let neighbors = hash.query_neighbors(Vec2::new(10.0, 10.0));
+        assert!(!neighbors.contains(&e0));
+        assert!(neighbors.contains(&e1));
     }
 }

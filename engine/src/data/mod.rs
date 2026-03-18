@@ -82,7 +82,20 @@ impl Plugin for DataPlugin {
                 ),
                 ContractEntry::of::<custom::LoadedCustomDocuments>("All loaded custom documents"),
             ],
-            components: vec![],
+            components: vec![
+                ContractEntry::of::<components::player::PlayerCharacterComponent>(
+                    "Core player character data (level, experience, class, skills)",
+                ),
+                ContractEntry::of::<components::player::EquipmentSlotsComponent>(
+                    "Equipment slot assignments",
+                ),
+                ContractEntry::of::<components::player::StatusEffectsComponent>(
+                    "Active status effects (buffs/debuffs)",
+                ),
+                ContractEntry::of::<components::player::AbilityCooldownsComponent>(
+                    "Ability cooldown tracking",
+                ),
+            ],
             events: vec![],
             system_sets: vec![],
         });
