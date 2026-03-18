@@ -5,9 +5,11 @@
 use bevy::prelude::*;
 
 pub mod context;
+pub mod ecs_bridge;
 pub mod ffi;
 
 pub use context::LuaContext;
+pub use ecs_bridge::{LuaCommandBuffer, LuaEcsCommand};
 pub use ffi::{
     create_shared_state, register_core_api, register_generic_state_api, GenericStateBuffer,
     SharedGenericState,
@@ -26,25 +28,36 @@ pub struct DJScriptingPlugin;
 impl Plugin for DJScriptingPlugin {
     fn build(&self, app: &mut App) {
         let lua_ctx = LuaContext::new();
+        let lua_cmd_buffer = LuaCommandBuffer::default();
 
-        // Register core APIs (log, warn, error)
+        // Register core APIs (log, warn, error) and ECS bridge
         {
             let lua = lua_ctx.lua.lock().unwrap();
             if let Err(e) = ffi::register_core_api(&lua) {
                 error!("Failed to register core Lua API: {}", e);
             }
+            if let Err(e) = ecs_bridge::register_ecs_bridge(&lua, lua_cmd_buffer.clone()) {
+                error!("Failed to register Lua ECS bridge: {}", e);
+            }
         }
 
         app.insert_resource(lua_ctx)
+            .insert_resource(lua_cmd_buffer)
             .register_type::<ScriptCommand>()
             .add_message::<ScriptCommand>()
-            .add_systems(Update, handle_script_commands);
+            .add_systems(
+                Update,
+                (handle_script_commands, ecs_bridge::process_lua_commands),
+            );
 
         use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
         app.register_contract(PluginContract {
             name: "DJScriptingPlugin".into(),
             description: "Lua 5.4 runtime via mlua with FFI bridge".into(),
-            resources: vec![ContractEntry::of::<LuaContext>("Thread-safe Lua context")],
+            resources: vec![
+                ContractEntry::of::<LuaContext>("Thread-safe Lua context"),
+                ContractEntry::of::<LuaCommandBuffer>("Lua-ECS command buffer"),
+            ],
             components: vec![],
             events: vec![ContractEntry::of::<ScriptCommand>(
                 "Script load/execute commands",

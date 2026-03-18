@@ -31,6 +31,7 @@ pub mod scene;
 pub mod scripting;
 pub mod story_graph;
 pub mod types;
+pub mod zone;
 
 pub mod editor;
 pub mod runtime_preview;
@@ -68,6 +69,7 @@ pub mod prelude {
     pub use crate::scene::*;
     pub use crate::scripting::*;
     pub use crate::story_graph::*;
+    pub use crate::zone::{ActiveZone, PortalComponent, ZonePlugin, ZoneTransitionEvent};
 
     // Engine types
     pub use crate::types::*;
