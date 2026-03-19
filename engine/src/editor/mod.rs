@@ -18,6 +18,7 @@ pub mod preview;
 mod property_widgets;
 pub(crate) mod scene_io;
 mod table;
+pub mod tile_runtime;
 pub mod tutorial;
 pub(crate) mod types;
 pub mod validation;

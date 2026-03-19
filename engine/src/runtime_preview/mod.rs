@@ -1234,7 +1234,12 @@ fn setup_overworld_preview(
     mut status: ResMut<PreviewStatus>,
     mut loaded_scene: ResMut<LoadedScene>,
     mut camera_query: Query<(Entity, &mut Transform), With<MainCamera>>,
+    grid: Res<crate::editor::grid::GridLevel>,
 ) {
+    // Spawn GridLevel tiles + entities as Bevy sprites
+    crate::editor::tile_runtime::spawn_grid_tiles(&mut commands, &grid);
+    crate::editor::tile_runtime::spawn_grid_entities(&mut commands, &grid);
+
     let Some(scene) = startup_content.scene.clone() else {
         warn!("Runtime Preview: No startup scene available for overworld preview");
         return;

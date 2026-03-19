@@ -1,4 +1,4 @@
-use super::grid::{self, EditorTool, GridLevel, PaintState};
+use super::grid::{self, EditorTool, GridLevel, LayerType, PaintState};
 use super::history::EditorHistory;
 use super::tools;
 use super::types::{ActiveStoryGraph, EditorUiState, COLOR_BG};
@@ -90,6 +90,11 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                 ctrl && i.key_pressed(egui::Key::S),
                 no_mod && i.key_pressed(egui::Key::C),
                 no_mod && i.key_pressed(egui::Key::Enter),
+                // Copy/Paste: Ctrl+C, Ctrl+X, Ctrl+V, Escape
+                ctrl && i.key_pressed(egui::Key::C),
+                ctrl && i.key_pressed(egui::Key::X),
+                ctrl && i.key_pressed(egui::Key::V),
+                i.key_pressed(egui::Key::Escape),
             )
         });
 
@@ -142,9 +147,18 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
         let wants_save = keys.21;
         let wants_collision_toggle = keys.22;
         let wants_fill_region = keys.23;
+        let wants_copy = keys.24;
+        let wants_cut = keys.25;
+        let wants_paste = keys.26;
+        let wants_escape = keys.27;
 
         if wants_collision_toggle {
             st.show_collision = !st.show_collision;
+        }
+
+        // Escape cancels paste preview
+        if wants_escape {
+            st.paste_preview = false;
         }
 
         // Drop mutable borrow on st before accessing world resources
@@ -197,6 +211,34 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                 warn!("Ctrl+S save failed: {}", e);
             }
         }
+
+        // Ctrl+C / Ctrl+X — copy/cut selection region
+        if wants_copy || wants_cut {
+            if let Some((min_x, min_y, max_x, max_y)) = sel_region {
+                let clipboard = world.resource::<GridLevel>().copy_region(min_x, min_y, max_x, max_y);
+                world.resource_mut::<EditorUiState>().clipboard = Some(clipboard);
+                if wants_cut {
+                    snapshot(world);
+                    let mut grid = world.resource_mut::<GridLevel>();
+                    for layer in LayerType::ALL {
+                        for x in min_x..=max_x {
+                            for y in min_y..=max_y {
+                                grid.erase(*layer, x, y);
+                            }
+                        }
+                    }
+                    world.resource_mut::<EditorUiState>().selection_region = None;
+                }
+            }
+        }
+
+        // Ctrl+V — enter paste preview mode
+        if wants_paste {
+            let has_clip = world.resource::<EditorUiState>().clipboard.is_some();
+            if has_clip {
+                world.resource_mut::<EditorUiState>().paste_preview = true;
+            }
+        }
     }
 
     // Re-read state after shortcuts may have changed it
@@ -221,6 +263,19 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
         .input(|i| i.pointer.hover_pos())
         .filter(|p| rect.contains(*p))
         .map(|p| screen_to_tile(p, center, cam_offset, zoom));
+
+    // Paste mode: click to commit clipboard at cursor
+    let paste_active = world.resource::<EditorUiState>().paste_preview;
+    if paste_active && response.clicked() {
+        if let Some((tx, ty)) = pointer_tile {
+            let clip = world.resource::<EditorUiState>().clipboard.clone();
+            if let Some(clipboard) = clip {
+                snapshot(world);
+                world.resource_mut::<GridLevel>().paste_region(&clipboard, tx, ty);
+                world.resource_mut::<EditorUiState>().paste_preview = false;
+            }
+        }
+    }
 
     // Eyedropper: Alt+Click samples tile under cursor (works with any tool)
     let alt_held = ui.input(|i| i.modifiers.alt);
@@ -734,6 +789,38 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                 Color32::from_rgba_unmultiplied(base.r(), base.g(), base.b(), 200)
             };
             painter.rect_stroke(outline, 0.0, (2.0, outline_color), egui::StrokeKind::Outside);
+        }
+    }
+
+    // --- 7. Paste preview (ghost clipboard tiles at cursor) ---
+    if paste_active {
+        if let Some((tx, ty)) = pointer_tile {
+            let clip = world.resource::<EditorUiState>().clipboard.clone();
+            if let Some(clipboard) = clip {
+                for (&(dx, dy), &(tt, _lt)) in &clipboard.tiles {
+                    let pos = tile_to_screen(tx + dx, ty + dy, center, cam_offset, zoom);
+                    let r = egui::Rect::from_center_size(pos, egui::vec2(tile_draw, tile_draw));
+                    let base = grid::tile_color(tt);
+                    painter.rect_filled(r, 2.0, Color32::from_rgba_unmultiplied(base.r(), base.g(), base.b(), 100));
+                    if font_size >= 8.0 {
+                        painter.text(
+                            pos, egui::Align2::CENTER_CENTER,
+                            grid::tile_label(tt).to_string(),
+                            egui::FontId::monospace(font_size),
+                            Color32::from_rgba_unmultiplied(255, 255, 255, 100),
+                        );
+                    }
+                }
+                // Outline
+                let tl = tile_to_screen(tx, ty + clipboard.height - 1, center, cam_offset, zoom);
+                let br = tile_to_screen(tx + clipboard.width - 1, ty, center, cam_offset, zoom);
+                let half = gpx / 2.0;
+                let outline = egui::Rect::from_two_pos(
+                    egui::pos2(tl.x - half, tl.y - half),
+                    egui::pos2(br.x + half, br.y + half),
+                );
+                painter.rect_stroke(outline, 0.0, (2.0, Color32::from_rgba_unmultiplied(0, 255, 128, 200)), egui::StrokeKind::Outside);
+            }
         }
     }
 }

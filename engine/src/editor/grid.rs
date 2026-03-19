@@ -258,6 +258,17 @@ pub struct GridLevel {
     pub entities: Vec<LevelEntity>,
     pub boundary_left: i32,
     pub boundary_right: i32,
+    // Map metadata
+    #[serde(default = "default_map_name")]
+    pub name: String,
+    #[serde(default)]
+    pub author: String,
+    #[serde(default)]
+    pub description: String,
+}
+
+fn default_map_name() -> String {
+    "Untitled".to_string()
 }
 
 impl Default for GridLevel {
@@ -270,6 +281,48 @@ impl Default for GridLevel {
             boundary_left: 0,
             boundary_right: 60,
             entities: Vec::new(),
+            name: default_map_name(),
+            author: String::new(),
+            description: String::new(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Clipboard buffer for copy/paste
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug, Default)]
+pub struct ClipboardBuffer {
+    pub tiles: HashMap<(i32, i32), (TileType, LayerType)>,
+    pub width: i32,
+    pub height: i32,
+}
+
+impl GridLevel {
+    /// Copy all visible layer tiles in a region into a clipboard buffer.
+    pub fn copy_region(&self, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> ClipboardBuffer {
+        let mut tiles = HashMap::new();
+        for layer in &self.layers {
+            if !layer.visible { continue; }
+            for (&(tx, ty), &tt) in &layer.tiles {
+                if tt == TileType::Empty { continue; }
+                if tx >= min_x && tx <= max_x && ty >= min_y && ty <= max_y {
+                    tiles.insert((tx - min_x, ty - min_y), (tt, layer.name));
+                }
+            }
+        }
+        ClipboardBuffer {
+            width: max_x - min_x + 1,
+            height: max_y - min_y + 1,
+            tiles,
+        }
+    }
+
+    /// Paste clipboard tiles at an anchor position.
+    pub fn paste_region(&mut self, clipboard: &ClipboardBuffer, anchor_x: i32, anchor_y: i32) {
+        for (&(dx, dy), &(tt, lt)) in &clipboard.tiles {
+            self.paint(lt, anchor_x + dx, anchor_y + dy, tt);
         }
     }
 }

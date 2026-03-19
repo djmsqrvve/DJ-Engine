@@ -175,6 +175,9 @@ pub struct EditorUiState {
     pub show_collision: bool,
     pub selection_region: Option<(i32, i32, i32, i32)>,
     pub region_drag_start: Option<(i32, i32)>,
+    // Wave 4
+    pub clipboard: Option<super::grid::ClipboardBuffer>,
+    pub paste_preview: bool,
 }
 
 impl EditorUiState {

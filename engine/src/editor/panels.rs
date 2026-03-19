@@ -1552,6 +1552,36 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
                 ui.add_space(3.0);
                 ui.separator();
 
+                // --- Map Info ---
+                ui.add_space(3.0);
+                egui::CollapsingHeader::new(
+                    RichText::new("MAP INFO").strong().color(COLOR_PRIMARY),
+                )
+                .default_open(false)
+                .show(ui, |ui| {
+                    let mut name = world.resource::<grid::GridLevel>().name.clone();
+                    let mut author = world.resource::<grid::GridLevel>().author.clone();
+                    let mut desc = world.resource::<grid::GridLevel>().description.clone();
+                    ui.horizontal(|ui| {
+                        ui.label("Name:");
+                        if ui.text_edit_singleline(&mut name).changed() {
+                            world.resource_mut::<grid::GridLevel>().name = name;
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Author:");
+                        if ui.text_edit_singleline(&mut author).changed() {
+                            world.resource_mut::<grid::GridLevel>().author = author;
+                        }
+                    });
+                    ui.label("Description:");
+                    if ui.text_edit_multiline(&mut desc).changed() {
+                        world.resource_mut::<grid::GridLevel>().description = desc;
+                    }
+                });
+                ui.add_space(3.0);
+                ui.separator();
+
                 // --- Tool Selector ---
                 ui.add_space(5.0);
                 ui.label(RichText::new("TOOLS").strong().color(COLOR_PRIMARY));
