@@ -3,6 +3,5 @@
 set -euo pipefail
 
 cat <<'EOF'
-Attach complete.
-Open the forwarded "desktop" port (6080) in your browser to see GUI windows.
+Attached. Run "make dev-exe" or "make linux-exe" to build, then download the binary.
 EOF

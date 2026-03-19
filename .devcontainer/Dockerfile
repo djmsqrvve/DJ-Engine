@@ -1,5 +1,9 @@
 FROM mcr.microsoft.com/devcontainers/rust:1-1-bookworm
 
+# Build-only container: compiles Bevy for Linux and Windows (via mingw-w64).
+# X11/Wayland/Vulkan dev headers are required for linking — not for running a GUI.
+# There is no desktop environment, VNC, or display server in this container.
+
 RUN apt-get update \
     && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y --no-install-recommends \
