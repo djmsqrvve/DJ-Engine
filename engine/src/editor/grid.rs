@@ -294,7 +294,8 @@ impl Default for GridLevel {
 
 #[derive(Clone, Debug, Default)]
 pub struct ClipboardBuffer {
-    pub tiles: HashMap<(i32, i32), (TileType, LayerType)>,
+    /// Tiles stored as (dx, dy, layer) → tile_type for multi-layer support.
+    pub tiles: Vec<(i32, i32, LayerType, TileType)>,
     pub width: i32,
     pub height: i32,
 }
@@ -302,13 +303,13 @@ pub struct ClipboardBuffer {
 impl GridLevel {
     /// Copy all visible layer tiles in a region into a clipboard buffer.
     pub fn copy_region(&self, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> ClipboardBuffer {
-        let mut tiles = HashMap::new();
+        let mut tiles = Vec::new();
         for layer in &self.layers {
             if !layer.visible { continue; }
             for (&(tx, ty), &tt) in &layer.tiles {
                 if tt == TileType::Empty { continue; }
                 if tx >= min_x && tx <= max_x && ty >= min_y && ty <= max_y {
-                    tiles.insert((tx - min_x, ty - min_y), (tt, layer.name));
+                    tiles.push((tx - min_x, ty - min_y, layer.name, tt));
                 }
             }
         }
@@ -321,7 +322,7 @@ impl GridLevel {
 
     /// Paste clipboard tiles at an anchor position.
     pub fn paste_region(&mut self, clipboard: &ClipboardBuffer, anchor_x: i32, anchor_y: i32) {
-        for (&(dx, dy), &(tt, lt)) in &clipboard.tiles {
+        for &(dx, dy, lt, tt) in &clipboard.tiles {
             self.paint(lt, anchor_x + dx, anchor_y + dy, tt);
         }
     }
@@ -340,7 +341,7 @@ impl GridLevel {
     /// Validates stacking rules: non-ground layers require a tile on a valid layer below.
     pub fn paint(&mut self, lt: LayerType, x: i32, y: i32, tile: TileType) -> bool {
         // Check locked
-        if self.layer(lt).map_or(true, |l| l.locked) {
+        if self.layer(lt).is_none_or(|l| l.locked) {
             return false;
         }
         // Stacking validation: require a tile on a supporting layer below
@@ -367,7 +368,7 @@ impl GridLevel {
     /// Rejects if a higher layer has content at the same position (content-above check).
     pub fn erase(&mut self, lt: LayerType, x: i32, y: i32) -> bool {
         // Check locked
-        if self.layer(lt).map_or(true, |l| l.locked) {
+        if self.layer(lt).is_none_or(|l| l.locked) {
             return false;
         }
         // Content-above check: don't remove foundation if higher layers depend on it
@@ -685,5 +686,59 @@ mod tests {
             tp1_ent.properties.get("teleporter_link"),
             Some(&tp2)
         );
+    }
+
+    #[test]
+    fn copy_paste_region() {
+        let mut grid = GridLevel::default();
+        grid.paint(LayerType::Ground, 1, 1, TileType::Grass);
+        grid.paint(LayerType::Ground, 2, 1, TileType::Stone);
+        grid.paint(LayerType::Ground, 1, 2, TileType::Floor);
+        let clip = grid.copy_region(1, 1, 2, 2);
+        assert_eq!(clip.width, 2);
+        assert_eq!(clip.height, 2);
+        assert_eq!(clip.tiles.len(), 3);
+        // Paste at offset (10, 10)
+        grid.paste_region(&clip, 10, 10);
+        assert_eq!(grid.get_tile(LayerType::Ground, 10, 10), TileType::Grass);
+        assert_eq!(grid.get_tile(LayerType::Ground, 11, 10), TileType::Stone);
+        assert_eq!(grid.get_tile(LayerType::Ground, 10, 11), TileType::Floor);
+    }
+
+    #[test]
+    fn copy_empty_region() {
+        let grid = GridLevel::default();
+        let clip = grid.copy_region(0, 0, 5, 5);
+        assert!(clip.tiles.is_empty());
+    }
+
+    #[test]
+    fn copy_preserves_layers() {
+        let mut grid = GridLevel::default();
+        grid.paint(LayerType::Ground, 0, 0, TileType::Floor);
+        grid.paint(LayerType::Collision, 0, 0, TileType::Wall);
+        let clip = grid.copy_region(0, 0, 0, 0);
+        assert_eq!(clip.tiles.len(), 2);
+        let has_ground = clip.tiles.iter().any(|(_, _, lt, _)| *lt == LayerType::Ground);
+        let has_collision = clip.tiles.iter().any(|(_, _, lt, _)| *lt == LayerType::Collision);
+        assert!(has_ground);
+        assert!(has_collision);
+    }
+
+    #[test]
+    fn metadata_defaults() {
+        // Old format JSON (no name/author/description) should deserialize with defaults
+        let json = r#"{"width":10,"height":10,"tile_size":32.0,"layers":[],"entities":[],"boundary_left":0,"boundary_right":10}"#;
+        let grid: GridLevel = serde_json::from_str(json).unwrap();
+        assert_eq!(grid.name, "Untitled");
+        assert_eq!(grid.author, "");
+        assert_eq!(grid.description, "");
+    }
+
+    #[test]
+    fn boundary_defaults() {
+        let grid = GridLevel::default();
+        assert_eq!(grid.boundary_left, 0);
+        assert_eq!(grid.boundary_right, 60);
     }
 }

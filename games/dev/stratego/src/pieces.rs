@@ -103,11 +103,6 @@ pub fn army_composition() -> Vec<(PieceRank, usize)> {
     ]
 }
 
-/// Total pieces per team.
-pub fn army_size() -> usize {
-    army_composition().iter().map(|(_, count)| count).sum()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

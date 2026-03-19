@@ -114,9 +114,6 @@ mod tests {
         history.push_snapshot(&grid);
         grid.paint(LayerType::Ground, 0, 0, TileType::Stone);
 
-        // Snapshot the painted state before we undo
-        let painted_json = serde_json::to_string(&grid).unwrap();
-
         history.undo(&mut grid);
         assert_eq!(grid.get_tile(LayerType::Ground, 0, 0), TileType::Empty);
 

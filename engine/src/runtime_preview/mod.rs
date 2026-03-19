@@ -1611,6 +1611,7 @@ mod tests {
                 story_graph: Some(test_story_graph()),
                 entry_script_path: None,
             });
+            world.insert_resource(crate::editor::grid::GridLevel::default());
 
             let mut system_state: SystemState<(
                 Commands,
@@ -1621,6 +1622,7 @@ mod tests {
                 ResMut<PreviewStatus>,
                 ResMut<LoadedScene>,
                 Query<(Entity, &mut Transform), With<MainCamera>>,
+                Res<crate::editor::grid::GridLevel>,
             )> = SystemState::new(&mut world);
 
             let (
@@ -1632,6 +1634,7 @@ mod tests {
                 status,
                 loaded_scene,
                 camera_query,
+                grid,
             ) = system_state.get_mut(&mut world);
             setup_overworld_preview(
                 commands,
@@ -1642,6 +1645,7 @@ mod tests {
                 status,
                 loaded_scene,
                 camera_query,
+                grid,
             );
             system_state.apply(&mut world);
 

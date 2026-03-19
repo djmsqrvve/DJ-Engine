@@ -158,14 +158,6 @@ impl StrategoBoard {
             );
         }
     }
-
-    /// Count pieces for a team.
-    pub fn piece_count(&self, team: Team) -> usize {
-        self.grid
-            .iter()
-            .filter(|(_, _, cell)| cell.piece.as_ref().map(|p| p.team == team).unwrap_or(false))
-            .count()
-    }
 }
 
 #[cfg(test)]

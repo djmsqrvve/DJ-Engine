@@ -1262,8 +1262,10 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
         let tut_btn = ui.button(RichText::new("Tutorial \u{25BE}").color(COLOR_SECONDARY));
         let popup_id = ui.make_persistent_id("tutorial_picker");
         if tut_btn.clicked() {
+            #[allow(deprecated)]
             ui.memory_mut(|m| m.toggle_popup(popup_id));
         }
+        #[allow(deprecated)]
         egui::popup_below_widget(
             ui,
             popup_id,
@@ -1288,6 +1290,7 @@ pub(crate) fn draw_top_menu(ui: &mut egui::Ui, world: &mut World) {
                     if ui.button(label).clicked() {
                         let mut tut_state = world.resource_mut::<super::tutorial::TutorialState>();
                         super::tutorial::start_tutorial(&mut tut_state, def.clone());
+                        #[allow(deprecated)]
                         ui.close_menu();
                     }
                 }

@@ -44,15 +44,6 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
     let painter = ui.painter();
     let center = rect.center();
 
-    // Read current editor state
-    let (tool, tile, layer, brush_size, cam_offset, zoom, grid_visible) = {
-        let st = world.resource::<EditorUiState>();
-        (
-            st.current_tool, st.current_tile, st.current_layer,
-            st.clamped_brush_size(), st.camera_offset, st.zoom, st.grid_visible,
-        )
-    };
-
     // --- 0. Keyboard shortcuts ---
     {
         let keys = ui.input(|i| {
@@ -797,7 +788,7 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
         if let Some((tx, ty)) = pointer_tile {
             let clip = world.resource::<EditorUiState>().clipboard.clone();
             if let Some(clipboard) = clip {
-                for (&(dx, dy), &(tt, _lt)) in &clipboard.tiles {
+                for &(dx, dy, _lt, tt) in &clipboard.tiles {
                     let pos = tile_to_screen(tx + dx, ty + dy, center, cam_offset, zoom);
                     let r = egui::Rect::from_center_size(pos, egui::vec2(tile_draw, tile_draw));
                     let base = grid::tile_color(tt);

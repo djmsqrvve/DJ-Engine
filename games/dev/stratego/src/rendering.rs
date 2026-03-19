@@ -21,10 +21,7 @@ const COLOR_BLUE_ZONE: Color = Color::srgba(0.3, 0.3, 0.9, 0.15);
 
 /// Marker for a cell background sprite.
 #[derive(Component)]
-pub struct CellSprite {
-    pub x: usize,
-    pub y: usize,
-}
+pub struct CellSprite;
 
 /// Marker for a piece sprite entity.
 #[derive(Component)]
@@ -95,7 +92,7 @@ pub fn spawn_board_system(mut commands: Commands, board: Res<StrategoBoard>) {
         };
 
         commands.spawn((
-            CellSprite { x, y },
+            CellSprite,
             Sprite {
                 color,
                 custom_size: Some(Vec2::splat(CELL_SIZE - 3.0)),
