@@ -118,9 +118,9 @@ Root files:
 ├── README.md            # Project overview
 ├── CONTRIBUTING.md      # Contribution guide
 ├── MAINTAINERS.md       # This file
-├── LICENSE              # MIT license
-├── GEMINI.md           # AI assistant context
-└── AGENTS.md           # Multi-agent coordination
+├── CODE_OF_CONDUCT.md   # Contributor Covenant
+├── SECURITY.md          # Vulnerability reporting
+└── LICENSE              # MIT license
 ```
 
 ---

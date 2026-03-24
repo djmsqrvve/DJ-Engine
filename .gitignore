@@ -42,3 +42,6 @@ run.log
 
 # Large generated images (AI assets should be in a separate LFS or external)
 # archive/*.png
+
+# Claude Code / AI tooling (local-only)
+.claude/

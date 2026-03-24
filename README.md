@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.94.0-orange?style=flat-square" alt="Rust 1.94.0"></a>
   <a href="https://bevyengine.org/"><img src="https://img.shields.io/badge/Bevy-0.18-green?style=flat-square" alt="Bevy 0.18"></a>
-  <a href="https://github.com/djmsqrvve/dj_engine/actions/workflows/ci.yml"><img src="https://github.com/djmsqrvve/dj_engine/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/djmsqrvve/DJ-Engine/actions/workflows/ci.yml"><img src="https://github.com/djmsqrvve/DJ-Engine/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
 </p>
 
@@ -29,8 +29,8 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/djmsqrvve/dj_engine.git
-cd dj_engine
+git clone https://github.com/djmsqrvve/DJ-Engine.git
+cd DJ-Engine
 
 make dev           # Launch the engine editor
 make preview PROJECT=/path/to/project   # Launch manifest-driven runtime preview
@@ -100,7 +100,7 @@ make clean            # Remove build artifacts
 ## Project Structure
 
 ```text
-dj_engine/
+DJ-Engine/
 ├── engine/                 # Core engine library
 ├── games/dev/doomexe/      # Primary game — hamster narrator JRPG
 ├── games/dev/stratego/     # Tutorial game — 10x10 board, AI opponent

@@ -46,8 +46,8 @@ jobs:
 
       - name: Install pinned Rust toolchain
         run: |
-          rustup toolchain install 1.93.1 --profile minimal --component clippy --component rustfmt
-          rustup default 1.93.1
+          rustup toolchain install 1.94.0 --profile minimal --component clippy --component rustfmt
+          rustup default 1.94.0
           rustup show
 
       - name: Restore Rust cache
