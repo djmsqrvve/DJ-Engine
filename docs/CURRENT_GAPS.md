@@ -28,7 +28,7 @@ DJ Engine now has:
   `HelixRegistries` Bevy Resource with 22 typed `Registry<T>` (499 entities),
   bridge layer converting Helix types to engine DB types, balance overlays,
   and a contract validation dashboard (`make helix-dashboard`)
-- 270 passing tests across the workspace
+- 302 passing tests across the workspace
 
 That gives the repo a solid reusable foundation. The biggest remaining gaps are
 no longer about basic launchability; they are about authoring depth, extension

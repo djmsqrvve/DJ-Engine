@@ -22,8 +22,8 @@ automatically when you enter the workspace.
 ## Clone The Repository
 
 ```bash
-git clone https://github.com/djmsqrvve/dj_engine.git
-cd dj_engine
+git clone https://github.com/djmsqrvve/DJ-Engine.git
+cd DJ-Engine
 ```
 
 ## GitHub Codespaces
@@ -133,7 +133,7 @@ data/
 ## Project Structure Overview
 
 ```text
-dj_engine/
+DJ-Engine/
 ├── engine/                 # Core engine/editor/runtime crate
 ├── games/dev/doomexe/      # Optional sample game
 ├── plugins/helix_data/     # Helix data bridge plugin and import tooling
@@ -147,4 +147,4 @@ dj_engine/
 - [Architecture Guide](ARCHITECTURE.md)
 - [Testing Guide](TESTING.md)
 - [Project Structure](PROJECT_STRUCTURE.md)
-- [AI Handoff Suite](AI_HANDOFF_SUITE/README.md)
+- [Documentation Index](MASTER-DOCUMENTATION-INDEX.md)

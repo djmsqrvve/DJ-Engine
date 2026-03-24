@@ -1,10 +1,11 @@
 # Archive
 
 Legacy documentation from early DJ Engine development (pre-Bevy 0.18, pre-Makefile
-standardization). These files are kept for historical reference but should not be
-trusted over current source code or the [AI Handoff Suite](../docs/AI_HANDOFF_SUITE/README.md).
+standardization), plus historical planning docs and AI agent session files. These
+are kept for historical reference but should not be trusted over current source
+code or the docs in `docs/`.
 
-## Contents
+## Legacy Design Docs
 
 | File | Description |
 |------|-------------|
@@ -29,3 +30,42 @@ trusted over current source code or the [AI Handoff Suite](../docs/AI_HANDOFF_SU
 | SPRITE_SYSTEM.md | Complete sprite system specification |
 | SPRITE_SYSTEM_V2.md | Sprite system v2 iteration |
 | WORKFLOW.md | Old development workflow (references `./dj` script) |
+
+## Docs Moved From docs/ (2026-03-24)
+
+| File | Description |
+|------|-------------|
+| Architecture_Specification.json | Historical high-level architecture artifact |
+| complete-detailed-docs.md | Historical implementation draft (64KB) |
+| DELIVERABLES_Summary.md | Deliverables summary |
+| DETAILED_TASK_DOCS.md | Historical task/spec draft (25KB) |
+| docs-summary-reference.md | Old doc summary reference |
+| EDITOR_Specification_Complete.md | Older editor specification (25KB) |
+| Game_Engine_Technical_Roadmap.md | 20-week planning document (26KB) |
+| HANDOFF_BEVY18_MIGRATION.md | Bevy 0.18 migration handoff notes |
+| HANDOFF_BROAD_AUDIT.md | Broad audit handoff notes |
+| HANDOFF_CODESPACES_COMPILE_CLEANUP.md | Codespaces compile cleanup handoff |
+| IDE_Configuration_Guide.md | VS Code + Rust setup guide |
+| Implementation_Summary.md | Implementation summary (25KB) |
+| INDEX_Navigation_Guide.md | Old documentation navigation guide |
+| TUTORIAL_PROJECT.md | Tutorial project planning notes |
+
+## Other Archived Files
+
+| File | Description |
+|------|-------------|
+| dj | Retired helper script (replaced by `make` targets) |
+
+## AI Agent Files (`ai/`)
+
+The `ai/` subdirectory contains AI agent configuration and session handoff files
+that were used during development. These are internal tooling context, not
+contributor-facing documentation.
+
+| Path | Description |
+|------|-------------|
+| ai/AGENTS.md | AI agent configuration guide |
+| ai/GEMINI.md | Gemini AI technical specification |
+| ai/AI_Coding_Assistant_Config.md | LLM coding guidance |
+| ai/enginebuildingprompt.txt | Engine building prompt |
+| ai/AI_HANDOFF_SUITE/ | 18 session handoff files for inter-session continuity |
