@@ -2,6 +2,9 @@
 name = "stratego"
 version = "0.1.0"
 edition = "2021"
+description = "10x10 board game tutorial with AI opponent"
+repository.workspace = true
+license.workspace = true
 
 [features]
 default = ["dev"]

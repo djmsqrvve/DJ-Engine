@@ -10,6 +10,10 @@ members = [
 ]
 default-members = ["engine"]
 
+[workspace.package]
+repository = "https://github.com/djmsqrvve/DJ-Engine"
+license = "MIT"
+
 [workspace.dependencies]
 bevy = { version = "0.18", features = ["wav"] }
 serde = { version = "1.0", features = ["derive"] }

@@ -1,87 +1,60 @@
+# DoomExe
 
-***
+Dark-fantasy horror JRPG prototype built on DJ Engine. Features a corrupted hamster narrator that reacts to player choices, remembers previous runs, and visually degrades as the story darkens.
 
-## 2. `games/dev/doomexe/README.md`
+DoomExe is primarily a sandbox for developing DJ Engine. It exercises the engine's core systems and will eventually become a full game.
 
-```markdown
-# doomexe
+## Running
 
-doomexe is a dark‑fantasy horror JRPG prototype built on **DJ Engine**. It features a corrupted hamster narrator that reacts to player choices, remembers previous runs, and visually degrades as the story darkens.
+```bash
+make game    # or: make doom
+```
 
-For now, doomexe is primarily a **sandbox for developing DJ Engine**. It will eventually become a full game.
+## What It Demonstrates
 
----
+- **Procedural animation** -- breathing, blinking, expression-driven hamster assembly
+- **Palette corruption** -- real-time palette swaps driven by a corruption float (0-100)
+- **Story graph** -- JSON-serializable dialogue, branching, and scripted actions
+- **Lua scripting** -- runtime game logic via mlua for content-heavy iteration
+- **Overworld** -- player movement, camera, NPC interaction
+- **Battle system** -- turn-based combat prototype
+- **HUD** -- minimap, tracker, in-game UI
 
-## Milestone 1 – Hamster Narrator
+## Milestone 1: Hamster Narrator
 
-**Goal:** A single animated scene with a procedural hamster like the concept image: a large, candle‑lit, slightly corrupted hamster portrait delivering text.
+A single animated scene with a procedural hamster: a large, candle-lit, slightly corrupted hamster portrait delivering text.
 
-### Requirements
+Requirements:
+- Procedural hamster assembly from sprite parts (body, head, ears, eyes, mouth, paws)
+- Breathing (squash/stretch), blinking (timer), idle sway (noise)
+- Expression system (neutral, amused, angry, corrupted)
+- Corruption influences palette shift, screen jitter, scanline intensity
+- Internal resolution 320x240, upscaled with CRT post-processing
+- Lua scripting for dialogue branching and corruption changes
+- Hot-reload for scripts and palette config
 
-- **Procedural hamster assembly**
-  - Parts: body, head, left/right ear, left/right eye variants, mouth, left/right paw.
-  - Each part is a sprite exported from Aseprite with position metadata.
-  - At runtime, parts are attached as entities/children and composed visually.
-
-- **Animation**
-  - Breathing: squash & stretch on body, with area (volume) roughly preserved.
-  - Blinking: eye changes with a timer (closed/open frames).
-  - Idle motion: slight head sway and/or jitter using noise.
-  - Gesture hooks: expressions for “neutral”, “amused”, “angry”, “corrupted”, etc.
-
-- **Corruption system**
-  - Single `corruption: f32` field (0–100).
-  - Corruption influences:
-    - Palette shift (colors become harsher/“wrong”).
-    - Screen jitter / scanline intensity.
-    - Possibly slight warping of the portrait.
-
-- **Rendering**
-  - Internal resolution: e.g. 320×240.
-  - Render to offscreen texture; upscale with nearest neighbor.
-  - Post‑processing pass for CRT (scanlines, vignette, chromatic aberration).
-
-- **Lua scripting**
-  - Minimal Lua file:
-    - Chooses expression and corruption changes when a “choice” is taken.
-    - Example: keypress triggers a different script branch.
-
-- **Hot‑reload**
-  - Lua scripts in `assets/scripts/` can be edited and reloaded at runtime.
-  - Palette configuration in JSON can be reloaded at runtime.
-
----
-
-## Project Layout (doomexe)
+## Project Layout
 
 ```text
 games/dev/doomexe/
-  Cargo.toml
-  README.md
-
-  assets/
-    sprites/
-      hamster_parts/      # Aseprite‑exported layers
-    palettes/
-      hamster_default.json
-      hamster_corrupted.json
-    shaders/
-      hamster_palette.wgsl
-      crt_postprocess.wgsl
-    scripts/
-      hamster_dialogue.lua
-
-  src/
-    main.rs
-
-    hamster/
-      mod.rs              # Plugin registration
-      components.rs       # HamsterNarrator, HamsterPart, etc.
-      systems.rs          # Animation / corruption / input
-      render.rs           # Offscreen rendering + CRT pass
-
-    scripting/
-      mod.rs              # Lua integration via mlua
-
-    assets/
-      mod.rs              # Load Aseprite JSON & palettes
+├── Cargo.toml
+├── assets/
+│   ├── music/          # MIDI files
+│   ├── palettes/       # Palette definitions (JSON)
+│   └── scripts/        # Lua scripts
+├── docs/
+│   └── hamster_milestone.md
+└── src/
+    ├── main.rs
+    ├── assets/         # Asset loading
+    ├── battle/         # Turn-based combat
+    ├── dialogue/       # Dialogue UI
+    ├── hamster/        # Narrator assembly, animation, corruption
+    ├── hud/            # Minimap, tracker
+    ├── overworld/      # Player, camera, NPC interaction
+    ├── scripting/      # Lua integration
+    ├── story.rs        # Story graph integration
+    ├── state.rs        # Game state management
+    ├── title.rs        # Title screen (NEW GAME / CONTINUE / QUIT)
+    └── types.rs        # Game-specific types
+```

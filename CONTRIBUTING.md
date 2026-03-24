@@ -6,8 +6,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ```bash
 # Clone the repository
-git clone https://github.com/djmsqrvve/dj_engine.git
-cd dj_engine
+git clone https://github.com/djmsqrvve/DJ-Engine.git
+cd DJ-Engine
 
 # Build and run
 make dev
@@ -55,7 +55,7 @@ Examples:
 ## Project Structure
 
 ```
-dj_engine/
+DJ-Engine/
 ├── engine/              # Core engine library
 │   ├── src/
 │   │   ├── core/        # Core engine plugin

@@ -11,7 +11,7 @@
 If you discover a security vulnerability, please report it responsibly:
 
 1. **Do NOT** create a public GitHub issue
-2. Email the maintainer directly (or use GitHub's private vulnerability reporting)
+2. Use [GitHub's private vulnerability reporting](https://github.com/djmsqrvve/DJ-Engine/security/advisories/new) on this repository
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce

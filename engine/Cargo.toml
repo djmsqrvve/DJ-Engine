@@ -3,6 +3,11 @@ name = "dj_engine"
 version = "0.1.0"
 edition = "2021"
 default-run = "dj_engine"
+description = "Custom Bevy 0.18 game framework for narrative JRPGs, procedural 2D animation, and palette-driven effects"
+repository.workspace = true
+license.workspace = true
+keywords = ["game-engine", "bevy", "jrpg", "lua", "2d"]
+categories = ["game-engines", "games"]
 
 [features]
 default = ["dev"]

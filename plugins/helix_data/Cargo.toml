@@ -2,6 +2,9 @@
 name = "dj_engine_helix"
 version = "0.1.0"
 edition = "2021"
+description = "Helix MMORPG data bridge for DJ Engine -- TOML import, typed registries, contract validation"
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
 bevy = { workspace = true }

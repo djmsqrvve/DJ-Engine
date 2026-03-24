@@ -2,6 +2,9 @@
 name = "doomexe"
 version = "0.1.0"
 edition = "2021"
+description = "Dark-fantasy JRPG prototype -- hamster narrator with corruption effects"
+repository.workspace = true
+license.workspace = true
 
 [features]
 default = ["dev"]

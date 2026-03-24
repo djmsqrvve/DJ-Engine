@@ -2,6 +2,9 @@
 name = "iso_sandbox"
 version = "0.1.0"
 edition = "2021"
+description = "Isometric 16x16 tile grid sandbox"
+repository.workspace = true
+license.workspace = true
 
 [features]
 default = ["dev"]
