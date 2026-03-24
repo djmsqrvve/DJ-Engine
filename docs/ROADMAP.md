@@ -1,6 +1,6 @@
 # DJ-Engine Roadmap
 
-Status as of 2026-03-17: 302 tests passing, Phase 1-4 complete. Three game crates: DoomExe, Stratego, Iso Sandbox.
+Status as of 2026-03-24: 302 tests passing, Phase 1-4 complete. Three game crates: DoomExe, Stratego, Iso Sandbox.
 
 ## Phase 1: Quick Wins (1 session)
 
@@ -60,7 +60,7 @@ Status as of 2026-03-17: 302 tests passing, Phase 1-4 complete. Three game crate
 ### What exists
 - Camera at 320x240 with 4x zoom (`engine/src/rendering/camera.rs`)
 - `GAME_WIDTH`/`GAME_HEIGHT` constants
-- TODOs in `engine/src/rendering/mod.rs:18-20`
+- Offscreen render target and CRT shader already implemented (`engine/src/rendering/offscreen.rs`, `engine/src/rendering/crt_material.rs`)
 
 ### What to build
 - Session A: Offscreen render target (320x240 texture), upscaling blit to window
@@ -75,7 +75,6 @@ Status as of 2026-03-17: 302 tests passing, Phase 1-4 complete. Three game crate
 - Full data types: `CollisionComponent` with 13 fields, `BodyType`, `CollisionShape` (`engine/src/data/components.rs:200-251`)
 - `InteractivityComponent`, `AudioSourceComponent` data structures
 - Spawner (`engine/src/data/spawner.rs`) receives data but doesn't insert physics components
-- TODOs at spawner.rs:180-182
 
 ### What to build
 - Choose physics library (likely `avian2d` for Bevy 0.18 or custom AABB)
