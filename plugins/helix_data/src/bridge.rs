@@ -7,8 +7,10 @@
 use crate::balance::BalanceOverlay;
 use crate::registries::HelixRegistries;
 use dj_engine::data::database::{
-    AchievementRow, AuraRow, ClassDataRow, Database, EnemyRow, GuildRow, ItemRow, ItemType,
-    MountRow, NpcRow, ProfessionRow, PvpRow, QuestRewards, QuestRow, RaidRow, Rarity, TalentRow,
+    AchievementRow, AuraRow, ClassDataRow, ConsumableRow, CurrencyRow, Database, EnemyRow,
+    EquipmentRow, GuildRow, InventoryRow, ItemRow, ItemType, MountRow, NpcRow, ProfessionRow,
+    PvpRow, QuestRewards, QuestRow, RaidRow, Rarity, TalentRow, TitleRow, TradeGoodRow,
+    WeaponSkillRow,
 };
 use std::collections::HashMap;
 
@@ -342,12 +344,121 @@ pub fn guild_to_guild_row(
     }
 }
 
-/// Populate a DJ Engine `Database` from all typed Helix registries.
+/// Convert a helix Consumable to a DJ Engine ConsumableRow.
+pub fn consumable_to_consumable_row(
+    id: &str,
+    consumable: &helix_data::consumable::Consumable,
+    _balance: Option<&BalanceOverlay>,
+) -> ConsumableRow {
+    ConsumableRow {
+        id: id.to_string(),
+        name: convert_localized_string(&consumable.base.name),
+        consumable_type: format!("{:?}", consumable.consumable_type).to_lowercase(),
+        stack_size: consumable.stack_size,
+        cooldown: consumable.cooldown as f32,
+        description: convert_localized_string(&consumable.base.description),
+    }
+}
+
+/// Convert a helix Currency to a DJ Engine CurrencyRow.
+pub fn currency_to_currency_row(
+    id: &str,
+    currency: &helix_data::currency::Currency,
+    _balance: Option<&BalanceOverlay>,
+) -> CurrencyRow {
+    CurrencyRow {
+        id: id.to_string(),
+        name: convert_localized_string(&currency.base.name),
+        max_amount: currency.max_amount,
+        description: convert_localized_string(&currency.base.description),
+    }
+}
+
+/// Convert a helix Equipment to a DJ Engine EquipmentRow.
+pub fn equipment_to_equipment_row(
+    id: &str,
+    equip: &helix_data::equipment::Equipment,
+    _balance: Option<&BalanceOverlay>,
+) -> EquipmentRow {
+    EquipmentRow {
+        id: id.to_string(),
+        name: convert_localized_string(&equip.base.name),
+        slot: format!("{:?}", equip.slot).to_lowercase(),
+        armor_value: equip.durability as i32,
+        stats: equip
+            .stats
+            .iter()
+            .map(|s| (s.stat.clone(), s.value))
+            .collect(),
+        level_requirement: equip.level_requirement,
+        rarity: map_rarity(&equip.quality),
+        description: convert_localized_string(&equip.base.description),
+    }
+}
+
+/// Convert a helix Inventory to a DJ Engine InventoryRow.
+pub fn inventory_to_inventory_row(
+    id: &str,
+    inv: &helix_data::inventory::Inventory,
+    _balance: Option<&BalanceOverlay>,
+) -> InventoryRow {
+    InventoryRow {
+        id: id.to_string(),
+        name: convert_localized_string(&inv.base.name),
+        slot_type: format!("{:?}", inv.slot_type).to_lowercase(),
+        capacity: inv.capacity,
+        description: convert_localized_string(&inv.base.description),
+    }
+}
+
+/// Convert a helix Title to a DJ Engine TitleRow.
+pub fn title_to_title_row(
+    id: &str,
+    title: &helix_data::title::Title,
+    _balance: Option<&BalanceOverlay>,
+) -> TitleRow {
+    TitleRow {
+        id: id.to_string(),
+        name: convert_localized_string(&title.base.name),
+        style: format!("{:?}", title.style).to_lowercase(),
+        source: title.source.clone(),
+        description: convert_localized_string(&title.base.description),
+    }
+}
+
+/// Convert a helix TradeGood to a DJ Engine TradeGoodRow.
+pub fn trade_good_to_trade_good_row(
+    id: &str,
+    tg: &helix_data::trade_good::TradeGood,
+    _balance: Option<&BalanceOverlay>,
+) -> TradeGoodRow {
+    TradeGoodRow {
+        id: id.to_string(),
+        name: convert_localized_string(&tg.base.name),
+        stack_size: tg.stack_size,
+        vendor_price: tg.vendor_price as i32,
+        description: convert_localized_string(&tg.base.description),
+    }
+}
+
+/// Convert a helix WeaponSkill to a DJ Engine WeaponSkillRow.
+pub fn weapon_skill_to_weapon_skill_row(
+    id: &str,
+    ws: &helix_data::weapon_skill::WeaponSkill,
+    _balance: Option<&BalanceOverlay>,
+) -> WeaponSkillRow {
+    WeaponSkillRow {
+        id: id.to_string(),
+        name: convert_localized_string(&ws.base.name),
+        weapon_type: ws.weapon_type.clone(),
+        classes: ws.classes.clone(),
+        max_skill: ws.max_skill,
+        description: convert_localized_string(&ws.base.description),
+    }
+}
+
+/// Populate a DJ Engine `Database` from all 22 typed Helix registries.
 ///
-/// Converts abilities→abilities, zones→zones, mobs→enemies, items→items,
-/// npcs→npcs, quests→quests, auras→auras, class_data→class_data,
-/// raids→raids, talents→talents, professions→professions, pvp→pvp,
-/// achievements→achievements, mounts→mounts, guilds→guilds.
 /// Balance overlays (if provided) are applied during conversion.
 pub fn populate_database_from_helix(
     registries: &HelixRegistries,
@@ -434,6 +545,47 @@ pub fn populate_database_from_helix(
         db.guilds.push(guild_to_guild_row(id, guild, overlay));
     }
 
+    for (id, consumable) in registries.consumables.iter() {
+        let overlay = balance.and_then(|b| b.get("consumables", id));
+        db.consumables
+            .push(consumable_to_consumable_row(id, consumable, overlay));
+    }
+
+    for (id, currency) in registries.currencies.iter() {
+        let overlay = balance.and_then(|b| b.get("currencies", id));
+        db.currencies
+            .push(currency_to_currency_row(id, currency, overlay));
+    }
+
+    for (id, equip) in registries.equipment.iter() {
+        let overlay = balance.and_then(|b| b.get("equipment", id));
+        db.equipment
+            .push(equipment_to_equipment_row(id, equip, overlay));
+    }
+
+    for (id, inv) in registries.inventory.iter() {
+        let overlay = balance.and_then(|b| b.get("inventory", id));
+        db.inventory
+            .push(inventory_to_inventory_row(id, inv, overlay));
+    }
+
+    for (id, title) in registries.titles.iter() {
+        let overlay = balance.and_then(|b| b.get("titles", id));
+        db.titles.push(title_to_title_row(id, title, overlay));
+    }
+
+    for (id, tg) in registries.trade_goods.iter() {
+        let overlay = balance.and_then(|b| b.get("trade_goods", id));
+        db.trade_goods
+            .push(trade_good_to_trade_good_row(id, tg, overlay));
+    }
+
+    for (id, ws) in registries.weapon_skills.iter() {
+        let overlay = balance.and_then(|b| b.get("weapon_skills", id));
+        db.weapon_skills
+            .push(weapon_skill_to_weapon_skill_row(id, ws, overlay));
+    }
+
     db
 }
 
@@ -444,6 +596,7 @@ mod tests {
     fn make_test_mob() -> helix_data::mob::Mob {
         helix_data::mob::Mob {
             base: helix_data::types::BaseEntity {
+                schema_version: None,
                 name: "Wolf".into(),
                 description: Default::default(),
                 category: String::new(),
@@ -476,6 +629,7 @@ mod tests {
     fn make_test_item() -> helix_data::item::Item {
         helix_data::item::Item {
             base: helix_data::types::BaseEntity {
+                schema_version: None,
                 name: "Health Potion".into(),
                 description: Default::default(),
                 category: String::new(),
@@ -533,6 +687,159 @@ mod tests {
         assert_eq!(row.max_stack, 20);
         assert_eq!(row.sell_value, 10);
         assert_eq!(row.price, 50);
+    }
+
+    #[test]
+    fn consumable_to_consumable_row_basic() {
+        let c = helix_data::consumable::Consumable {
+            base: helix_data::types::BaseEntity {
+                schema_version: None,
+                name: "Health Potion".into(),
+                description: Default::default(),
+                category: String::new(),
+                tags: Vec::new(),
+            },
+            consumable_type: helix_data::consumable::ConsumableType::Potion,
+            effects: vec!["heal_50".into()],
+            duration: 0.0,
+            cooldown: 30.0,
+            stack_size: 20,
+            level_requirement: 0,
+        };
+        let row = consumable_to_consumable_row("health_potion", &c, None);
+        assert_eq!(row.id, "health_potion");
+        assert_eq!(row.consumable_type, "potion");
+        assert_eq!(row.stack_size, 20);
+        assert_eq!(row.cooldown, 30.0);
+    }
+
+    #[test]
+    fn currency_to_currency_row_basic() {
+        let c = helix_data::currency::Currency {
+            base: helix_data::types::BaseEntity {
+                schema_version: None,
+                name: "Gold".into(),
+                description: Default::default(),
+                category: String::new(),
+                tags: Vec::new(),
+            },
+            max_amount: 9999,
+            cap_per_week: Some(500),
+        };
+        let row = currency_to_currency_row("gold", &c, None);
+        assert_eq!(row.id, "gold");
+        assert_eq!(row.max_amount, 9999);
+    }
+
+    #[test]
+    fn equipment_to_equipment_row_basic() {
+        let e = helix_data::equipment::Equipment {
+            base: helix_data::types::BaseEntity {
+                schema_version: None,
+                name: "Iron Helm".into(),
+                description: Default::default(),
+                category: String::new(),
+                tags: Vec::new(),
+            },
+            slot: helix_data::item::EquipSlot::Head,
+            armor_type: Some(helix_data::equipment::ArmorType::Plate),
+            stats: vec![helix_data::types::StatModifier {
+                stat: "stamina".into(),
+                value: 10.0,
+            }],
+            level_requirement: 5,
+            quality: Some(helix_data::types::Rarity::Uncommon),
+            durability: 100,
+            set_id: None,
+            required_class: None,
+        };
+        let row = equipment_to_equipment_row("iron_helm", &e, None);
+        assert_eq!(row.id, "iron_helm");
+        assert_eq!(row.slot, "head");
+        assert_eq!(row.stats.len(), 1);
+        assert_eq!(row.level_requirement, 5);
+    }
+
+    #[test]
+    fn inventory_to_inventory_row_basic() {
+        let inv = helix_data::inventory::Inventory {
+            base: helix_data::types::BaseEntity {
+                schema_version: None,
+                name: "Backpack".into(),
+                description: Default::default(),
+                category: String::new(),
+                tags: Vec::new(),
+            },
+            slot_type: helix_data::inventory::SlotType::Bag,
+            capacity: 16,
+            allowed_types: Vec::new(),
+            default_unlocked: true,
+        };
+        let row = inventory_to_inventory_row("backpack", &inv, None);
+        assert_eq!(row.id, "backpack");
+        assert_eq!(row.slot_type, "bag");
+        assert_eq!(row.capacity, 16);
+    }
+
+    #[test]
+    fn title_to_title_row_basic() {
+        let t = helix_data::title::Title {
+            base: helix_data::types::BaseEntity {
+                schema_version: None,
+                name: "Champion".into(),
+                description: Default::default(),
+                category: String::new(),
+                tags: Vec::new(),
+            },
+            style: helix_data::title::TitleStyle::Prefix,
+            source: "achievement".into(),
+            source_id: Some("arena_100".into()),
+            display_format: None,
+        };
+        let row = title_to_title_row("champion", &t, None);
+        assert_eq!(row.id, "champion");
+        assert_eq!(row.style, "prefix");
+        assert_eq!(row.source, "achievement");
+    }
+
+    #[test]
+    fn trade_good_to_trade_good_row_basic() {
+        let tg = helix_data::trade_good::TradeGood {
+            base: helix_data::types::BaseEntity {
+                schema_version: None,
+                name: "Copper Ore".into(),
+                description: Default::default(),
+                category: String::new(),
+                tags: Vec::new(),
+            },
+            stack_size: 20,
+            vendor_price: 50,
+        };
+        let row = trade_good_to_trade_good_row("copper_ore", &tg, None);
+        assert_eq!(row.id, "copper_ore");
+        assert_eq!(row.stack_size, 20);
+        assert_eq!(row.vendor_price, 50);
+    }
+
+    #[test]
+    fn weapon_skill_to_weapon_skill_row_basic() {
+        let ws = helix_data::weapon_skill::WeaponSkill {
+            base: helix_data::types::BaseEntity {
+                schema_version: None,
+                name: "Swords".into(),
+                description: Default::default(),
+                category: String::new(),
+                tags: Vec::new(),
+            },
+            weapon_type: "sword".into(),
+            classes: vec!["warrior".into(), "paladin".into()],
+            max_skill: 300,
+        };
+        let row = weapon_skill_to_weapon_skill_row("swords", &ws, None);
+        assert_eq!(row.id, "swords");
+        assert_eq!(row.weapon_type, "sword");
+        assert_eq!(row.classes, vec!["warrior", "paladin"]);
+        assert_eq!(row.max_skill, 300);
     }
 
     #[test]

@@ -634,6 +634,115 @@ pub struct GuildRow {
     pub description: LocalizedString,
 }
 
+/// Consumable item definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct ConsumableRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    /// potion, food, drink, elixir, flask, bandage, scroll, consumable
+    #[serde(default)]
+    pub consumable_type: String,
+    #[serde(default)]
+    pub stack_size: u32,
+    #[serde(default)]
+    pub cooldown: f32,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Currency definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct CurrencyRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub max_amount: u32,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Equipment piece definition (armor/weapon with stats).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct EquipmentRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub slot: String,
+    #[serde(default)]
+    pub armor_value: i32,
+    /// Stat bonuses as (stat_name, value) pairs.
+    #[serde(default)]
+    pub stats: Vec<(String, f64)>,
+    #[serde(default)]
+    pub level_requirement: u32,
+    #[serde(default)]
+    pub rarity: Rarity,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Inventory slot/container definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct InventoryRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub slot_type: String,
+    #[serde(default)]
+    pub capacity: u32,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Display title definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct TitleRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    /// prefix or suffix
+    #[serde(default)]
+    pub style: String,
+    #[serde(default)]
+    pub source: String,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Trade good / crafting material definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct TradeGoodRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub stack_size: u32,
+    #[serde(default)]
+    pub vendor_price: i32,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
+/// Weapon skill proficiency definition.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct WeaponSkillRow {
+    pub id: String,
+    #[serde(default)]
+    pub name: LocalizedString,
+    #[serde(default)]
+    pub weapon_type: String,
+    #[serde(default)]
+    pub classes: Vec<String>,
+    #[serde(default)]
+    pub max_skill: u32,
+    #[serde(default)]
+    pub description: LocalizedString,
+}
+
 /// HashMap indices for O(1) lookups by entity ID.
 #[derive(Debug, Clone, Default)]
 pub struct DatabaseIndices {
@@ -654,6 +763,13 @@ pub struct DatabaseIndices {
     pub achievements: HashMap<String, usize>,
     pub mounts: HashMap<String, usize>,
     pub guilds: HashMap<String, usize>,
+    pub consumables: HashMap<String, usize>,
+    pub currencies: HashMap<String, usize>,
+    pub equipment: HashMap<String, usize>,
+    pub inventory: HashMap<String, usize>,
+    pub titles: HashMap<String, usize>,
+    pub trade_goods: HashMap<String, usize>,
+    pub weapon_skills: HashMap<String, usize>,
 }
 
 impl PartialEq for DatabaseIndices {
@@ -718,6 +834,27 @@ pub struct Database {
     /// Guild definitions
     #[serde(default)]
     pub guilds: Vec<GuildRow>,
+    /// Consumable definitions
+    #[serde(default)]
+    pub consumables: Vec<ConsumableRow>,
+    /// Currency definitions
+    #[serde(default)]
+    pub currencies: Vec<CurrencyRow>,
+    /// Equipment definitions
+    #[serde(default)]
+    pub equipment: Vec<EquipmentRow>,
+    /// Inventory slot definitions
+    #[serde(default)]
+    pub inventory: Vec<InventoryRow>,
+    /// Title definitions
+    #[serde(default)]
+    pub titles: Vec<TitleRow>,
+    /// Trade good definitions
+    #[serde(default)]
+    pub trade_goods: Vec<TradeGoodRow>,
+    /// Weapon skill definitions
+    #[serde(default)]
+    pub weapon_skills: Vec<WeaponSkillRow>,
     /// Lookup indices (not serialized)
     #[serde(skip)]
     pub indices: DatabaseIndices,
@@ -788,6 +925,27 @@ impl Database {
         }
         for (i, row) in self.guilds.iter().enumerate() {
             self.indices.guilds.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.consumables.iter().enumerate() {
+            self.indices.consumables.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.currencies.iter().enumerate() {
+            self.indices.currencies.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.equipment.iter().enumerate() {
+            self.indices.equipment.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.inventory.iter().enumerate() {
+            self.indices.inventory.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.titles.iter().enumerate() {
+            self.indices.titles.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.trade_goods.iter().enumerate() {
+            self.indices.trade_goods.insert(row.id.clone(), i);
+        }
+        for (i, row) in self.weapon_skills.iter().enumerate() {
+            self.indices.weapon_skills.insert(row.id.clone(), i);
         }
     }
 
@@ -941,6 +1099,69 @@ impl Database {
             self.guilds.get(idx)
         } else {
             self.guilds.iter().find(|g| g.id == id)
+        }
+    }
+
+    /// Find a consumable by ID (O(1) with index, O(n) fallback).
+    pub fn find_consumable(&self, id: &str) -> Option<&ConsumableRow> {
+        if let Some(&idx) = self.indices.consumables.get(id) {
+            self.consumables.get(idx)
+        } else {
+            self.consumables.iter().find(|c| c.id == id)
+        }
+    }
+
+    /// Find a currency by ID (O(1) with index, O(n) fallback).
+    pub fn find_currency(&self, id: &str) -> Option<&CurrencyRow> {
+        if let Some(&idx) = self.indices.currencies.get(id) {
+            self.currencies.get(idx)
+        } else {
+            self.currencies.iter().find(|c| c.id == id)
+        }
+    }
+
+    /// Find equipment by ID (O(1) with index, O(n) fallback).
+    pub fn find_equipment(&self, id: &str) -> Option<&EquipmentRow> {
+        if let Some(&idx) = self.indices.equipment.get(id) {
+            self.equipment.get(idx)
+        } else {
+            self.equipment.iter().find(|e| e.id == id)
+        }
+    }
+
+    /// Find an inventory slot by ID (O(1) with index, O(n) fallback).
+    pub fn find_inventory(&self, id: &str) -> Option<&InventoryRow> {
+        if let Some(&idx) = self.indices.inventory.get(id) {
+            self.inventory.get(idx)
+        } else {
+            self.inventory.iter().find(|i| i.id == id)
+        }
+    }
+
+    /// Find a title by ID (O(1) with index, O(n) fallback).
+    pub fn find_title(&self, id: &str) -> Option<&TitleRow> {
+        if let Some(&idx) = self.indices.titles.get(id) {
+            self.titles.get(idx)
+        } else {
+            self.titles.iter().find(|t| t.id == id)
+        }
+    }
+
+    /// Find a trade good by ID (O(1) with index, O(n) fallback).
+    pub fn find_trade_good(&self, id: &str) -> Option<&TradeGoodRow> {
+        if let Some(&idx) = self.indices.trade_goods.get(id) {
+            self.trade_goods.get(idx)
+        } else {
+            self.trade_goods.iter().find(|t| t.id == id)
+        }
+    }
+
+    /// Find a weapon skill by ID (O(1) with index, O(n) fallback).
+    pub fn find_weapon_skill(&self, id: &str) -> Option<&WeaponSkillRow> {
+        if let Some(&idx) = self.indices.weapon_skills.get(id) {
+            self.weapon_skills.get(idx)
+        } else {
+            self.weapon_skills.iter().find(|w| w.id == id)
         }
     }
 }

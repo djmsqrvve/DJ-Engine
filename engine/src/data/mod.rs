@@ -40,9 +40,10 @@ pub use custom::{
     ValidationSeverity,
 };
 pub use database::{
-    AbilityRow, AchievementRow, AuraRow, ClassDataRow, Database, EnemyRow, GuildRow, ItemRow,
-    LootTableRow, MountRow, NpcRow, ProfessionRow, PvpRow, QuestRow, RaidRow, TalentRow, TowerRow,
-    ZoneRow,
+    AbilityRow, AchievementRow, AuraRow, ClassDataRow, ConsumableRow, CurrencyRow, Database,
+    EnemyRow, EquipmentRow, GuildRow, InventoryRow, ItemRow, LootTableRow, MountRow, NpcRow,
+    ProfessionRow, PvpRow, QuestRow, RaidRow, TalentRow, TitleRow, TowerRow, TradeGoodRow,
+    WeaponSkillRow, ZoneRow,
 };
 pub use grid::Grid;
 pub use loader::{load_database, load_project, load_scene, load_story_graph, DataError};

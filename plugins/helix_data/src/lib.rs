@@ -1009,6 +1009,19 @@ fn validate_helix_currency_document(
 ) {
     validate_helix_document_payload(HELIX_CURRENCY_KIND, document, issues);
     validate_helix_localized_name(HELIX_CURRENCY_KIND, document, issues);
+    if let Some(max) = document.payload.get("max_amount").and_then(Value::as_u64) {
+        if max == 0 {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_currency_zero_max".into(),
+                source_kind: Some(HELIX_CURRENCY_KIND.to_string()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("max_amount".into()),
+                message: "Currency max_amount is 0 — players cannot hold any.".into(),
+                related_refs: Vec::<String>::new(),
+            });
+        }
+    }
 }
 
 fn validate_helix_guild_document(
@@ -1019,6 +1032,19 @@ fn validate_helix_guild_document(
 ) {
     validate_helix_document_payload(HELIX_GUILD_KIND, document, issues);
     validate_helix_localized_name(HELIX_GUILD_KIND, document, issues);
+    if let Some(max) = document.payload.get("max_members").and_then(Value::as_u64) {
+        if max == 0 {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_guild_zero_members".into(),
+                source_kind: Some(HELIX_GUILD_KIND.to_string()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("max_members".into()),
+                message: "Guild max_members is 0 — no one can join.".into(),
+                related_refs: Vec::<String>::new(),
+            });
+        }
+    }
 }
 
 fn validate_helix_inventory_document(
@@ -1029,6 +1055,19 @@ fn validate_helix_inventory_document(
 ) {
     validate_helix_document_payload(HELIX_INVENTORY_KIND, document, issues);
     validate_helix_localized_name(HELIX_INVENTORY_KIND, document, issues);
+    if let Some(cap) = document.payload.get("capacity").and_then(Value::as_u64) {
+        if cap == 0 {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_inventory_zero_capacity".into(),
+                source_kind: Some(HELIX_INVENTORY_KIND.to_string()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("capacity".into()),
+                message: "Inventory capacity is 0 — cannot hold items.".into(),
+                related_refs: Vec::<String>::new(),
+            });
+        }
+    }
 }
 
 fn validate_helix_mount_document(
@@ -1125,6 +1164,19 @@ fn validate_helix_title_document(
 ) {
     validate_helix_document_payload(HELIX_TITLE_KIND, document, issues);
     validate_helix_localized_name(HELIX_TITLE_KIND, document, issues);
+    if let Some(style) = document.payload.get("style").and_then(Value::as_str) {
+        if style != "prefix" && style != "suffix" {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_title_invalid_style".into(),
+                source_kind: Some(HELIX_TITLE_KIND.to_string()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("style".into()),
+                message: format!("Title style '{}' is not 'prefix' or 'suffix'.", style),
+                related_refs: Vec::<String>::new(),
+            });
+        }
+    }
 }
 
 fn validate_helix_trade_good_document(
@@ -1135,16 +1187,50 @@ fn validate_helix_trade_good_document(
 ) {
     validate_helix_document_payload(HELIX_TRADE_GOOD_KIND, document, issues);
     validate_helix_localized_name(HELIX_TRADE_GOOD_KIND, document, issues);
+    if let Some(stack) = document.payload.get("stack_size").and_then(Value::as_u64) {
+        if stack == 0 {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_trade_good_zero_stack".into(),
+                source_kind: Some(HELIX_TRADE_GOOD_KIND.to_string()),
+                source_id: Some(document.id.clone()),
+                field_path: Some("stack_size".into()),
+                message: "Trade good stack_size is 0.".into(),
+                related_refs: Vec::<String>::new(),
+            });
+        }
+    }
 }
 
 fn validate_helix_weapon_skill_document(
     document: &CustomDocument<Value>,
-    _loaded: &LoadedCustomDocuments,
+    loaded: &LoadedCustomDocuments,
     _project: &dj_engine::data::Project,
     issues: &mut Vec<ValidationIssue>,
 ) {
     validate_helix_document_payload(HELIX_WEAPON_SKILL_KIND, document, issues);
     validate_helix_localized_name(HELIX_WEAPON_SKILL_KIND, document, issues);
+    // Cross-ref: each class in classes[] should exist in helix_class_data.
+    if let Some(classes) = document.payload.get("classes").and_then(Value::as_array) {
+        for class_val in classes {
+            if let Some(class_id) = class_val.as_str() {
+                if loaded.get(HELIX_CLASS_DATA_KIND, class_id).is_none() {
+                    issues.push(ValidationIssue {
+                        severity: ValidationSeverity::Warning,
+                        code: "helix_weapon_skill_broken_class_ref".into(),
+                        source_kind: Some(HELIX_WEAPON_SKILL_KIND.to_string()),
+                        source_id: Some(document.id.clone()),
+                        field_path: Some("classes".into()),
+                        message: format!(
+                            "Referenced class '{}' not found in loaded documents.",
+                            class_id
+                        ),
+                        related_refs: vec![format!("{HELIX_CLASS_DATA_KIND}:{class_id}")],
+                    });
+                }
+            }
+        }
+    }
 }
 
 fn validate_helix_localized_name(
