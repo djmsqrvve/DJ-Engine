@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments, clippy::type_complexity, clippy::module_inception)]
 use bevy::prelude::*;
 use dj_engine::prelude::*;
 use types::DoomExeAppConfig;

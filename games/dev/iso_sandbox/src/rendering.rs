@@ -110,7 +110,6 @@ pub fn spawn_grid_system(mut commands: Commands, grid: Res<IsoGrid>) {
                 translation: pos,
                 rotation: Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
                 scale: Vec3::new(1.0, 0.5, 1.0),
-                ..default()
             },
         ));
     }
@@ -178,7 +177,6 @@ pub fn sync_entities_system(
                     translation: pos + Vec3::new(0.0, TILE_HEIGHT * 0.3, 0.5),
                     rotation: Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
                     scale: Vec3::new(1.0, 0.5, 1.0),
-                    ..default()
                 },
             ))
             .with_children(|parent| {
@@ -194,7 +192,6 @@ pub fn sync_entities_system(
                         // Counter-rotate the text so it reads normally.
                         rotation: Quat::from_rotation_z(-std::f32::consts::FRAC_PI_4),
                         scale: Vec3::new(1.0, 2.0, 1.0), // counter the parent's Y squish
-                        ..default()
                     },
                 ));
             });
@@ -224,7 +221,6 @@ pub fn sync_hover_system(
                 translation: pos + Vec3::Z * 0.3,
                 rotation: Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
                 scale: Vec3::new(1.0, 0.5, 1.0),
-                ..default()
             },
         ));
     }

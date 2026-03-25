@@ -398,10 +398,13 @@ mod tests {
             toml::Value::Boolean(true)
         );
         assert_eq!(json_to_toml(&json!(42)).unwrap(), toml::Value::Integer(42));
-        assert_eq!(
-            json_to_toml(&json!(3.14)).unwrap(),
-            toml::Value::Float(3.14)
-        );
+        #[allow(clippy::approx_constant)]
+        {
+            assert_eq!(
+                json_to_toml(&json!(3.14)).unwrap(),
+                toml::Value::Float(3.14)
+            );
+        }
         assert_eq!(
             json_to_toml(&json!("hello")).unwrap(),
             toml::Value::String("hello".into())

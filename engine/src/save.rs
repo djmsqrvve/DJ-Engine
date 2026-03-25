@@ -253,7 +253,7 @@ mod tests {
         let loaded: SaveData = serde_json::from_str(&json).unwrap();
 
         assert_eq!(loaded.flags.len(), 2);
-        assert_eq!(loaded.flags["intro_complete"], true);
+        assert!(loaded.flags["intro_complete"]);
         assert_eq!(loaded.variables["health"], serde_json::json!(75));
         assert_eq!(loaded.current_node, Some(42));
         assert_eq!(loaded.game_state, "Overworld");
@@ -277,7 +277,7 @@ mod tests {
 
         let loaded_json = std::fs::read_to_string(&path).unwrap();
         let loaded: SaveData = serde_json::from_str(&loaded_json).unwrap();
-        assert_eq!(loaded.flags["flag_a"], true);
+        assert!(loaded.flags["flag_a"]);
         assert_eq!(loaded.game_state, "Battle");
     }
 
@@ -356,7 +356,7 @@ mod tests {
             assert!(has_save(slot));
 
             let loaded = load_game(slot).unwrap();
-            assert_eq!(loaded.flags["test_flag"], true);
+            assert!(loaded.flags["test_flag"]);
             assert_eq!(loaded.game_state, "Overworld");
             assert_eq!(loaded.current_node, Some(5));
 

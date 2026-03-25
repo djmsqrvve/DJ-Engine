@@ -1,3 +1,10 @@
+#![allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::upper_case_acronyms,
+    clippy::module_inception,
+    clippy::drop_non_drop
+)]
 //! DJ Engine - Core shared library for cursed narrative games
 //!
 //! This crate provides the foundational systems for building procedural

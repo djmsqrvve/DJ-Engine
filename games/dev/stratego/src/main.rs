@@ -1,3 +1,4 @@
+#![allow(dead_code, clippy::too_many_arguments, clippy::type_complexity)]
 //! Stratego-lite — a turn-based board game tutorial for DJ Engine.
 
 use bevy::prelude::*;

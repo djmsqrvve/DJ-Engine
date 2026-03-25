@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
 use bevy::prelude::*;
 use dj_engine::data::{
     AppCustomDocumentExt, CustomDocument, CustomDocumentRegistration, DJDataRegistryPlugin,
