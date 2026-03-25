@@ -7,7 +7,7 @@ Structured procedure for verifying DJ Engine works end-to-end. Run this before a
 Run these first. If any fail, fix before proceeding.
 
 ```bash
-make validate    # fmt + clippy + test + contracts + test count (490+ required)
+make validate    # fmt + clippy + test + contracts + test count (495+ required)
 ```
 
 Individual steps if validate fails:
@@ -15,13 +15,13 @@ Individual steps if validate fails:
 ```bash
 cargo fmt --all --check                           # formatting
 cargo clippy --workspace --all-targets -- -D warnings  # lint
-cargo test --workspace                             # 497+ tests
+cargo test --workspace                             # 499+ tests
 make contracts                                     # API surface check
 ```
 
 - [ ] `make validate` passes
 - [ ] Zero clippy warnings
-- [ ] Test count >= 490
+- [ ] Test count >= 495
 
 ## Automated Smoke Tests
 
@@ -204,3 +204,34 @@ After completing visual tests:
 - [ ] File GitHub issues for any crashes or incorrect behavior
 - [ ] Update `docs/CURRENT_GAPS.md` with visual test findings
 - [ ] If all cards pass: tag `v0.2.0` release
+
+---
+
+## Test Session Log
+
+### Session: 2026-03-25
+
+**Pre-flight:** 499 tests, 0 failures, 0 clippy warnings
+
+| Card            | Result     | Notes                                                                                                                                                                                                                                                              |
+| --------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1: RPG Demo     | PASS       | Window opens, HUD visible, Space attacks, HP drops, quest completes. User initially read own HP instead of enemy HP -- HUD working correctly.                                                                                                                      |
+| 2: DoomExe      | PARTIAL    | Title screen loads. New Game -> hamster encounter works. Battle triggers but resolves instantly (one-hit kill). Objective HUD stuck on "Find the Narrator" after narrator conversation -- fixed via StoryFlags + StoryState bridge. Objective navigator added.        |
+| 3: Helix RPG    | NOT TESTED | Blocked on Card 2 fixes consuming session time.                                                                                                                                                                                                                    |
+| 4: Stratego     | NOT TESTED |                                                                                                                                                                                                                                                                    |
+| 5: Iso Sandbox  | NOT TESTED |                                                                                                                                                                                                                                                                    |
+| 6: Editor       | NOT TESTED |                                                                                                                                                                                                                                                                    |
+
+**Fixes shipped during session:**
+
+- `af91017` debug(doomexe): add dialogue input diagnostics for stuck state
+- `146c7e1` feat: runtime debug console (F1) + DoomExe log filter
+- `08fc8e9` feat: objective navigator -- [ and ] keys cycle through checkpoints
+- `7c43e68` fix(doomexe): HUD objective reads engine StoryFlags + game StoryState
+- `7b099da` fix(doomexe): 3 contract issues -- flags, database, input
+
+**Issues found:**
+
+- Camera ambiguity warning (2 cameras spawned) -- log spam, needs dedup
+- DoomExe battle resolves too fast (no attack cooldown)
+- Economy and Character systems not exercised by any game yet

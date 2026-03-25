@@ -1,6 +1,6 @@
 # DJ-Engine Roadmap
 
-Status as of 2026-03-25: 497 tests passing, zero failures. Phase 1-4 complete, runtime deepening shipped. 16 gameplay systems: combat, quests, inventory, interaction, animation, spawner, status effects, abilities, loot, economy (consumables, equipment, vendor), character (titles, weapon skills), Lua API (8 tables). Three game crates: DoomExe, Stratego, Iso Sandbox.
+Status as of 2026-03-25: 499 tests passing, zero failures, zero clippy warnings. Phase 1-5 complete, runtime deepening shipped. 18 gameplay systems: combat, combat FX (floating text), quests, inventory, interaction, animation, spawner, status effects, ability cooldowns, loot, economy (consumables, equipment, vendor), character (titles, weapon skills, bags), Lua API (8 tables), debug console, objective navigator. Five game crates: DoomExe, Stratego, Iso Sandbox, RPG Demo (SDK reference), Helix RPG (MMORPG data consumer). QA checklist with 6 visual test cards.
 
 ## Phase 1: Quick Wins (1 session)
 
@@ -90,9 +90,11 @@ Status as of 2026-03-25: 497 tests passing, zero failures. Phase 1-4 complete, r
 
 ## Suggested Session Order
 
-| Session | Work | Tests After |
-|---------|------|-------------|
-| Next | Phase 2: Audio crossfade | ~310 |
-| +1 | Phase 3: Save/load | ~320 |
-| +2-4 | Phase 4: CRT pipeline | ~330 |
-| +5-7 | Phase 5: Physics/collision | ~345 |
+| Session | Work                     | Tests After |
+| ------- | ------------------------ | ----------- |
+| Done    | Phase 1: Quick wins      | 302         |
+| Done    | Phase 2: Audio crossfade | 411         |
+| Done    | Runtime deepening        | 499         |
+| Next    | Phase 3: Save/load       | ~510        |
+| +1      | Phase 4: CRT pipeline    | ~520        |
+| +2      | Phase 5: Physics/collision | ~535      |
