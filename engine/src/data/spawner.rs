@@ -99,6 +99,89 @@ impl SpawnerRuntimeState {
     }
 }
 
+/// Event fired when a spawner should create an enemy entity.
+#[derive(Message, Debug, Clone, PartialEq)]
+pub struct SpawnWaveEvent {
+    /// The spawner entity that triggered this.
+    pub spawner: Entity,
+    /// The enemy template ID to spawn.
+    pub enemy_template_id: String,
+    /// Position to spawn at (spawner's position).
+    pub position: Vec3,
+    /// Path ID for the spawned enemy to follow.
+    pub path_id: Option<String>,
+}
+
+/// System that ticks spawner timers and emits [`SpawnWaveEvent`] when ready.
+pub fn tick_spawners(
+    time: Res<Time>,
+    mut query: Query<(
+        Entity,
+        &Transform,
+        &SpawnerComponent,
+        &mut SpawnerRuntimeState,
+    )>,
+    mut events: MessageWriter<SpawnWaveEvent>,
+) {
+    let dt = time.delta_secs();
+
+    for (entity, transform, component, mut state) in query.iter_mut() {
+        if state.completed {
+            continue;
+        }
+
+        // Wait for start delay
+        if state.time_until_start > 0.0 {
+            state.time_until_start -= dt;
+            continue;
+        }
+
+        let Some(wave_index) = state.current_wave_index else {
+            continue;
+        };
+
+        let Some(wave) = component.waves.get(wave_index) else {
+            state.completed = true;
+            continue;
+        };
+
+        // Tick spawn timer
+        state.time_until_next_spawn -= dt;
+        if state.time_until_next_spawn > 0.0 {
+            continue;
+        }
+
+        // Spawn an enemy
+        events.write(SpawnWaveEvent {
+            spawner: entity,
+            enemy_template_id: wave.enemy_template_id.clone(),
+            position: transform.translation,
+            path_id: state.path_id.clone(),
+        });
+
+        state.remaining_in_wave = state.remaining_in_wave.saturating_sub(1);
+        state.time_until_next_spawn = wave.interval;
+
+        // Check if wave is done
+        if state.remaining_in_wave == 0 {
+            let next_index = wave_index + 1;
+            if next_index < component.waves.len() {
+                // Advance to next wave
+                state.current_wave_index = Some(next_index);
+                state.remaining_in_wave = component.waves[next_index].count;
+                state.time_until_next_spawn = component.spawn_interval;
+            } else if state.loop_waves {
+                // Loop back to first wave
+                state.current_wave_index = Some(0);
+                state.remaining_in_wave = component.waves[0].count;
+                state.time_until_next_spawn = component.spawn_interval;
+            } else {
+                state.completed = true;
+            }
+        }
+    }
+}
+
 /// Convert Vec3Data to Bevy Vec3.
 impl From<Vec3Data> for Vec3 {
     fn from(v: Vec3Data) -> Self {
@@ -253,7 +336,8 @@ impl Plugin for SceneDataPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LoadedScene>()
             .register_type::<SpawnerRuntimeState>()
-            .add_systems(Update, spawn_scene_entities);
+            .add_message::<SpawnWaveEvent>()
+            .add_systems(Update, (spawn_scene_entities, tick_spawners));
     }
 }
 
@@ -464,5 +548,121 @@ mod tests {
         assert!((runtime.time_until_next_spawn - 1.25).abs() < f32::EPSILON);
         assert!(runtime.loop_waves);
         assert_eq!(runtime.path_id.as_deref(), Some("route_01"));
+    }
+
+    #[test]
+    fn test_tick_spawner_emits_events() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<SpawnWaveEvent>();
+        app.add_systems(Update, tick_spawners);
+
+        let component = SpawnerComponent {
+            wave_count: 1,
+            spawn_interval: 0.0,
+            start_delay: 0.0,
+            loop_waves: false,
+            waves: vec![SpawnerWave {
+                enemy_template_id: "goblin".into(),
+                count: 2,
+                interval: 0.0,
+            }],
+            path_id: None,
+        };
+        let state = SpawnerRuntimeState::from_component(&component);
+
+        app.world_mut()
+            .spawn((Transform::from_xyz(100.0, 200.0, 0.0), component, state));
+
+        // First update spawns first enemy
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(16));
+        app.update();
+
+        // Second update spawns second and completes
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(16));
+        app.update();
+
+        // Verify spawner completed
+        let mut query = app.world_mut().query::<&SpawnerRuntimeState>();
+        let state = query.single(app.world()).unwrap();
+        assert!(state.completed);
+    }
+
+    #[test]
+    fn test_tick_spawner_respects_start_delay() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<SpawnWaveEvent>();
+        app.add_systems(Update, tick_spawners);
+
+        let component = SpawnerComponent {
+            wave_count: 1,
+            spawn_interval: 0.0,
+            start_delay: 1.0, // 1 second delay
+            loop_waves: false,
+            waves: vec![SpawnerWave {
+                enemy_template_id: "wolf".into(),
+                count: 1,
+                interval: 0.0,
+            }],
+            path_id: None,
+        };
+        let state = SpawnerRuntimeState::from_component(&component);
+
+        app.world_mut()
+            .spawn((Transform::from_xyz(0.0, 0.0, 0.0), component, state));
+
+        // Tick 0.5s — should still be waiting
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(std::time::Duration::from_millis(500));
+        app.update();
+
+        let mut query = app.world_mut().query::<&SpawnerRuntimeState>();
+        let state = query.single(app.world()).unwrap();
+        assert!(!state.completed);
+        assert!(state.time_until_start > 0.0);
+    }
+
+    #[test]
+    fn test_tick_spawner_loops_waves() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<SpawnWaveEvent>();
+        app.add_systems(Update, tick_spawners);
+
+        let component = SpawnerComponent {
+            wave_count: 1,
+            spawn_interval: 0.0,
+            start_delay: 0.0,
+            loop_waves: true,
+            waves: vec![SpawnerWave {
+                enemy_template_id: "bat".into(),
+                count: 1,
+                interval: 0.0,
+            }],
+            path_id: None,
+        };
+        let state = SpawnerRuntimeState::from_component(&component);
+
+        app.world_mut()
+            .spawn((Transform::from_xyz(0.0, 0.0, 0.0), component, state));
+
+        // Run several ticks
+        for _ in 0..5 {
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(std::time::Duration::from_millis(16));
+            app.update();
+        }
+
+        // Should NOT be completed (loops forever)
+        let mut query = app.world_mut().query::<&SpawnerRuntimeState>();
+        let state = query.single(app.world()).unwrap();
+        assert!(!state.completed);
     }
 }
