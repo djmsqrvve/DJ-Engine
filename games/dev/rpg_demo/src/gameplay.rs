@@ -348,6 +348,12 @@ fn update_hud(
         "You: {}/{}  Enemy: {}  Gold: {}  Potions: {}  Gel: {}  Quest: {}  [Space=Attack]",
         stats.hp, stats.max_hp, enemy_hp, gold, potions, slime_gel, quest_status
     );
+
+    // Debug: log when HUD actually changes
+    if text.0 != new_text {
+        info!("HUD UPDATE: {}", new_text);
+    }
+
     *text = Text::new(new_text);
 }
 
