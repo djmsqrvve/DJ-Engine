@@ -32,6 +32,25 @@ pub enum LuaEcsCommand {
         x: f32,
         y: f32,
     },
+    QuestAccept {
+        quest_id: String,
+    },
+    QuestProgress {
+        quest_id: String,
+        objective_id: String,
+        amount: u32,
+    },
+    QuestComplete {
+        quest_id: String,
+    },
+    QuestAbandon {
+        quest_id: String,
+    },
+    CombatAttack {
+        attacker_id: u64,
+        target_id: u64,
+        flat_damage: Option<i32>,
+    },
 }
 
 /// Read-only query results returned to Lua.
@@ -135,6 +154,69 @@ pub fn register_ecs_bridge(lua: &mlua::Lua, buffer: LuaCommandBuffer) -> mlua::R
     })?;
     ecs.set("set_position", set_pos_fn)?;
 
+    // quest.accept(quest_id)
+    let buf = buffer.clone();
+    let quest_accept_fn = lua.create_function(move |_, quest_id: String| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::QuestAccept { quest_id });
+        Ok(())
+    })?;
+
+    // quest.progress(quest_id, objective_id, amount)
+    let buf = buffer.clone();
+    let quest_progress_fn = lua.create_function(
+        move |_, (quest_id, objective_id, amount): (String, String, u32)| {
+            let mut cmds = buf.commands.lock().unwrap();
+            cmds.push(LuaEcsCommand::QuestProgress {
+                quest_id,
+                objective_id,
+                amount,
+            });
+            Ok(())
+        },
+    )?;
+
+    // quest.complete(quest_id)
+    let buf = buffer.clone();
+    let quest_complete_fn = lua.create_function(move |_, quest_id: String| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::QuestComplete { quest_id });
+        Ok(())
+    })?;
+
+    // quest.abandon(quest_id)
+    let buf = buffer.clone();
+    let quest_abandon_fn = lua.create_function(move |_, quest_id: String| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::QuestAbandon { quest_id });
+        Ok(())
+    })?;
+
+    let quest_table = lua.create_table()?;
+    quest_table.set("accept", quest_accept_fn)?;
+    quest_table.set("progress", quest_progress_fn)?;
+    quest_table.set("complete", quest_complete_fn)?;
+    quest_table.set("abandon", quest_abandon_fn)?;
+    lua.globals().set("quest", quest_table)?;
+
+    // combat.attack(attacker_id, target_id, [flat_damage])
+    let buf = buffer.clone();
+    let combat_attack_fn = lua.create_function(
+        move |_, (attacker_id, target_id, flat): (u64, u64, Option<i32>)| {
+            let mut cmds = buf.commands.lock().unwrap();
+            cmds.push(LuaEcsCommand::CombatAttack {
+                attacker_id,
+                target_id,
+                flat_damage: flat,
+            });
+            Ok(())
+        },
+    )?;
+
+    let combat_table = lua.create_table()?;
+    combat_table.set("attack", combat_attack_fn)?;
+    lua.globals().set("combat", combat_table)?;
+
     lua.globals().set("ecs", ecs)?;
     Ok(())
 }
@@ -204,6 +286,8 @@ pub fn process_lua_commands(
     buffer: Res<LuaCommandBuffer>,
     mut transforms: Query<&mut Transform>,
     mut visibilities: Query<&mut Visibility>,
+    mut quest_journal: ResMut<crate::quest::QuestJournal>,
+    mut combat_events: MessageWriter<crate::combat::CombatEvent>,
 ) {
     let mut cmds = buffer.commands.lock().unwrap();
     for cmd in cmds.drain(..) {
@@ -247,6 +331,42 @@ pub fn process_lua_commands(
                 } else {
                     warn!("Lua: set_position failed — entity {entity_id} has no Transform");
                 }
+            }
+            LuaEcsCommand::QuestAccept { quest_id } => {
+                if quest_journal.accept(&quest_id) {
+                    info!("Lua: accepted quest '{quest_id}'");
+                } else {
+                    warn!("Lua: could not accept quest '{quest_id}'");
+                }
+            }
+            LuaEcsCommand::QuestProgress {
+                quest_id,
+                objective_id,
+                amount,
+            } => {
+                let complete = quest_journal.progress_objective(&quest_id, &objective_id, amount);
+                if complete {
+                    info!("Lua: quest '{quest_id}' objective '{objective_id}' complete");
+                }
+            }
+            LuaEcsCommand::QuestComplete { quest_id } => {
+                quest_journal.complete(&quest_id);
+                info!("Lua: completed quest '{quest_id}'");
+            }
+            LuaEcsCommand::QuestAbandon { quest_id } => {
+                quest_journal.abandon(&quest_id);
+                info!("Lua: abandoned quest '{quest_id}'");
+            }
+            LuaEcsCommand::CombatAttack {
+                attacker_id,
+                target_id,
+                flat_damage,
+            } => {
+                combat_events.write(crate::combat::CombatEvent {
+                    attacker: Entity::from_bits(attacker_id),
+                    target: Entity::from_bits(target_id),
+                    flat_damage,
+                });
             }
         }
     }
@@ -361,6 +481,17 @@ mod tests {
     use super::*;
     use mlua::Lua;
 
+    /// Set up an App with all resources needed by process_lua_commands.
+    fn app_with_lua_commands(buffer: LuaCommandBuffer) -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(buffer);
+        app.init_resource::<crate::quest::QuestJournal>();
+        app.add_message::<crate::combat::CombatEvent>();
+        app.add_systems(Update, process_lua_commands);
+        app
+    }
+
     #[test]
     fn test_command_buffer_default_empty() {
         let buffer = LuaCommandBuffer::default();
@@ -430,10 +561,7 @@ mod tests {
 
     #[test]
     fn test_process_lua_commands_spawns_entity() {
-        let mut app = App::new();
         let buffer = LuaCommandBuffer::default();
-
-        // Push a spawn command into the buffer
         {
             let mut cmds = buffer.commands.lock().unwrap();
             cmds.push(LuaEcsCommand::SpawnEntity {
@@ -441,8 +569,7 @@ mod tests {
             });
         }
 
-        app.insert_resource(buffer);
-        app.add_systems(Update, process_lua_commands);
+        let mut app = app_with_lua_commands(buffer);
         app.update();
 
         // Verify entity was spawned with the expected Name
@@ -507,14 +634,9 @@ mod tests {
 
     #[test]
     fn test_process_set_position_updates_transform() {
-        let mut app = App::new();
         let buffer = LuaCommandBuffer::default();
-
-        // Spawn an entity with a Transform
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(buffer.clone());
-        app.add_systems(Update, process_lua_commands);
-        app.update(); // initialize
+        let mut app = app_with_lua_commands(buffer.clone());
+        app.update();
 
         let entity = app
             .world_mut()
@@ -540,12 +662,8 @@ mod tests {
 
     #[test]
     fn test_process_set_field_transform_x() {
-        let mut app = App::new();
         let buffer = LuaCommandBuffer::default();
-
-        app.add_plugins(MinimalPlugins);
-        app.insert_resource(buffer.clone());
-        app.add_systems(Update, process_lua_commands);
+        let mut app = app_with_lua_commands(buffer.clone());
         app.update();
 
         let entity = app
@@ -597,7 +715,6 @@ mod tests {
 
     #[test]
     fn test_multiple_commands_processed() {
-        let mut app = App::new();
         let buffer = LuaCommandBuffer::default();
 
         // Push 3 spawn commands
@@ -614,8 +731,7 @@ mod tests {
             });
         }
 
-        app.insert_resource(buffer.clone());
-        app.add_systems(Update, process_lua_commands);
+        let mut app = app_with_lua_commands(buffer.clone());
         app.update();
 
         // All 3 should be processed (buffer drained)
@@ -669,5 +785,90 @@ mod tests {
             .eval()
             .unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_lua_quest_accept_queues_command() {
+        let lua = Lua::new();
+        let buffer = LuaCommandBuffer::default();
+        register_ecs_bridge(&lua, buffer.clone()).unwrap();
+
+        lua.load(r#"quest.accept("guard_patrol")"#).exec().unwrap();
+
+        let cmds = buffer.commands.lock().unwrap();
+        assert_eq!(cmds.len(), 1);
+        match &cmds[0] {
+            LuaEcsCommand::QuestAccept { quest_id } => {
+                assert_eq!(quest_id, "guard_patrol");
+            }
+            other => panic!("Expected QuestAccept, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_lua_quest_progress_queues_command() {
+        let lua = Lua::new();
+        let buffer = LuaCommandBuffer::default();
+        register_ecs_bridge(&lua, buffer.clone()).unwrap();
+
+        lua.load(r#"quest.progress("guard_patrol", "kill_wolves", 3)"#)
+            .exec()
+            .unwrap();
+
+        let cmds = buffer.commands.lock().unwrap();
+        assert_eq!(cmds.len(), 1);
+        match &cmds[0] {
+            LuaEcsCommand::QuestProgress {
+                quest_id,
+                objective_id,
+                amount,
+            } => {
+                assert_eq!(quest_id, "guard_patrol");
+                assert_eq!(objective_id, "kill_wolves");
+                assert_eq!(*amount, 3);
+            }
+            other => panic!("Expected QuestProgress, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_lua_combat_attack_queues_command() {
+        let lua = Lua::new();
+        let buffer = LuaCommandBuffer::default();
+        register_ecs_bridge(&lua, buffer.clone()).unwrap();
+
+        lua.load("combat.attack(1, 2)").exec().unwrap();
+
+        let cmds = buffer.commands.lock().unwrap();
+        assert_eq!(cmds.len(), 1);
+        match &cmds[0] {
+            LuaEcsCommand::CombatAttack {
+                attacker_id,
+                target_id,
+                flat_damage,
+            } => {
+                assert_eq!(*attacker_id, 1);
+                assert_eq!(*target_id, 2);
+                assert!(flat_damage.is_none());
+            }
+            other => panic!("Expected CombatAttack, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_lua_combat_attack_with_flat_damage() {
+        let lua = Lua::new();
+        let buffer = LuaCommandBuffer::default();
+        register_ecs_bridge(&lua, buffer.clone()).unwrap();
+
+        lua.load("combat.attack(1, 2, 50)").exec().unwrap();
+
+        let cmds = buffer.commands.lock().unwrap();
+        match &cmds[0] {
+            LuaEcsCommand::CombatAttack { flat_damage, .. } => {
+                assert_eq!(*flat_damage, Some(50));
+            }
+            other => panic!("Expected CombatAttack, got {:?}", other),
+        }
     }
 }
