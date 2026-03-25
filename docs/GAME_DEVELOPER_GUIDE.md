@@ -202,6 +202,100 @@ fn on_loot(mut events: MessageReader<LootDropEvent>) {
 
 Set up loot tables in the `Database` resource at startup.
 
+## Consumables
+
+Use consumable items from Database definitions. `UseConsumableRequest` checks inventory, looks up `ConsumableRow`, removes the item, and applies the effect:
+
+```rust
+use dj_engine::economy::UseConsumableRequest;
+
+fn use_potion(
+    mut requests: MessageWriter<UseConsumableRequest>,
+    player: Query<Entity, With<Player>>,
+) {
+    let player = player.single().unwrap();
+    requests.write(UseConsumableRequest {
+        entity: player,
+        consumable_id: "health_potion".into(),
+    });
+}
+```
+
+React to `ConsumableUsedEvent` for feedback (Success/NotFound/NotInInventory).
+
+## Equipment
+
+Equip items from Database. `EquipItemRequest` looks up `EquipmentRow`, assigns to the correct slot, and modifies `CombatStatsComponent` with armor and stat bonuses:
+
+```rust
+use dj_engine::economy::EquipItemRequest;
+
+fn equip_helm(
+    mut requests: MessageWriter<EquipItemRequest>,
+    player: Query<Entity, With<Player>>,
+) {
+    let player = player.single().unwrap();
+    requests.write(EquipItemRequest {
+        entity: player,
+        equipment_id: "iron_helm".into(),
+    });
+}
+```
+
+The player entity needs `EquipmentSlotsComponent` and `CombatStatsComponent`. Previously equipped items are returned to inventory automatically.
+
+## Vendor Trading
+
+Buy and sell items using Database prices. `VendorBuyRequest` looks up price from `ItemRow.price` or `TradeGoodRow.vendor_price`, deducts currency, adds item. `VendorSellRequest` sells at `ItemRow.sell_value`:
+
+```rust
+use dj_engine::economy::{VendorBuyRequest, VendorSellRequest};
+
+fn buy_from_vendor(mut requests: MessageWriter<VendorBuyRequest>) {
+    requests.write(VendorBuyRequest {
+        item_id: "health_potion".into(),
+        currency_id: "gold".into(),
+    });
+}
+```
+
+## Titles
+
+Players earn and display titles from Database `TitleRow` definitions. Titles have a style ("prefix" or "suffix") that formats the player name:
+
+```rust
+use dj_engine::character::PlayerTitle;
+
+fn grant_title(mut title: ResMut<PlayerTitle>) {
+    title.earn("champion");
+    title.equip("champion");
+}
+
+fn display_name(title: Res<PlayerTitle>, database: Option<Res<Database>>) {
+    let name = title.format_name("PlayerOne", database.as_deref());
+    // → "Champion PlayerOne" (prefix) or "PlayerOne, the Brave" (suffix)
+}
+```
+
+## Weapon Skills
+
+Track weapon proficiency per type. `WeaponSkillRow` defines max skill level and class restrictions:
+
+```rust
+use dj_engine::character::WeaponProficiencies;
+
+fn on_attack(mut profs: ResMut<WeaponProficiencies>, database: Option<Res<Database>>) {
+    let new_level = profs.gain_skill("swords", 1, database.as_deref());
+    // Caps at max_skill from Database (e.g., 300)
+}
+
+fn can_use_weapon(profs: Res<WeaponProficiencies>, database: Option<Res<Database>>) {
+    if profs.can_class_use_weapon("swords", "warrior", database.as_deref()) {
+        // warrior can use swords
+    }
+}
+```
+
 ## Status Effects
 
 `apply_effect` adds buff/debuffs with duration and stacks. `tick_status_effects` runs automatically and fires `StatusEffectExpired` when effects run out:
@@ -240,7 +334,7 @@ The engine ticks frames automatically and updates `Sprite.texture_atlas.index`.
 
 ## Lua Scripting
 
-Four Lua tables are available for gameplay scripting:
+Eight Lua tables are available for gameplay scripting:
 
 ```lua
 -- Quest management
@@ -258,6 +352,17 @@ inventory.add_item("health_potion", 5, 10) -- id, qty, max_stack
 inventory.remove_item("health_potion", 1)
 inventory.add_currency("gold", 100)
 inventory.spend_currency("gold", 25)
+
+-- Economy (Database-driven)
+economy.use_consumable(entity_id, "health_potion") -- look up ConsumableRow, apply effect
+economy.equip(entity_id, "iron_helm")              -- look up EquipmentRow, modify stats
+economy.vendor_buy("health_potion")                -- deduct gold, add item
+economy.vendor_sell("wolf_pelt")                   -- remove item, add gold
+
+-- Character progression
+character.earn_title("champion")                   -- unlock title
+character.equip_title("champion")                  -- set active display title
+character.gain_weapon_skill("swords", 5)           -- increase proficiency
 
 -- ECS access
 ecs.set_position(entity_id, x, y)

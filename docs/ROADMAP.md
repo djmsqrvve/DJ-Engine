@@ -1,6 +1,6 @@
 # DJ-Engine Roadmap
 
-Status as of 2026-03-24: 466 tests passing, zero failures. Phase 1-4 complete, runtime deepening shipped (combat, quests, inventory, interaction, animation, spawner, status effects, Lua gameplay API). Three game crates: DoomExe, Stratego, Iso Sandbox.
+Status as of 2026-03-25: 497 tests passing, zero failures. Phase 1-4 complete, runtime deepening shipped. 16 gameplay systems: combat, quests, inventory, interaction, animation, spawner, status effects, abilities, loot, economy (consumables, equipment, vendor), character (titles, weapon skills), Lua API (8 tables). Three game crates: DoomExe, Stratego, Iso Sandbox.
 
 ## Phase 1: Quick Wins (1 session)
 
