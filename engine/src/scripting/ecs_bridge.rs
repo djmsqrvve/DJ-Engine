@@ -68,6 +68,20 @@ pub enum LuaEcsCommand {
         currency_id: String,
         amount: u64,
     },
+    UseConsumable {
+        entity_id: u64,
+        consumable_id: String,
+    },
+    EquipItem {
+        entity_id: u64,
+        equipment_id: String,
+    },
+    VendorBuy {
+        item_id: String,
+    },
+    VendorSell {
+        item_id: String,
+    },
 }
 
 /// Read-only query results returned to Lua.
@@ -286,6 +300,52 @@ pub fn register_ecs_bridge(lua: &mlua::Lua, buffer: LuaCommandBuffer) -> mlua::R
     inv_table.set("spend_currency", inv_spend_fn)?;
     lua.globals().set("inventory", inv_table)?;
 
+    // economy.use_consumable(entity_id, consumable_id)
+    let buf = buffer.clone();
+    let use_consumable_fn =
+        lua.create_function(move |_, (entity_id, consumable_id): (u64, String)| {
+            let mut cmds = buf.commands.lock().unwrap();
+            cmds.push(LuaEcsCommand::UseConsumable {
+                entity_id,
+                consumable_id,
+            });
+            Ok(())
+        })?;
+
+    // economy.equip(entity_id, equipment_id)
+    let buf = buffer.clone();
+    let equip_fn = lua.create_function(move |_, (entity_id, equipment_id): (u64, String)| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::EquipItem {
+            entity_id,
+            equipment_id,
+        });
+        Ok(())
+    })?;
+
+    // economy.vendor_buy(item_id)
+    let buf = buffer.clone();
+    let vendor_buy_fn = lua.create_function(move |_, item_id: String| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::VendorBuy { item_id });
+        Ok(())
+    })?;
+
+    // economy.vendor_sell(item_id)
+    let buf = buffer.clone();
+    let vendor_sell_fn = lua.create_function(move |_, item_id: String| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::VendorSell { item_id });
+        Ok(())
+    })?;
+
+    let econ_table = lua.create_table()?;
+    econ_table.set("use_consumable", use_consumable_fn)?;
+    econ_table.set("equip", equip_fn)?;
+    econ_table.set("vendor_buy", vendor_buy_fn)?;
+    econ_table.set("vendor_sell", vendor_sell_fn)?;
+    lua.globals().set("economy", econ_table)?;
+
     lua.globals().set("ecs", ecs)?;
     Ok(())
 }
@@ -358,6 +418,10 @@ pub fn process_lua_commands(
     mut quest_journal: ResMut<crate::quest::QuestJournal>,
     mut combat_events: MessageWriter<crate::combat::CombatEvent>,
     mut inventory: ResMut<crate::inventory::Inventory>,
+    mut consumable_events: MessageWriter<crate::economy::UseConsumableRequest>,
+    mut equip_events: MessageWriter<crate::economy::EquipItemRequest>,
+    mut vendor_buy_events: MessageWriter<crate::economy::VendorBuyRequest>,
+    mut vendor_sell_events: MessageWriter<crate::economy::VendorSellRequest>,
 ) {
     let mut cmds = buffer.commands.lock().unwrap();
     for cmd in cmds.drain(..) {
@@ -464,6 +528,36 @@ pub fn process_lua_commands(
                 if !inventory.spend_currency(&currency_id, amount) {
                     warn!("Lua: insufficient {currency_id} (need {amount})");
                 }
+            }
+            LuaEcsCommand::UseConsumable {
+                entity_id,
+                consumable_id,
+            } => {
+                consumable_events.write(crate::economy::UseConsumableRequest {
+                    entity: Entity::from_bits(entity_id),
+                    consumable_id,
+                });
+            }
+            LuaEcsCommand::EquipItem {
+                entity_id,
+                equipment_id,
+            } => {
+                equip_events.write(crate::economy::EquipItemRequest {
+                    entity: Entity::from_bits(entity_id),
+                    equipment_id,
+                });
+            }
+            LuaEcsCommand::VendorBuy { item_id } => {
+                vendor_buy_events.write(crate::economy::VendorBuyRequest {
+                    item_id,
+                    currency_id: "gold".into(),
+                });
+            }
+            LuaEcsCommand::VendorSell { item_id } => {
+                vendor_sell_events.write(crate::economy::VendorSellRequest {
+                    item_id,
+                    currency_id: "gold".into(),
+                });
             }
         }
     }
@@ -586,6 +680,10 @@ mod tests {
         app.init_resource::<crate::quest::QuestJournal>();
         app.insert_resource(crate::inventory::Inventory::new(20));
         app.add_message::<crate::combat::CombatEvent>();
+        app.add_message::<crate::economy::UseConsumableRequest>();
+        app.add_message::<crate::economy::EquipItemRequest>();
+        app.add_message::<crate::economy::VendorBuyRequest>();
+        app.add_message::<crate::economy::VendorSellRequest>();
         app.add_systems(Update, process_lua_commands);
         app
     }
