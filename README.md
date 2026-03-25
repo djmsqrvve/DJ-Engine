@@ -8,6 +8,7 @@
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.94.0-orange?style=flat-square" alt="Rust 1.94.0"></a>
   <a href="https://bevyengine.org/"><img src="https://img.shields.io/badge/Bevy-0.18-green?style=flat-square" alt="Bevy 0.18"></a>
   <a href="https://github.com/djmsqrvve/DJ-Engine/actions/workflows/ci.yml"><img src="https://github.com/djmsqrvve/DJ-Engine/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/tests-411-brightgreen?style=flat-square" alt="411 tests">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
 </p>
 
