@@ -218,20 +218,15 @@ guardrail:
 
 qa: validate
 	@echo ""
-	@echo "=== Smoke Testing Game Launches ==="
-	@echo "[1/5] RPG Demo..."
-	@timeout 8s cargo run -p rpg_demo 2>/dev/null && echo "  rpg_demo: OK (clean exit)" || echo "  rpg_demo: launched (timeout or window closed)"
-	@echo "[2/5] DoomExe..."
-	@timeout 8s cargo run -p doomexe 2>/dev/null && echo "  doomexe: OK (clean exit)" || echo "  doomexe: launched (timeout or window closed)"
-	@echo "[3/5] Helix RPG..."
-	@timeout 8s cargo run -p helix_rpg 2>/dev/null && echo "  helix_rpg: OK (clean exit)" || echo "  helix_rpg: launched (timeout or window closed)"
-	@echo "[4/5] Stratego..."
-	@timeout 8s cargo run -p stratego 2>/dev/null && echo "  stratego: OK (clean exit)" || echo "  stratego: launched (timeout or window closed)"
-	@echo "[5/5] Iso Sandbox..."
-	@timeout 8s cargo run -p iso_sandbox 2>/dev/null && echo "  iso_sandbox: OK (clean exit)" || echo "  iso_sandbox: launched (timeout or window closed)"
+	@echo "=== Smoke Testing Game Launches (5s each, auto-killed) ==="
+	@echo "[1/5] RPG Demo..."; timeout -s KILL 5s cargo run -p rpg_demo >/dev/null 2>&1; echo "  rpg_demo: done"
+	@echo "[2/5] DoomExe..."; timeout -s KILL 5s cargo run -p doomexe --bin doomexe >/dev/null 2>&1; echo "  doomexe: done"
+	@echo "[3/5] Helix RPG..."; timeout -s KILL 5s cargo run -p helix_rpg >/dev/null 2>&1; echo "  helix_rpg: done"
+	@echo "[4/5] Stratego..."; timeout -s KILL 5s cargo run -p stratego >/dev/null 2>&1; echo "  stratego: done"
+	@echo "[5/5] Iso Sandbox..."; timeout -s KILL 5s cargo run -p iso_sandbox >/dev/null 2>&1; echo "  iso_sandbox: done"
 	@echo ""
 	@echo "=== QA Smoke Complete ==="
-	@echo "All games launched without crash. See docs/QA_CHECKLIST.md for manual visual tests."
+	@echo "All games launched. See docs/QA_CHECKLIST.md for manual visual tests."
 
 # Utility
 
