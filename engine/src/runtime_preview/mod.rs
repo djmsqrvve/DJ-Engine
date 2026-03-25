@@ -250,6 +250,11 @@ impl Plugin for RuntimePreviewPlugin {
         if !app.is_plugin_added::<DJDataRegistryPlugin>() {
             app.add_plugins(DJDataRegistryPlugin);
         }
+        // Register InteractionEvent message if InteractionPlugin isn't loaded
+        // (the full plugin needs CollisionPlugin/SpatialHash which may not be present)
+        if !app.is_plugin_added::<crate::interaction::InteractionPlugin>() {
+            app.add_message::<crate::interaction::InteractionEvent>();
+        }
         app.init_state::<PreviewState>()
             .init_resource::<MountedProject>()
             .init_resource::<LoadedScene>()
@@ -295,6 +300,7 @@ impl Plugin for RuntimePreviewPlugin {
                 (
                     preview_player_movement.before(CollisionSet::MoveBodies),
                     preview_camera_follow_system.after(CollisionSet::MoveBodies),
+                    handle_npc_dialogue_interaction,
                 )
                     .run_if(in_state(PreviewState::Overworld)),
             )
@@ -1320,6 +1326,57 @@ fn preview_camera_follow_system(
     for mut camera_transform in &mut camera_query {
         camera_transform.translation =
             follow_camera_translation(camera_transform.translation, player_transform.translation);
+    }
+}
+
+/// When the player interacts with an NPC that has a dialogue_set_id,
+/// load the corresponding story graph and transition to dialogue mode.
+fn handle_npc_dialogue_interaction(
+    mut interaction_events: MessageReader<crate::interaction::InteractionEvent>,
+    mounted_project: Res<MountedProject>,
+    mut executor: ResMut<GraphExecutor>,
+    mut startup_content: ResMut<PreviewStartupContent>,
+    mut next_state: ResMut<NextState<PreviewState>>,
+) {
+    for event in interaction_events.read() {
+        let Some(dialogue_id) = &event.dialogue_set_id else {
+            continue;
+        };
+
+        if dialogue_id.is_empty() {
+            continue;
+        }
+
+        // Resolve story graph file from mounted project
+        let Some(root) = &mounted_project.root_path else {
+            warn!("NPC dialogue: no mounted project root");
+            continue;
+        };
+
+        let graph_path = root
+            .join("story_graphs")
+            .join(format!("{dialogue_id}.json"));
+        match crate::data::loader::load_story_graph(&graph_path) {
+            Ok(graph_data) => {
+                info!(
+                    "NPC dialogue: loading graph '{dialogue_id}' from {}",
+                    graph_path.display()
+                );
+                executor.load_from_data(&graph_data);
+                startup_content.story_graph = Some(graph_data);
+                next_state.set(PreviewState::Dialogue);
+            }
+            Err(e) => {
+                warn!(
+                    "NPC dialogue: failed to load '{}': {}",
+                    graph_path.display(),
+                    e
+                );
+            }
+        }
+
+        // Only handle one interaction per frame
+        break;
     }
 }
 
