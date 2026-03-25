@@ -151,6 +151,7 @@ pub fn update_dialogue_ui(
     mut portrait_query: Query<(&mut ImageNode, &mut BackgroundColor), With<PortraitImage>>,
     choice_query: Query<Entity, With<ChoiceSelector>>,
     mut next_state: ResMut<NextState<GameState>>,
+    battle_pending: Res<crate::story::BattlePending>,
     asset_server: Res<AssetServer>,
 ) {
     for event in events.read() {
@@ -230,7 +231,13 @@ pub fn update_dialogue_ui(
                 if let Ok(mut node) = ui_query.single_mut() {
                     node.display = Display::None;
                 }
-                next_state.set(GameState::Overworld);
+                // Don't return to Overworld if a battle was triggered by a
+                // story event in this or a previous frame.
+                if battle_pending.0 {
+                    info!("Dialogue complete — battle pending, not returning to overworld");
+                } else {
+                    next_state.set(GameState::Overworld);
+                }
             }
         }
     }

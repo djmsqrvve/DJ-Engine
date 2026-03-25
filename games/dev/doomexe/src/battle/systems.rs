@@ -1,6 +1,6 @@
 use crate::hamster::components::{CharacterRoot, Expression};
 use crate::state::GameState;
-use crate::story::StoryState;
+use crate::story::{BattlePending, StoryState};
 use bevy::prelude::*;
 use dj_engine::combat::{AttackCooldown, CombatEvent, DamageEvent};
 use dj_engine::data::components::CombatStatsComponent;
@@ -19,7 +19,8 @@ pub struct BattleEnemy;
 pub struct BattleInputDelay(pub Timer);
 
 /// Spawn battle entities with real combat stats.
-pub fn setup_battle_entities(mut commands: Commands) {
+pub fn setup_battle_entities(mut commands: Commands, mut battle_pending: ResMut<BattlePending>) {
+    battle_pending.0 = false; // Clear the flag now that we've entered battle
     commands.spawn((
         BattlePlayer,
         CombatStatsComponent {
