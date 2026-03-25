@@ -344,10 +344,11 @@ fn update_hud(
     let potions = inventory.count_item("health_potion");
     let slime_gel = inventory.count_item("slime_gel");
 
-    **text = format!(
+    let new_text = format!(
         "You: {}/{}  Enemy: {}  Gold: {}  Potions: {}  Gel: {}  Quest: {}  [Space=Attack]",
         stats.hp, stats.max_hp, enemy_hp, gold, potions, slime_gel, quest_status
     );
+    *text = Text::new(new_text);
 }
 
 /// Show victory screen when quest is complete.
