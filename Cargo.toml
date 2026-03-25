@@ -6,6 +6,7 @@ members = [
     "games/dev/stratego",
     "games/dev/iso_sandbox",
     "games/dev/rpg_demo",
+    "games/dev/helix_rpg",
     "plugins/helix_data",
     "tools/asset_generator"
 ]

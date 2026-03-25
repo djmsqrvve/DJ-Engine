@@ -268,6 +268,9 @@ pub struct EnemyRow {
     /// Attack damage
     #[serde(default)]
     pub damage: i32,
+    /// Defense value
+    #[serde(default)]
+    pub defense: i32,
     /// Movement speed
     #[serde(default = "default_speed")]
     pub speed: f32,
@@ -305,6 +308,7 @@ impl Default for EnemyRow {
             name: HashMap::new(),
             hp: 100,
             damage: 10,
+            defense: 0,
             speed: 100.0,
             experience: 50,
             loot_table_id: String::new(),

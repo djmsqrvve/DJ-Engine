@@ -114,6 +114,9 @@ iso:
 rpg-demo:
 	@cargo run -p rpg_demo
 
+helix-rpg:
+	@cargo run -p helix_rpg
+
 minimal:
 	@cargo run -p dj_engine --bin minimal
 

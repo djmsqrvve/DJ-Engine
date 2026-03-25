@@ -1,0 +1,18 @@
+[package]
+name = "helix_rpg"
+version = "0.1.0"
+edition = "2021"
+description = "Helix MMORPG prototype consuming 2,681 entities from the Helix standardization pipeline"
+repository.workspace = true
+license.workspace = true
+
+[features]
+default = ["dev"]
+dev = ["bevy/dynamic_linking"]
+
+[dependencies]
+bevy = { workspace = true }
+serde = { workspace = true }
+rand = { workspace = true }
+dj_engine = { path = "../../../engine" }
+dj_engine_helix = { path = "../../../plugins/helix_data" }

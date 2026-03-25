@@ -94,6 +94,9 @@ pub fn mob_to_enemy_row(
         damage: balance
             .and_then(|b| b.get_f64("damage_max"))
             .unwrap_or(mob.damage_max as f64) as i32,
+        defense: balance
+            .and_then(|b| b.get_f64("armor"))
+            .unwrap_or(mob.armor as f64) as i32,
         speed: balance
             .and_then(|b| b.get_f64("move_speed"))
             .unwrap_or(mob.move_speed) as f32,
