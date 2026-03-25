@@ -82,8 +82,8 @@ fn setup_world(
     mut quest_journal: ResMut<QuestJournal>,
     mut inventory: ResMut<Inventory>,
 ) {
-    // Camera
-    commands.spawn(Camera2d);
+    // Note: DJEnginePlugin's RenderingPlugin already spawns Camera2d (MainCamera + DisplayCamera).
+    // Do NOT spawn another Camera2d here — it causes order ambiguity warnings.
 
     // Player entity — demonstrates CombatStats, Cooldowns, InteractionSource, Movement
     commands.spawn((

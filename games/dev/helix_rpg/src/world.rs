@@ -83,7 +83,7 @@ fn setup_world(
     mut inventory: ResMut<Inventory>,
     database: Option<Res<Database>>,
 ) {
-    commands.spawn(Camera2d);
+    // DJEnginePlugin already spawns cameras — don't add another.
 
     // Player
     commands.spawn((
