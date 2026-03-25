@@ -319,6 +319,7 @@ fn update_hud(
     quest_journal: Res<QuestJournal>,
     inventory: Res<Inventory>,
     player_query: Query<&CombatStatsComponent, With<Player>>,
+    enemy_query: Query<&CombatStatsComponent, With<Enemy>>,
     mut text_query: Query<&mut Text, With<HudText>>,
 ) {
     let Ok(stats) = player_query.single() else {
@@ -327,6 +328,12 @@ fn update_hud(
     let Ok(mut text) = text_query.single_mut() else {
         return;
     };
+
+    let enemy_hp = enemy_query
+        .iter()
+        .next()
+        .map(|e| format!("{}/{}", e.hp, e.max_hp))
+        .unwrap_or_else(|| "DEFEATED".into());
 
     let quest_status = quest_journal
         .status("slay_slimes")
@@ -338,8 +345,8 @@ fn update_hud(
     let slime_gel = inventory.count_item("slime_gel");
 
     **text = format!(
-        "HP: {}/{} | Mana: {} | Gold: {} | Potions: {} | Slime Gel: {} | Quest: {}  [Space=Attack]",
-        stats.hp, stats.max_hp, stats.mana, gold, potions, slime_gel, quest_status
+        "You: {}/{}  Enemy: {}  Gold: {}  Potions: {}  Gel: {}  Quest: {}  [Space=Attack]",
+        stats.hp, stats.max_hp, enemy_hp, gold, potions, slime_gel, quest_status
     );
 }
 
