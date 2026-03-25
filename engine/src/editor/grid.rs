@@ -206,12 +206,8 @@ fn deserialize_tile_map<'de, D: serde::Deserializer<'de>>(
     for (key, tt) in raw {
         let parts: Vec<&str> = key.split(',').collect();
         if parts.len() == 2 {
-            let x = parts[0]
-                .parse::<i32>()
-                .map_err(serde::de::Error::custom)?;
-            let y = parts[1]
-                .parse::<i32>()
-                .map_err(serde::de::Error::custom)?;
+            let x = parts[0].parse::<i32>().map_err(serde::de::Error::custom)?;
+            let y = parts[1].parse::<i32>().map_err(serde::de::Error::custom)?;
             result.insert((x, y), tt);
         }
     }
@@ -277,7 +273,10 @@ impl Default for GridLevel {
             width: 60,
             height: 30,
             tile_size: 32.0,
-            layers: LayerType::ALL.iter().map(|&lt| TileLayer::new(lt)).collect(),
+            layers: LayerType::ALL
+                .iter()
+                .map(|&lt| TileLayer::new(lt))
+                .collect(),
             boundary_left: 0,
             boundary_right: 60,
             entities: Vec::new(),
@@ -305,9 +304,13 @@ impl GridLevel {
     pub fn copy_region(&self, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> ClipboardBuffer {
         let mut tiles = Vec::new();
         for layer in &self.layers {
-            if !layer.visible { continue; }
+            if !layer.visible {
+                continue;
+            }
             for (&(tx, ty), &tt) in &layer.tiles {
-                if tt == TileType::Empty { continue; }
+                if tt == TileType::Empty {
+                    continue;
+                }
                 if tx >= min_x && tx <= max_x && ty >= min_y && ty <= max_y {
                     tiles.push((tx - min_x, ty - min_y, layer.name, tt));
                 }
@@ -349,7 +352,7 @@ impl GridLevel {
         if !required.is_empty() {
             let has_support = required.iter().any(|&below| {
                 self.layer(below)
-                    .map_or(false, |l| l.tiles.contains_key(&(x, y)))
+                    .is_some_and(|l| l.tiles.contains_key(&(x, y)))
             });
             if !has_support {
                 return false;
@@ -452,9 +455,9 @@ impl GridLevel {
 
     /// Find entity at tile position (hit-test).
     pub fn entity_at(&self, tx: i32, ty: i32) -> Option<&LevelEntity> {
-        self.entities.iter().find(|e| {
-            tx >= e.x && tx < e.x + e.width && ty >= e.y && ty < e.y + e.height
-        })
+        self.entities
+            .iter()
+            .find(|e| tx >= e.x && tx < e.x + e.width && ty >= e.y && ty < e.y + e.height)
     }
 }
 
@@ -474,31 +477,157 @@ pub struct TilePaletteItem {
 /// The default palette. Colors match Helix2000's `DEFAULT_TILE_PALETTE`.
 pub const DEFAULT_PALETTE: &[TilePaletteItem] = &[
     // Ground (8)
-    TilePaletteItem { tile_type: TileType::Floor,  name: "Floor",  color: Color32::from_rgb(139, 115, 85),  layer: LayerType::Ground, label: 'F' },
-    TilePaletteItem { tile_type: TileType::Grass,  name: "Grass",  color: Color32::from_rgb(124, 252, 0),   layer: LayerType::Ground, label: 'G' },
-    TilePaletteItem { tile_type: TileType::Stone,  name: "Stone",  color: Color32::from_rgb(128, 128, 128), layer: LayerType::Ground, label: 'S' },
-    TilePaletteItem { tile_type: TileType::Wood,   name: "Wood",   color: Color32::from_rgb(210, 105, 30),  layer: LayerType::Ground, label: 'W' },
-    TilePaletteItem { tile_type: TileType::Water,  name: "Water",  color: Color32::from_rgb(30, 144, 255),  layer: LayerType::Ground, label: '~' },
-    TilePaletteItem { tile_type: TileType::Lava,   name: "Lava",   color: Color32::from_rgb(255, 69, 0),    layer: LayerType::Ground, label: '!' },
-    TilePaletteItem { tile_type: TileType::Ice,    name: "Ice",    color: Color32::from_rgb(224, 255, 255), layer: LayerType::Ground, label: 'I' },
-    TilePaletteItem { tile_type: TileType::Rope,   name: "Rope",   color: Color32::from_rgb(210, 180, 140), layer: LayerType::Ground, label: '|' },
+    TilePaletteItem {
+        tile_type: TileType::Floor,
+        name: "Floor",
+        color: Color32::from_rgb(139, 115, 85),
+        layer: LayerType::Ground,
+        label: 'F',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Grass,
+        name: "Grass",
+        color: Color32::from_rgb(124, 252, 0),
+        layer: LayerType::Ground,
+        label: 'G',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Stone,
+        name: "Stone",
+        color: Color32::from_rgb(128, 128, 128),
+        layer: LayerType::Ground,
+        label: 'S',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Wood,
+        name: "Wood",
+        color: Color32::from_rgb(210, 105, 30),
+        layer: LayerType::Ground,
+        label: 'W',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Water,
+        name: "Water",
+        color: Color32::from_rgb(30, 144, 255),
+        layer: LayerType::Ground,
+        label: '~',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Lava,
+        name: "Lava",
+        color: Color32::from_rgb(255, 69, 0),
+        layer: LayerType::Ground,
+        label: '!',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Ice,
+        name: "Ice",
+        color: Color32::from_rgb(224, 255, 255),
+        layer: LayerType::Ground,
+        label: 'I',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Rope,
+        name: "Rope",
+        color: Color32::from_rgb(210, 180, 140),
+        layer: LayerType::Ground,
+        label: '|',
+    },
     // Collision (4)
-    TilePaletteItem { tile_type: TileType::Wall,     name: "Wall",      color: Color32::from_rgb(74, 74, 74),    layer: LayerType::Collision, label: '#' },
-    TilePaletteItem { tile_type: TileType::Door,     name: "Door",      color: Color32::from_rgb(139, 69, 19),   layer: LayerType::Collision, label: 'D' },
-    TilePaletteItem { tile_type: TileType::Window,   name: "Window",    color: Color32::from_rgb(135, 206, 235), layer: LayerType::Collision, label: 'O' },
-    TilePaletteItem { tile_type: TileType::HalfWall, name: "Half Wall", color: Color32::from_rgb(105, 105, 105), layer: LayerType::Collision, label: '=' },
+    TilePaletteItem {
+        tile_type: TileType::Wall,
+        name: "Wall",
+        color: Color32::from_rgb(74, 74, 74),
+        layer: LayerType::Collision,
+        label: '#',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Door,
+        name: "Door",
+        color: Color32::from_rgb(139, 69, 19),
+        layer: LayerType::Collision,
+        label: 'D',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Window,
+        name: "Window",
+        color: Color32::from_rgb(135, 206, 235),
+        layer: LayerType::Collision,
+        label: 'O',
+    },
+    TilePaletteItem {
+        tile_type: TileType::HalfWall,
+        name: "Half Wall",
+        color: Color32::from_rgb(105, 105, 105),
+        layer: LayerType::Collision,
+        label: '=',
+    },
     // Objects (2)
-    TilePaletteItem { tile_type: TileType::Chest, name: "Chest", color: Color32::from_rgb(218, 165, 32), layer: LayerType::Objects, label: 'C' },
-    TilePaletteItem { tile_type: TileType::Lever, name: "Lever", color: Color32::from_rgb(160, 82, 45),  layer: LayerType::Objects, label: 'L' },
+    TilePaletteItem {
+        tile_type: TileType::Chest,
+        name: "Chest",
+        color: Color32::from_rgb(218, 165, 32),
+        layer: LayerType::Objects,
+        label: 'C',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Lever,
+        name: "Lever",
+        color: Color32::from_rgb(160, 82, 45),
+        layer: LayerType::Objects,
+        label: 'L',
+    },
     // Entities (4)
-    TilePaletteItem { tile_type: TileType::NpcSpawn,      name: "NPC Spawn",     color: Color32::from_rgb(0, 255, 0),    layer: LayerType::Entities, label: 'N' },
-    TilePaletteItem { tile_type: TileType::TrainingDummy, name: "Training Dummy",color: Color32::from_rgb(255, 215, 0),  layer: LayerType::Entities, label: 'T' },
-    TilePaletteItem { tile_type: TileType::SpawnPoint,    name: "Player Spawn",  color: Color32::from_rgb(50, 205, 50),  layer: LayerType::Entities, label: '@' },
-    TilePaletteItem { tile_type: TileType::Teleporter,    name: "Teleporter",    color: Color32::from_rgb(147, 112, 219),layer: LayerType::Entities, label: 'T' },
+    TilePaletteItem {
+        tile_type: TileType::NpcSpawn,
+        name: "NPC Spawn",
+        color: Color32::from_rgb(0, 255, 0),
+        layer: LayerType::Entities,
+        label: 'N',
+    },
+    TilePaletteItem {
+        tile_type: TileType::TrainingDummy,
+        name: "Training Dummy",
+        color: Color32::from_rgb(255, 215, 0),
+        layer: LayerType::Entities,
+        label: 'T',
+    },
+    TilePaletteItem {
+        tile_type: TileType::SpawnPoint,
+        name: "Player Spawn",
+        color: Color32::from_rgb(50, 205, 50),
+        layer: LayerType::Entities,
+        label: '@',
+    },
+    TilePaletteItem {
+        tile_type: TileType::Teleporter,
+        name: "Teleporter",
+        color: Color32::from_rgb(147, 112, 219),
+        layer: LayerType::Entities,
+        label: 'T',
+    },
     // Triggers (3)
-    TilePaletteItem { tile_type: TileType::Trap,     name: "Trap",      color: Color32::from_rgb(255, 0, 0),     layer: LayerType::Triggers, label: 'X' },
-    TilePaletteItem { tile_type: TileType::SafeZone, name: "Safe Zone", color: Color32::from_rgb(0, 255, 255),   layer: LayerType::Triggers, label: 'Z' },
-    TilePaletteItem { tile_type: TileType::ExitZone, name: "Exit Zone", color: Color32::from_rgb(255, 0, 255),   layer: LayerType::Triggers, label: 'E' },
+    TilePaletteItem {
+        tile_type: TileType::Trap,
+        name: "Trap",
+        color: Color32::from_rgb(255, 0, 0),
+        layer: LayerType::Triggers,
+        label: 'X',
+    },
+    TilePaletteItem {
+        tile_type: TileType::SafeZone,
+        name: "Safe Zone",
+        color: Color32::from_rgb(0, 255, 255),
+        layer: LayerType::Triggers,
+        label: 'Z',
+    },
+    TilePaletteItem {
+        tile_type: TileType::ExitZone,
+        name: "Exit Zone",
+        color: Color32::from_rgb(255, 0, 255),
+        layer: LayerType::Triggers,
+        label: 'E',
+    },
 ];
 
 // ---------------------------------------------------------------------------
@@ -682,10 +811,7 @@ mod tests {
             Some(&tp1.clone())
         );
         let tp1_ent = grid.entities.iter().find(|e| e.id == tp1).unwrap();
-        assert_eq!(
-            tp1_ent.properties.get("teleporter_link"),
-            Some(&tp2)
-        );
+        assert_eq!(tp1_ent.properties.get("teleporter_link"), Some(&tp2));
     }
 
     #[test]
@@ -719,8 +845,14 @@ mod tests {
         grid.paint(LayerType::Collision, 0, 0, TileType::Wall);
         let clip = grid.copy_region(0, 0, 0, 0);
         assert_eq!(clip.tiles.len(), 2);
-        let has_ground = clip.tiles.iter().any(|(_, _, lt, _)| *lt == LayerType::Ground);
-        let has_collision = clip.tiles.iter().any(|(_, _, lt, _)| *lt == LayerType::Collision);
+        let has_ground = clip
+            .tiles
+            .iter()
+            .any(|(_, _, lt, _)| *lt == LayerType::Ground);
+        let has_collision = clip
+            .tiles
+            .iter()
+            .any(|(_, _, lt, _)| *lt == LayerType::Collision);
         assert!(has_ground);
         assert!(has_collision);
     }

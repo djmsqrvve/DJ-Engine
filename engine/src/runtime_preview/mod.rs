@@ -1942,9 +1942,7 @@ mod tests {
                 *app.world().resource::<State<PreviewState>>().get(),
                 PreviewState::Overworld
             );
-            assert!(
-                app.world().resource::<StoryFlags>().0["intro_complete"]
-            );
+            assert!(app.world().resource::<StoryFlags>().0["intro_complete"]);
             assert_eq!(
                 app.world().resource::<StoryVariables>().0["coins"],
                 serde_json::json!(42)

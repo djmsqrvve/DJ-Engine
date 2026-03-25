@@ -116,99 +116,6 @@ impl BgmFade {
 /// Plugin providing audio functionality.
 pub struct DJAudioPlugin;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_audio_state_new_defaults() {
-        let state = AudioState::new();
-        assert_eq!(state.master_volume, 0.0);
-        assert_eq!(state.bgm_volume, 0.8);
-        assert_eq!(state.sfx_volume, 1.0);
-        assert!(state.current_bgm.is_none());
-    }
-
-    #[test]
-    fn test_bgm_output_volume() {
-        let mut state = AudioState::new();
-        state.master_volume = 0.5;
-        state.bgm_volume = 0.8;
-        assert!((state.bgm_output_volume() - 0.4).abs() < f32::EPSILON);
-
-        state.master_volume = 0.0;
-        assert_eq!(state.bgm_output_volume(), 0.0);
-
-        state.master_volume = 1.0;
-        state.bgm_volume = 1.0;
-        assert_eq!(state.bgm_output_volume(), 1.0);
-    }
-
-    #[test]
-    fn test_sfx_output_volume() {
-        let mut state = AudioState::new();
-        state.master_volume = 0.5;
-        state.sfx_volume = 1.0;
-        assert!((state.sfx_output_volume() - 0.5).abs() < f32::EPSILON);
-
-        state.master_volume = 1.0;
-        state.sfx_volume = 0.5;
-        assert!((state.sfx_output_volume() - 0.5).abs() < f32::EPSILON);
-
-        state.master_volume = 0.0;
-        assert_eq!(state.sfx_output_volume(), 0.0);
-    }
-
-    #[test]
-    fn test_bgm_fade_in_starts_silent() {
-        let fade = BgmFade::fade_in(1.0, 0.8);
-        assert_eq!(fade.current_volume(), 0.0);
-        assert_eq!(fade.direction, FadeDirection::In);
-    }
-
-    #[test]
-    fn test_bgm_fade_out_starts_loud() {
-        let fade = BgmFade::fade_out(1.0, 0.8);
-        assert!((fade.current_volume() - 0.8).abs() < f32::EPSILON);
-        assert_eq!(fade.direction, FadeDirection::Out);
-    }
-
-    #[test]
-    fn test_bgm_fade_progress() {
-        let mut fade = BgmFade::fade_in(2.0, 1.0);
-        assert_eq!(fade.progress(), 0.0);
-        assert_eq!(fade.current_volume(), 0.0);
-
-        fade.elapsed = 1.0;
-        assert!((fade.progress() - 0.5).abs() < f32::EPSILON);
-        assert!((fade.current_volume() - 0.5).abs() < f32::EPSILON);
-
-        fade.elapsed = 2.0;
-        assert!((fade.progress() - 1.0).abs() < f32::EPSILON);
-        assert!((fade.current_volume() - 1.0).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn test_bgm_fade_complete() {
-        let mut fade = BgmFade::fade_out(1.0, 0.5);
-        assert!(!fade.is_complete());
-        fade.elapsed = 0.5;
-        assert!(!fade.is_complete());
-        fade.elapsed = 1.0;
-        assert!(fade.is_complete());
-        fade.elapsed = 1.5;
-        assert!(fade.is_complete());
-    }
-
-    #[test]
-    fn test_bgm_fade_clamps_progress() {
-        let mut fade = BgmFade::fade_in(1.0, 1.0);
-        fade.elapsed = 5.0;
-        assert!((fade.progress() - 1.0).abs() < f32::EPSILON);
-        assert!((fade.current_volume() - 1.0).abs() < f32::EPSILON);
-    }
-}
-
 impl Plugin for DJAudioPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(AudioState::new())
@@ -342,5 +249,98 @@ fn tick_bgm_fades(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_audio_state_new_defaults() {
+        let state = AudioState::new();
+        assert_eq!(state.master_volume, 0.0);
+        assert_eq!(state.bgm_volume, 0.8);
+        assert_eq!(state.sfx_volume, 1.0);
+        assert!(state.current_bgm.is_none());
+    }
+
+    #[test]
+    fn test_bgm_output_volume() {
+        let mut state = AudioState::new();
+        state.master_volume = 0.5;
+        state.bgm_volume = 0.8;
+        assert!((state.bgm_output_volume() - 0.4).abs() < f32::EPSILON);
+
+        state.master_volume = 0.0;
+        assert_eq!(state.bgm_output_volume(), 0.0);
+
+        state.master_volume = 1.0;
+        state.bgm_volume = 1.0;
+        assert_eq!(state.bgm_output_volume(), 1.0);
+    }
+
+    #[test]
+    fn test_sfx_output_volume() {
+        let mut state = AudioState::new();
+        state.master_volume = 0.5;
+        state.sfx_volume = 1.0;
+        assert!((state.sfx_output_volume() - 0.5).abs() < f32::EPSILON);
+
+        state.master_volume = 1.0;
+        state.sfx_volume = 0.5;
+        assert!((state.sfx_output_volume() - 0.5).abs() < f32::EPSILON);
+
+        state.master_volume = 0.0;
+        assert_eq!(state.sfx_output_volume(), 0.0);
+    }
+
+    #[test]
+    fn test_bgm_fade_in_starts_silent() {
+        let fade = BgmFade::fade_in(1.0, 0.8);
+        assert_eq!(fade.current_volume(), 0.0);
+        assert_eq!(fade.direction, FadeDirection::In);
+    }
+
+    #[test]
+    fn test_bgm_fade_out_starts_loud() {
+        let fade = BgmFade::fade_out(1.0, 0.8);
+        assert!((fade.current_volume() - 0.8).abs() < f32::EPSILON);
+        assert_eq!(fade.direction, FadeDirection::Out);
+    }
+
+    #[test]
+    fn test_bgm_fade_progress() {
+        let mut fade = BgmFade::fade_in(2.0, 1.0);
+        assert_eq!(fade.progress(), 0.0);
+        assert_eq!(fade.current_volume(), 0.0);
+
+        fade.elapsed = 1.0;
+        assert!((fade.progress() - 0.5).abs() < f32::EPSILON);
+        assert!((fade.current_volume() - 0.5).abs() < f32::EPSILON);
+
+        fade.elapsed = 2.0;
+        assert!((fade.progress() - 1.0).abs() < f32::EPSILON);
+        assert!((fade.current_volume() - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_bgm_fade_complete() {
+        let mut fade = BgmFade::fade_out(1.0, 0.5);
+        assert!(!fade.is_complete());
+        fade.elapsed = 0.5;
+        assert!(!fade.is_complete());
+        fade.elapsed = 1.0;
+        assert!(fade.is_complete());
+        fade.elapsed = 1.5;
+        assert!(fade.is_complete());
+    }
+
+    #[test]
+    fn test_bgm_fade_clamps_progress() {
+        let mut fade = BgmFade::fade_in(1.0, 1.0);
+        fade.elapsed = 5.0;
+        assert!((fade.progress() - 1.0).abs() < f32::EPSILON);
+        assert!((fade.current_volume() - 1.0).abs() < f32::EPSILON);
     }
 }

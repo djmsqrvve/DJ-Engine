@@ -9,7 +9,14 @@ use std::collections::VecDeque;
 // Brush tool — paint NxN area
 // ---------------------------------------------------------------------------
 
-pub fn brush_paint(grid: &mut GridLevel, layer: LayerType, tile: TileType, tx: i32, ty: i32, brush_size: u8) -> bool {
+pub fn brush_paint(
+    grid: &mut GridLevel,
+    layer: LayerType,
+    tile: TileType,
+    tx: i32,
+    ty: i32,
+    brush_size: u8,
+) -> bool {
     let size = brush_size.max(1) as i32;
     let offset = size / 2;
     let mut changed = false;
@@ -27,7 +34,13 @@ pub fn brush_paint(grid: &mut GridLevel, layer: LayerType, tile: TileType, tx: i
 // Eraser tool — erase NxN area
 // ---------------------------------------------------------------------------
 
-pub fn eraser_erase(grid: &mut GridLevel, layer: LayerType, tx: i32, ty: i32, brush_size: u8) -> bool {
+pub fn eraser_erase(
+    grid: &mut GridLevel,
+    layer: LayerType,
+    tx: i32,
+    ty: i32,
+    brush_size: u8,
+) -> bool {
     let size = brush_size.max(1) as i32;
     let offset = size / 2;
     let mut changed = false;
@@ -47,7 +60,13 @@ pub fn eraser_erase(grid: &mut GridLevel, layer: LayerType, tx: i32, ty: i32, br
 
 const MAX_FILL_TILES: usize = 5000;
 
-pub fn flood_fill(grid: &mut GridLevel, layer: LayerType, tx: i32, ty: i32, tile: TileType) -> bool {
+pub fn flood_fill(
+    grid: &mut GridLevel,
+    layer: LayerType,
+    tx: i32,
+    ty: i32,
+    tile: TileType,
+) -> bool {
     let target = grid.get_tile(layer, tx, ty);
     if target == tile {
         return false; // already the target type
@@ -83,7 +102,15 @@ pub fn flood_fill(grid: &mut GridLevel, layer: LayerType, tx: i32, ty: i32, tile
 // Rectangle tool — fill rect from corner to corner
 // ---------------------------------------------------------------------------
 
-pub fn paint_rectangle(grid: &mut GridLevel, layer: LayerType, tile: TileType, x1: i32, y1: i32, x2: i32, y2: i32) -> bool {
+pub fn paint_rectangle(
+    grid: &mut GridLevel,
+    layer: LayerType,
+    tile: TileType,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+) -> bool {
     let min_x = x1.min(x2);
     let max_x = x1.max(x2);
     let min_y = y1.min(y2);
@@ -103,7 +130,15 @@ pub fn paint_rectangle(grid: &mut GridLevel, layer: LayerType, tile: TileType, x
 // Line tool — Bresenham's line algorithm
 // ---------------------------------------------------------------------------
 
-pub fn paint_line(grid: &mut GridLevel, layer: LayerType, tile: TileType, x1: i32, y1: i32, x2: i32, y2: i32) -> bool {
+pub fn paint_line(
+    grid: &mut GridLevel,
+    layer: LayerType,
+    tile: TileType,
+    x1: i32,
+    y1: i32,
+    x2: i32,
+    y2: i32,
+) -> bool {
     let mut changed = false;
     let dx = (x2 - x1).abs();
     let dy = -(y2 - y1).abs();
@@ -158,7 +193,10 @@ pub fn dispatch_tool(
         EditorTool::Brush => brush_paint(grid, layer, tile, tx, ty, brush_size),
         EditorTool::Eraser => eraser_erase(grid, layer, tx, ty, brush_size),
         EditorTool::Fill => flood_fill(grid, layer, tx, ty, tile),
-        EditorTool::Select | EditorTool::Rectangle | EditorTool::Line | EditorTool::EntityPlacer => false,
+        EditorTool::Select
+        | EditorTool::Rectangle
+        | EditorTool::Line
+        | EditorTool::EntityPlacer => false,
     }
 }
 
@@ -177,7 +215,10 @@ mod tests {
         // Center and all 8 neighbors
         for dx in -1..=1 {
             for dy in -1..=1 {
-                assert_eq!(grid.get_tile(LayerType::Ground, 5 + dx, 5 + dy), TileType::Grass);
+                assert_eq!(
+                    grid.get_tile(LayerType::Ground, 5 + dx, 5 + dy),
+                    TileType::Grass
+                );
             }
         }
     }

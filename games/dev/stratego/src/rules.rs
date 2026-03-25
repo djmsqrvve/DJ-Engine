@@ -191,11 +191,10 @@ pub fn execute_move(
     let attacker = from_cell.piece?;
 
     let to_cell = board.get(to_x, to_y)?;
-    let combat = if let Some(defender) = &to_cell.piece {
-        Some(resolve_combat(&attacker, defender))
-    } else {
-        None
-    };
+    let combat = to_cell
+        .piece
+        .as_ref()
+        .map(|defender| resolve_combat(&attacker, defender));
 
     // Clear source.
     board.get_mut(from_x, from_y).unwrap().piece = None;

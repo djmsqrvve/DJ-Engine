@@ -20,7 +20,12 @@ fn snapshot(world: &mut World) {
 }
 
 /// Convert a screen position to a tile coordinate with camera transform.
-fn screen_to_tile(pointer: egui::Pos2, center: egui::Pos2, offset: egui::Vec2, zoom: f32) -> (i32, i32) {
+fn screen_to_tile(
+    pointer: egui::Pos2,
+    center: egui::Pos2,
+    offset: egui::Vec2,
+    zoom: f32,
+) -> (i32, i32) {
     let gpx = BASE_GRID_PX * zoom;
     let wx = pointer.x - center.x - offset.x;
     let wy = center.y + offset.y - pointer.y;
@@ -28,7 +33,13 @@ fn screen_to_tile(pointer: egui::Pos2, center: egui::Pos2, offset: egui::Vec2, z
 }
 
 /// Convert a tile coordinate back to screen position with camera transform.
-fn tile_to_screen(tx: i32, ty: i32, center: egui::Pos2, offset: egui::Vec2, zoom: f32) -> egui::Pos2 {
+fn tile_to_screen(
+    tx: i32,
+    ty: i32,
+    center: egui::Pos2,
+    offset: egui::Vec2,
+    zoom: f32,
+) -> egui::Pos2 {
     let gpx = BASE_GRID_PX * zoom;
     egui::pos2(
         center.x + offset.x + tx as f32 * gpx,
@@ -104,27 +115,61 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
 
         // Tool shortcuts
         let mut st = world.resource_mut::<EditorUiState>();
-        if keys.2 { st.current_tool = EditorTool::Brush; }
-        if keys.3 { st.current_tool = EditorTool::Eraser; }
-        if keys.4 { st.current_tool = EditorTool::Select; }
-        if keys.5 { st.current_tool = EditorTool::Fill; }
-        if keys.6 { st.current_tool = EditorTool::Rectangle; }
-        if keys.7 { st.current_tool = EditorTool::Line; }
-        if keys.8 { st.grid_visible = !st.grid_visible; }
-        if keys.9 { st.current_tool = EditorTool::EntityPlacer; }
+        if keys.2 {
+            st.current_tool = EditorTool::Brush;
+        }
+        if keys.3 {
+            st.current_tool = EditorTool::Eraser;
+        }
+        if keys.4 {
+            st.current_tool = EditorTool::Select;
+        }
+        if keys.5 {
+            st.current_tool = EditorTool::Fill;
+        }
+        if keys.6 {
+            st.current_tool = EditorTool::Rectangle;
+        }
+        if keys.7 {
+            st.current_tool = EditorTool::Line;
+        }
+        if keys.8 {
+            st.grid_visible = !st.grid_visible;
+        }
+        if keys.9 {
+            st.current_tool = EditorTool::EntityPlacer;
+        }
 
         // Brush size
-        if keys.10 { st.brush_size = 1; }
-        if keys.11 { st.brush_size = 2; }
-        if keys.12 { st.brush_size = 3; }
-        if keys.13 { st.brush_size = 4; }
-        if keys.14 { st.brush_size = 5; }
+        if keys.10 {
+            st.brush_size = 1;
+        }
+        if keys.11 {
+            st.brush_size = 2;
+        }
+        if keys.12 {
+            st.brush_size = 3;
+        }
+        if keys.13 {
+            st.brush_size = 4;
+        }
+        if keys.14 {
+            st.brush_size = 5;
+        }
 
         // Camera pan (Shift+WASD) — key_down for continuous
-        if keys.15 { st.camera_offset.y += PAN_SPEED; }  // W = pan up (offset Y+)
-        if keys.16 { st.camera_offset.x -= PAN_SPEED; }  // A = pan left
-        if keys.17 { st.camera_offset.y -= PAN_SPEED; }  // S = pan down
-        if keys.18 { st.camera_offset.x += PAN_SPEED; }  // D = pan right
+        if keys.15 {
+            st.camera_offset.y += PAN_SPEED;
+        } // W = pan up (offset Y+)
+        if keys.16 {
+            st.camera_offset.x -= PAN_SPEED;
+        } // A = pan left
+        if keys.17 {
+            st.camera_offset.y -= PAN_SPEED;
+        } // S = pan down
+        if keys.18 {
+            st.camera_offset.x += PAN_SPEED;
+        } // D = pan right
 
         // Mouse wheel zoom (around cursor)
         let scroll_delta = keys.19;
@@ -206,7 +251,9 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
         // Ctrl+C / Ctrl+X — copy/cut selection region
         if wants_copy || wants_cut {
             if let Some((min_x, min_y, max_x, max_y)) = sel_region {
-                let clipboard = world.resource::<GridLevel>().copy_region(min_x, min_y, max_x, max_y);
+                let clipboard = world
+                    .resource::<GridLevel>()
+                    .copy_region(min_x, min_y, max_x, max_y);
                 world.resource_mut::<EditorUiState>().clipboard = Some(clipboard);
                 if wants_cut {
                     snapshot(world);
@@ -236,8 +283,13 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
     let (tool, tile, layer, brush_size, cam_offset, zoom, grid_visible, show_collision) = {
         let st = world.resource::<EditorUiState>();
         (
-            st.current_tool, st.current_tile, st.current_layer,
-            st.clamped_brush_size(), st.camera_offset, st.zoom, st.grid_visible,
+            st.current_tool,
+            st.current_tile,
+            st.current_layer,
+            st.clamped_brush_size(),
+            st.camera_offset,
+            st.zoom,
+            st.grid_visible,
             st.show_collision,
         )
     };
@@ -262,7 +314,9 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
             let clip = world.resource::<EditorUiState>().clipboard.clone();
             if let Some(clipboard) = clip {
                 snapshot(world);
-                world.resource_mut::<GridLevel>().paste_region(&clipboard, tx, ty);
+                world
+                    .resource_mut::<GridLevel>()
+                    .paste_region(&clipboard, tx, ty);
                 world.resource_mut::<EditorUiState>().paste_preview = false;
             }
         }
@@ -353,9 +407,7 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                 let start = world.resource::<EditorUiState>().region_drag_start;
                 if let (Some((sx, sy)), Some((ex, ey))) = (start, pointer_tile) {
                     let mut st = world.resource_mut::<EditorUiState>();
-                    st.selection_region = Some((
-                        sx.min(ex), sy.min(ey), sx.max(ex), sy.max(ey),
-                    ));
+                    st.selection_region = Some((sx.min(ex), sy.min(ey), sx.max(ex), sy.max(ey)));
                     st.region_drag_start = None;
                 }
             }
@@ -401,7 +453,8 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                 // Move entity to new position
                 let drag_start = world.resource::<PaintState>().drag_start;
                 let sel_id = world.resource::<EditorUiState>().selected_entity_id.clone();
-                if let (Some(_start), Some(id), Some((tx, ty))) = (drag_start, sel_id, pointer_tile) {
+                if let (Some(_start), Some(id), Some((tx, ty))) = (drag_start, sel_id, pointer_tile)
+                {
                     world.resource_mut::<GridLevel>().move_entity(&id, tx, ty);
                 }
                 world.resource_mut::<PaintState>().drag_start = None;
@@ -412,8 +465,13 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
         if response.clicked() {
             if let Some((tx, ty)) = pointer_tile {
                 snapshot(world);
-                let entity_type = world.resource::<EditorUiState>().current_entity_type.clone();
-                let id = world.resource_mut::<GridLevel>().place_entity(&entity_type, tx, ty);
+                let entity_type = world
+                    .resource::<EditorUiState>()
+                    .current_entity_type
+                    .clone();
+                let id = world
+                    .resource_mut::<GridLevel>()
+                    .place_entity(&entity_type, tx, ty);
                 world.resource_mut::<EditorUiState>().selected_entity_id = Some(id);
             }
         }
@@ -455,11 +513,17 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
         if rect.contains(egui::pos2(origin_x, origin_y)) {
             let cross_color = Color32::from_rgba_unmultiplied(0, 255, 204, 40);
             painter.line_segment(
-                [egui::pos2(origin_x, rect.top()), egui::pos2(origin_x, rect.bottom())],
+                [
+                    egui::pos2(origin_x, rect.top()),
+                    egui::pos2(origin_x, rect.bottom()),
+                ],
                 (1.0, cross_color),
             );
             painter.line_segment(
-                [egui::pos2(rect.left(), origin_y), egui::pos2(rect.right(), origin_y)],
+                [
+                    egui::pos2(rect.left(), origin_y),
+                    egui::pos2(rect.right(), origin_y),
+                ],
                 (1.0, cross_color),
             );
         }
@@ -487,13 +551,16 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                 continue;
             }
             let screen_pos = tile_to_screen(tx, ty, center, cam_offset, zoom);
-            let tile_rect = egui::Rect::from_center_size(
-                screen_pos,
-                egui::vec2(tile_draw, tile_draw),
-            );
+            let tile_rect =
+                egui::Rect::from_center_size(screen_pos, egui::vec2(tile_draw, tile_draw));
 
             let base_color = grid::tile_color(tt);
-            let color = Color32::from_rgba_unmultiplied(base_color.r(), base_color.g(), base_color.b(), alpha);
+            let color = Color32::from_rgba_unmultiplied(
+                base_color.r(),
+                base_color.g(),
+                base_color.b(),
+                alpha,
+            );
             painter.rect_filled(tile_rect, 2.0, color);
 
             if font_size >= 8.0 {
@@ -556,8 +623,10 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
         // Corner markers (4px squares)
         let cs = 3.0 * zoom;
         for corner in [
-            ent_rect.left_top(), ent_rect.right_top(),
-            ent_rect.left_bottom(), ent_rect.right_bottom(),
+            ent_rect.left_top(),
+            ent_rect.right_top(),
+            ent_rect.left_bottom(),
+            ent_rect.right_bottom(),
         ] {
             painter.rect_filled(
                 egui::Rect::from_center_size(corner, egui::vec2(cs * 2.0, cs * 2.0)),
@@ -592,7 +661,9 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
     if show_collision {
         if let Some(coll_layer) = grid.layer(grid::LayerType::Collision) {
             for (&(tx, ty), &tt) in &coll_layer.tiles {
-                if tt == grid::TileType::Empty { continue; }
+                if tt == grid::TileType::Empty {
+                    continue;
+                }
                 if tx < vis_min_tx || tx > vis_max_tx || ty < vis_min_ty || ty > vis_max_ty {
                     continue;
                 }
@@ -624,8 +695,17 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                 egui::pos2(tl.x - half, tl.y - half),
                 egui::pos2(br.x + half, br.y + half),
             );
-            painter.rect_filled(sel_rect, 0.0, Color32::from_rgba_unmultiplied(0, 255, 255, 25));
-            painter.rect_stroke(sel_rect, 0.0, (2.0, Color32::from_rgba_unmultiplied(0, 255, 255, 180)), egui::StrokeKind::Outside);
+            painter.rect_filled(
+                sel_rect,
+                0.0,
+                Color32::from_rgba_unmultiplied(0, 255, 255, 25),
+            );
+            painter.rect_stroke(
+                sel_rect,
+                0.0,
+                (2.0, Color32::from_rgba_unmultiplied(0, 255, 255, 180)),
+                egui::StrokeKind::Outside,
+            );
             // Label
             painter.text(
                 egui::pos2(sel_rect.left() + 4.0, sel_rect.top() + 2.0),
@@ -649,8 +729,17 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                     egui::pos2(tl.x - half, tl.y - half),
                     egui::pos2(br.x + half, br.y + half),
                 );
-                painter.rect_filled(drag_rect, 0.0, Color32::from_rgba_unmultiplied(0, 255, 255, 30));
-                painter.rect_stroke(drag_rect, 0.0, (2.0, Color32::from_rgba_unmultiplied(0, 255, 255, 150)), egui::StrokeKind::Outside);
+                painter.rect_filled(
+                    drag_rect,
+                    0.0,
+                    Color32::from_rgba_unmultiplied(0, 255, 255, 30),
+                );
+                painter.rect_stroke(
+                    drag_rect,
+                    0.0,
+                    (2.0, Color32::from_rgba_unmultiplied(0, 255, 255, 150)),
+                    egui::StrokeKind::Outside,
+                );
             }
         }
     }
@@ -671,20 +760,25 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
             painter.rect_filled(oob, 0.0, Color32::from_rgba_unmultiplied(255, 0, 0, 20));
         }
         if right_x < rect.right() {
-            let oob = egui::Rect::from_min_max(egui::pos2(right_x, rect.top()), rect.right_bottom());
+            let oob =
+                egui::Rect::from_min_max(egui::pos2(right_x, rect.top()), rect.right_bottom());
             painter.rect_filled(oob, 0.0, Color32::from_rgba_unmultiplied(255, 0, 0, 20));
         }
 
         // Labels
         painter.text(
             egui::pos2(left_x + 4.0, rect.top() + 4.0),
-            egui::Align2::LEFT_TOP, "LEFT BOUND",
-            egui::FontId::proportional(10.0), Color32::RED,
+            egui::Align2::LEFT_TOP,
+            "LEFT BOUND",
+            egui::FontId::proportional(10.0),
+            Color32::RED,
         );
         painter.text(
             egui::pos2(right_x - 4.0, rect.top() + 4.0),
-            egui::Align2::RIGHT_TOP, "RIGHT BOUND",
-            egui::FontId::proportional(10.0), Color32::RED,
+            egui::Align2::RIGHT_TOP,
+            "RIGHT BOUND",
+            egui::FontId::proportional(10.0),
+            Color32::RED,
         );
     }
 
@@ -730,7 +824,10 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
             painter.text(
                 egui::pos2(pointer_pos.x + 14.0, pointer_pos.y + 14.0),
                 egui::Align2::LEFT_TOP,
-                format!("({}, {}) [{}:{}] {:.1}x", tx, ty, tool_label, tile_name, zoom),
+                format!(
+                    "({}, {}) [{}:{}] {:.1}x",
+                    tx, ty, tool_label, tile_name, zoom
+                ),
                 egui::FontId::monospace(11.0),
                 Color32::from_rgba_unmultiplied(255, 255, 255, 180),
             );
@@ -768,7 +865,13 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                 }
             }
             let tl = tile_to_screen(tx - boff, ty + boff, center, cam_offset, zoom);
-            let br = tile_to_screen(tx - boff + size - 1, ty + boff - size + 1, center, cam_offset, zoom);
+            let br = tile_to_screen(
+                tx - boff + size - 1,
+                ty + boff - size + 1,
+                center,
+                cam_offset,
+                zoom,
+            );
             let outline = egui::Rect::from_two_pos(
                 egui::pos2(tl.x - gpx / 2.0, tl.y - gpx / 2.0),
                 egui::pos2(br.x + gpx / 2.0, br.y + gpx / 2.0),
@@ -779,7 +882,12 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                 let base = grid::tile_color(tile);
                 Color32::from_rgba_unmultiplied(base.r(), base.g(), base.b(), 200)
             };
-            painter.rect_stroke(outline, 0.0, (2.0, outline_color), egui::StrokeKind::Outside);
+            painter.rect_stroke(
+                outline,
+                0.0,
+                (2.0, outline_color),
+                egui::StrokeKind::Outside,
+            );
         }
     }
 
@@ -792,10 +900,15 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                     let pos = tile_to_screen(tx + dx, ty + dy, center, cam_offset, zoom);
                     let r = egui::Rect::from_center_size(pos, egui::vec2(tile_draw, tile_draw));
                     let base = grid::tile_color(tt);
-                    painter.rect_filled(r, 2.0, Color32::from_rgba_unmultiplied(base.r(), base.g(), base.b(), 100));
+                    painter.rect_filled(
+                        r,
+                        2.0,
+                        Color32::from_rgba_unmultiplied(base.r(), base.g(), base.b(), 100),
+                    );
                     if font_size >= 8.0 {
                         painter.text(
-                            pos, egui::Align2::CENTER_CENTER,
+                            pos,
+                            egui::Align2::CENTER_CENTER,
                             grid::tile_label(tt).to_string(),
                             egui::FontId::monospace(font_size),
                             Color32::from_rgba_unmultiplied(255, 255, 255, 100),
@@ -810,7 +923,12 @@ pub(crate) fn draw_grid(ui: &mut egui::Ui, world: &mut World) {
                     egui::pos2(tl.x - half, tl.y - half),
                     egui::pos2(br.x + half, br.y + half),
                 );
-                painter.rect_stroke(outline, 0.0, (2.0, Color32::from_rgba_unmultiplied(0, 255, 128, 200)), egui::StrokeKind::Outside);
+                painter.rect_stroke(
+                    outline,
+                    0.0,
+                    (2.0, Color32::from_rgba_unmultiplied(0, 255, 128, 200)),
+                    egui::StrokeKind::Outside,
+                );
             }
         }
     }

@@ -417,7 +417,7 @@ mod tests {
         let flow_events = app.world().resource::<Messages<StoryFlowEvent>>();
         let mut cursor = flow_events.get_cursor();
         assert!(cursor
-            .read(&flow_events)
+            .read(flow_events)
             .any(|event| matches!(event, StoryFlowEvent::GraphComplete)));
     }
 }

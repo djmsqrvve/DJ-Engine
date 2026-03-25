@@ -1260,9 +1260,7 @@ fn parse_field_path(path: &str) -> Result<Vec<PathSegment>, CustomDocumentUpdate
                 remainder = &remainder[1..];
             }
         } else {
-            let end = remainder
-                .find(|c: char| c == '.' || c == '[')
-                .unwrap_or(remainder.len());
+            let end = remainder.find(['.', '[']).unwrap_or(remainder.len());
             let key = &remainder[..end];
             if key.is_empty() {
                 return Err(CustomDocumentUpdateError::NestedPathNotFound {

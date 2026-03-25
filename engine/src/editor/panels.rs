@@ -1543,8 +1543,12 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
                     let mut bl = world.resource::<grid::GridLevel>().boundary_left;
                     let mut br = world.resource::<grid::GridLevel>().boundary_right;
                     let w = world.resource::<grid::GridLevel>().width;
-                    let changed_l = ui.add(egui::DragValue::new(&mut bl).prefix("L:").range(0..=w)).changed();
-                    let changed_r = ui.add(egui::DragValue::new(&mut br).prefix("R:").range(0..=w)).changed();
+                    let changed_l = ui
+                        .add(egui::DragValue::new(&mut bl).prefix("L:").range(0..=w))
+                        .changed();
+                    let changed_r = ui
+                        .add(egui::DragValue::new(&mut br).prefix("R:").range(0..=w))
+                        .changed();
                     if changed_l {
                         world.resource_mut::<grid::GridLevel>().boundary_left = bl;
                     }
@@ -1630,10 +1634,7 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
                     ];
                     for (et, label) in &entity_types {
                         if ui
-                            .selectable_label(
-                                ui_state.current_entity_type == *et,
-                                *label,
-                            )
+                            .selectable_label(ui_state.current_entity_type == *et, *label)
                             .clicked()
                         {
                             ui_state.current_entity_type = et.to_string();
@@ -1651,10 +1652,7 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
 
                 // Group by layer category
                 for &lt in LayerType::ALL {
-                    let items: Vec<_> = DEFAULT_PALETTE
-                        .iter()
-                        .filter(|p| p.layer == lt)
-                        .collect();
+                    let items: Vec<_> = DEFAULT_PALETTE.iter().filter(|p| p.layer == lt).collect();
                     if items.is_empty() {
                         continue;
                     }
@@ -1720,12 +1718,9 @@ pub(crate) fn draw_left_panel(ui: &mut egui::Ui, world: &mut World) {
                         let frame = egui::Frame::NONE.fill(bg).corner_radius(3.0);
                         frame.show(ui, |ui| {
                             // Layer select button
-                            let label = RichText::new(format!(
-                                "{} {}",
-                                lt.icon(),
-                                lt.display_name()
-                            ))
-                            .color(lt.color());
+                            let label =
+                                RichText::new(format!("{} {}", lt.icon(), lt.display_name()))
+                                    .color(lt.color());
                             if ui.selectable_label(is_active, label).clicked() {
                                 ui_state.current_layer = *lt;
                             }
@@ -2101,24 +2096,36 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
                     // Teleporter link editor
                     if ent.entity_type == "teleporter" {
                         ui.add_space(5.0);
-                        ui.label(RichText::new("TELEPORTER LINK").strong().color(COLOR_PRIMARY));
-                        let link_id = ent.properties.get("teleporter_link").cloned().unwrap_or_default();
+                        ui.label(
+                            RichText::new("TELEPORTER LINK")
+                                .strong()
+                                .color(COLOR_PRIMARY),
+                        );
+                        let link_id = ent
+                            .properties
+                            .get("teleporter_link")
+                            .cloned()
+                            .unwrap_or_default();
                         let link_label = if link_id.is_empty() {
                             "Unlinked".to_string()
                         } else {
                             // Show short ID + position of target
                             let grid = world.resource::<grid::GridLevel>();
-                            grid.entities.iter()
+                            grid.entities
+                                .iter()
                                 .find(|e| e.id == link_id)
                                 .map(|t| format!("TP ({},{})", t.x, t.y))
-                                .unwrap_or_else(|| format!("{}...", &link_id[..link_id.len().min(8)]))
+                                .unwrap_or_else(|| {
+                                    format!("{}...", &link_id[..link_id.len().min(8)])
+                                })
                         };
                         ui.label(format!("Current: {}", link_label));
 
                         // Dropdown of other teleporters
                         let other_tps: Vec<(String, i32, i32)> = {
                             let grid = world.resource::<grid::GridLevel>();
-                            grid.entities.iter()
+                            grid.entities
+                                .iter()
                                 .filter(|e| e.entity_type == "teleporter" && e.id != ent.id)
                                 .map(|e| (e.id.clone(), e.x, e.y))
                                 .collect()
@@ -2145,7 +2152,9 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
                             let mut grid = world.resource_mut::<grid::GridLevel>();
                             // Clear old link on both ends
                             if !old_link.is_empty() {
-                                if let Some(old_target) = grid.entities.iter_mut().find(|e| e.id == old_link) {
+                                if let Some(old_target) =
+                                    grid.entities.iter_mut().find(|e| e.id == old_link)
+                                {
                                     old_target.properties.remove("teleporter_link");
                                 }
                             }
@@ -2153,14 +2162,21 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
                             if !new_link.is_empty() {
                                 let new_link_clone = new_link.clone();
                                 let ent_id_clone = ent_id.clone();
-                                if let Some(target) = grid.entities.iter_mut().find(|e| e.id == new_link_clone) {
-                                    target.properties.insert("teleporter_link".to_string(), ent_id_clone);
+                                if let Some(target) =
+                                    grid.entities.iter_mut().find(|e| e.id == new_link_clone)
+                                {
+                                    target
+                                        .properties
+                                        .insert("teleporter_link".to_string(), ent_id_clone);
                                 }
-                                if let Some(src) = grid.entities.iter_mut().find(|e| e.id == ent_id) {
-                                    src.properties.insert("teleporter_link".to_string(), new_link);
+                                if let Some(src) = grid.entities.iter_mut().find(|e| e.id == ent_id)
+                                {
+                                    src.properties
+                                        .insert("teleporter_link".to_string(), new_link);
                                 }
                             } else {
-                                if let Some(src) = grid.entities.iter_mut().find(|e| e.id == ent_id) {
+                                if let Some(src) = grid.entities.iter_mut().find(|e| e.id == ent_id)
+                                {
                                     src.properties.remove("teleporter_link");
                                 }
                             }
@@ -2198,7 +2214,9 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
             } else if let Some((tx, ty)) = sel_tile {
                 // --- Tile properties ---
                 let cur_layer = world.resource::<EditorUiState>().current_layer;
-                let tt = world.resource::<grid::GridLevel>().get_tile(cur_layer, tx, ty);
+                let tt = world
+                    .resource::<grid::GridLevel>()
+                    .get_tile(cur_layer, tx, ty);
                 let layer_name = cur_layer.display_name();
                 let tile_name = grid::palette_item(tt).map_or("Empty", |p| p.name);
                 let tile_c = grid::tile_color(tt);
@@ -2207,24 +2225,20 @@ pub(crate) fn draw_right_panel(ui: &mut egui::Ui, world: &mut World) {
                 ui.horizontal(|ui| {
                     let (r, g, b) = (tile_c.r(), tile_c.g(), tile_c.b());
                     let rect = ui.allocate_space(egui::vec2(14.0, 14.0));
-                    ui.painter().rect_filled(
-                        rect.1,
-                        2.0,
-                        Color32::from_rgb(r, g, b),
-                    );
+                    ui.painter()
+                        .rect_filled(rect.1, 2.0, Color32::from_rgb(r, g, b));
                     ui.label(format!("{} ({})", tile_name, layer_name));
                 });
 
                 ui.add_space(5.0);
-                if tt != grid::TileType::Empty {
-                    if ui
+                if tt != grid::TileType::Empty
+                    && ui
                         .button(RichText::new("Clear Tile").color(COLOR_SECONDARY))
                         .clicked()
-                    {
-                        world
-                            .resource_mut::<grid::GridLevel>()
-                            .erase(cur_layer, tx, ty);
-                    }
+                {
+                    world
+                        .resource_mut::<grid::GridLevel>()
+                        .erase(cur_layer, tx, ty);
                 }
             }
 
@@ -2439,7 +2453,7 @@ fn launch_helix_3d_viewer(world: &mut World) {
     let renderer_root_display = renderer_root.display().to_string();
     log_console(
         world,
-        &format!("[3D] Found renderer at: {renderer_root_display}"),
+        format!("[3D] Found renderer at: {renderer_root_display}"),
     );
 
     info!(
@@ -2490,7 +2504,7 @@ fn launch_helix_3d_viewer(world: &mut World) {
     }
 
     let args_display = args.join(" ");
-    log_console(world, &format!("[3D] Running: cargo {args_display}"));
+    log_console(world, format!("[3D] Running: cargo {args_display}"));
 
     match cmd.spawn() {
         Ok(child) => {
@@ -2500,12 +2514,9 @@ fn launch_helix_3d_viewer(world: &mut World) {
             state.status = Some("3D Viewer running".into());
             log_console(
                 world,
-                &format!("[3D] Helix 3D Renderer launched (PID {pid}). Compiling if needed..."),
+                format!("[3D] Helix 3D Renderer launched (PID {pid}). Compiling if needed..."),
             );
-            log_console(
-                world,
-                &format!("[3D] Stderr log: {}", stderr_path.display()),
-            );
+            log_console(world, format!("[3D] Stderr log: {}", stderr_path.display()));
             info!("[3D] Helix 3D Renderer process started (PID {pid})");
         }
         Err(err) => {

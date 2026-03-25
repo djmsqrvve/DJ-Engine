@@ -272,7 +272,7 @@ pub(crate) fn save_project_impl(world: &mut World) -> Result<(), DataError> {
     // Save GridLevel alongside scene
     let grid_path = scene_path.with_extension("grid.json");
     let grid = world.resource::<super::grid::GridLevel>();
-    if let Ok(grid_json) = serde_json::to_string_pretty(&*grid) {
+    if let Ok(grid_json) = serde_json::to_string_pretty(grid) {
         if let Err(e) = std::fs::write(&grid_path, grid_json) {
             warn!("Failed to save grid level: {}", e);
         }

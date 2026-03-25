@@ -1,0 +1,19 @@
+# Enforce LF line endings for all text files
+* text=auto eol=lf
+
+# Explicitly mark binary file types
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.mid binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.exe binary
+*.dll binary
+*.so binary
