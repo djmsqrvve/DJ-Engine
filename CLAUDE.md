@@ -4,7 +4,7 @@
 
 ## Overview
 
-Custom 2D game engine built with Rust and Bevy 0.18. Plugin-based architecture with 25 registered plugins and typed contracts. 501 tests, zero clippy warnings. 18 runtime systems. 5 game crates. Tile editor complete. Consumes Helix MMORPG data through `plugins/helix_data/`.
+Custom 2D game engine built with Rust and Bevy 0.18. Plugin-based architecture with 25 registered plugins and typed contracts. 519 tests, zero clippy warnings. 18 runtime systems. 5 game crates. Tile editor complete. Consumes Helix MMORPG data through `plugins/helix_data/`.
 
 ## Stack
 
@@ -13,7 +13,7 @@ Custom 2D game engine built with Rust and Bevy 0.18. Plugin-based architecture w
 ## Key Commands
 
 ```bash
-make test                            # 501 workspace tests
+make test                            # 519 workspace tests
 make lint                            # clippy (zero warnings enforced)
 make fmt                             # format check
 make quality-check                   # fmt + clippy + test
@@ -45,16 +45,18 @@ make helix-preview PROJECT=/tmp/helix_project
   - Bridge layer (`bridge.rs`): converts Helix types to engine-native `HelixDatabase` types
   - Balance overlays: per-engine tuning applied during bridge conversion
   - Dashboard (`dashboard.rs`): cross-ref validation (mobs->abilities, quests->prereqs, etc.)
+  - API health (`api_health.rs`): opt-in remote checks against standardization API (port 6800, 2s timeout)
   - Editor seam: "Re-import Helix Data" toolbar, "Helix Default" preview preset
 - **Server-client boundary**: all gameplay logic through a server trait/service
 
 ## Key Paths
 
-```
+```text
 engine/src/                          Core engine (25 plugins)
 plugins/helix_data/                  Helix data bridge plugin
 plugins/helix_data/src/bridge.rs     Helix -> engine type conversion
-plugins/helix_data/src/dashboard.rs  Contract validation
+plugins/helix_data/src/dashboard.rs  Contract validation + boxed dashboard
+plugins/helix_data/src/api_health.rs API health, freshness, remote validation
 games/dev/doomexe/                   Primary game (hamster narrator JRPG)
 games/dev/stratego/                  Tutorial game (10x10 board, AI)
 games/dev/iso_sandbox/               Isometric sandbox

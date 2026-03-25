@@ -430,6 +430,38 @@ use dj_engine::inventory::Inventory;
 // use dj_engine::prelude::*;
 ```
 
+## Helix Data Integration
+
+The `helix_data` plugin bridges MMORPG entity data from the Helix standardization pipeline into DJ Engine. Games that consume Helix data (like `helix_rpg`) get typed registries, balance overlays, and validation for free.
+
+**Import data:**
+
+```bash
+make helix-import-toml HELIX3D=~/dev/helix/helix_standardization/dist/helix3d/
+```
+
+**Run the validation dashboard:**
+
+```bash
+make helix-dashboard HELIX3D=~/dev/helix/helix_standardization/dist/helix3d/
+```
+
+The dashboard validates TOML coverage, cross-references, localization, and (when the standardization API is running on port 6800) performs remote health checks, data freshness comparison, and sample entity validation. All API checks are opt-in with a 2-second timeout.
+
+**Access registries in your game:**
+
+```rust
+use dj_engine_helix::HelixRegistries;
+
+fn spawn_from_helix(registries: Res<HelixRegistries>) {
+    for (id, mob) in registries.mobs.iter() {
+        println!("Mob: {} (HP: {})", mob.base.name.en(), mob.health);
+    }
+}
+```
+
+See `games/dev/helix_rpg/` for a full example that spawns enemies and NPCs from the Helix database.
+
 ## Next Steps
 
 - See `games/dev/rpg_demo/` for a working reference implementation

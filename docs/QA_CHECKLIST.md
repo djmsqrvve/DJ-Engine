@@ -15,13 +15,13 @@ Individual steps if validate fails:
 ```bash
 cargo fmt --all --check                           # formatting
 cargo clippy --workspace --all-targets -- -D warnings  # lint
-cargo test --workspace                             # 499+ tests
+cargo test --workspace                             # 519+ tests
 make contracts                                     # API surface check
 ```
 
 - [ ] `make validate` passes
 - [ ] Zero clippy warnings
-- [ ] Test count >= 495
+- [ ] Test count >= 510
 
 ## Automated Smoke Tests
 
@@ -112,6 +112,18 @@ This verifies no game crashes on startup. It does NOT verify visual correctness.
 10. [ ] Console logs show entity names from Helix data
 
 **Systems exercised:** Database consumption, Combat, Quest, Inventory, Movement, Interaction
+
+**Dashboard check (after full setup):**
+
+```bash
+make helix-dashboard HELIX3D=~/dev/helix/helix_standardization/dist/helix3d/
+```
+
+- [ ] Boxed dashboard renders with check lines
+- [ ] TOML Coverage shows [OK] 22/22
+- [ ] API Health shows [OK] connected (if API on port 6800 is running) or [--] not running
+- [ ] Data Freshness shows age in minutes
+- [ ] Remote Validation shows sample result
 
 ---
 

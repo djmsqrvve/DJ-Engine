@@ -215,6 +215,14 @@ pub fn parse_validate_response(json_str: &str, sample_id: &str) -> Vec<String> {
     issues
 }
 
+/// Serialize balance overlays to JSON for future API upload.
+///
+/// Prepares engine-specific balance tuning as a JSON payload that could
+/// be POSTed to a future `POST /balance` endpoint on the standardization API.
+pub fn serialize_overlays_for_api(overlays: &crate::BalanceOverlays) -> serde_json::Value {
+    serde_json::to_value(overlays).unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,5 +290,19 @@ mod tests {
     fn parse_validate_response_garbage_returns_empty() {
         let issues = parse_validate_response("not json", "test");
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn serialize_overlays_roundtrip() {
+        let mut overlays = crate::BalanceOverlays::default();
+        overlays
+            .get_or_insert("mobs", "wolf")
+            .set("health", 30.0);
+
+        let json = serialize_overlays_for_api(&overlays);
+        let layers = json.get("layers").unwrap().as_object().unwrap();
+        let mobs = layers.get("mobs").unwrap().as_object().unwrap();
+        let wolf = mobs.get("wolf").unwrap().as_object().unwrap();
+        assert_eq!(wolf.get("health").unwrap().as_f64(), Some(30.0));
     }
 }

@@ -19,8 +19,6 @@ fn main() {
         process::exit(1);
     };
 
-    println!("Helix Data Dashboard");
-    println!("====================");
     println!("Source: {}", helix3d_dir.display());
     println!();
 
