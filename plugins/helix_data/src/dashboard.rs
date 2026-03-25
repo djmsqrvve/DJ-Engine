@@ -187,6 +187,50 @@ fn validate_cross_references(registries: &HelixRegistries, issues: &mut Vec<Vali
         }
     }
 
+    // PVP zone_id → zones registry
+    for (pvp_id, pvp) in registries.pvp.iter() {
+        if let Some(zone_id) = &pvp.zone_id {
+            if !zone_id.is_empty() && !registries.zones.contains(zone_id) {
+                issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Warning,
+                    code: "helix_broken_ref".into(),
+                    source_kind: Some("pvp".into()),
+                    source_id: Some(pvp_id.to_string()),
+                    field_path: Some("zone_id".into()),
+                    message: format!(
+                        "PvP '{}' references zone '{}' which does not exist.",
+                        pvp_id, zone_id
+                    ),
+                    related_refs: vec![zone_id.clone()],
+                });
+            }
+        }
+    }
+
+    // Note: loot_tables, factions, ability_effects, quest_objectives are supporting
+    // types not loaded into HelixRegistries (they're in the 4 extra TOML files).
+    // Cross-ref validation for these would require extending HelixRegistries.
+
+    // Profession recipes → items registry
+    for (prof_id, prof) in registries.professions.iter() {
+        for recipe_item in &prof.recipes {
+            if !recipe_item.is_empty() && !registries.items.contains(recipe_item) {
+                issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Warning,
+                    code: "helix_broken_ref".into(),
+                    source_kind: Some("professions".into()),
+                    source_id: Some(prof_id.to_string()),
+                    field_path: Some("recipes".into()),
+                    message: format!(
+                        "Profession '{}' references recipe item '{}' which does not exist.",
+                        prof_id, recipe_item
+                    ),
+                    related_refs: vec![recipe_item.clone()],
+                });
+            }
+        }
+    }
+
     // NPC quests → quests registry
     for (npc_id, npc) in registries.npcs.iter() {
         for quest_id in &npc.quests {
@@ -229,16 +273,27 @@ fn validate_localization(registries: &HelixRegistries, issues: &mut Vec<Validati
     }
 
     check_locale!("abilities", registries.abilities);
-    check_locale!("mobs", registries.mobs);
-    check_locale!("npcs", registries.npcs);
-    check_locale!("quests", registries.quests);
-    check_locale!("zones", registries.zones);
     check_locale!("achievements", registries.achievements);
     check_locale!("auras", registries.auras);
     check_locale!("class_data", registries.class_data);
+    check_locale!("consumables", registries.consumables);
+    check_locale!("currencies", registries.currencies);
+    check_locale!("equipment", registries.equipment);
+    check_locale!("guilds", registries.guilds);
+    check_locale!("inventory", registries.inventory);
+    check_locale!("items", registries.items);
+    check_locale!("mobs", registries.mobs);
     check_locale!("mounts", registries.mounts);
+    check_locale!("npcs", registries.npcs);
+    check_locale!("professions", registries.professions);
+    check_locale!("pvp", registries.pvp);
+    check_locale!("quests", registries.quests);
+    check_locale!("raids", registries.raids);
     check_locale!("talents", registries.talents);
     check_locale!("titles", registries.titles);
+    check_locale!("trade_goods", registries.trade_goods);
+    check_locale!("weapon_skills", registries.weapon_skills);
+    check_locale!("zones", registries.zones);
 }
 
 /// Emit entity count summary as Info-severity issues so the editor
