@@ -24,8 +24,12 @@ help:
 	@echo "  make helix-dashboard Run Helix data contract validation (HELIX3D=<dir>)"
 	@echo "  make helix-editor Launch the Helix editor wrapper (PROJECT=<dir|project.json> optional)"
 	@echo "  make helix-preview Launch the Helix runtime preview wrapper (PROJECT=<dir|project.json>)"
-	@echo "  make game         Run the sample DoomExe game"
-	@echo "  make doom         Alias for 'make game'"
+	@echo "  make game         Run RPG Demo (default game)"
+	@echo "  make doomexe      Run DoomExe (hamster narrator JRPG)"
+	@echo "  make rpg-demo     Run RPG Demo (SDK reference game)"
+	@echo "  make helix-rpg    Run Helix RPG (MMORPG prototype)"
+	@echo "  make stratego     Run Stratego (board game)"
+	@echo "  make iso          Run Iso Sandbox (isometric tiles)"
 	@echo "  make minimal      Run minimal rendering binary"
 	@echo ""
 	@echo "Distribution:"
@@ -101,10 +105,12 @@ helix-preview:
 	@test -n "$(PROJECT)" || (echo "PROJECT is required: make helix-preview PROJECT=<dir|project.json>"; exit 1)
 	@cargo run -p dj_engine_helix --bin helix_runtime_preview -- --project "$(PROJECT)"
 
-game:
+game: rpg-demo
+
+doomexe:
 	@cargo run -p doomexe --bin doomexe
 
-doom: game
+doom: doomexe
 
 stratego:
 	@cargo run -p stratego --bin stratego
