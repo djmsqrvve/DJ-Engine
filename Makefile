@@ -111,6 +111,9 @@ stratego:
 iso:
 	@cargo run -p iso_sandbox
 
+rpg-demo:
+	@cargo run -p rpg_demo
+
 minimal:
 	@cargo run -p dj_engine --bin minimal
 

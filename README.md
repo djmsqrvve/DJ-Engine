@@ -117,6 +117,7 @@ DJ-Engine/
 ├── games/dev/doomexe/      # Primary game — hamster narrator JRPG
 ├── games/dev/stratego/     # Tutorial game — 10x10 board, AI opponent
 ├── games/dev/iso_sandbox/  # Isometric sandbox — 16x16 tile grid
+├── games/dev/rpg_demo/     # SDK reference game — all systems wired
 ├── plugins/helix_data/     # Helix data bridge plugin and import tooling
 ├── tools/asset_generator/  # Asset processing utilities
 ├── docs/                   # Documentation + 8-chapter Stratego tutorial
@@ -143,6 +144,7 @@ data/
 | [Architecture](docs/ARCHITECTURE.md) | Engine system overview |
 | [Testing Guide](docs/TESTING.md) | How tests are organized and run |
 | [Project Structure](docs/PROJECT_STRUCTURE.md) | Detailed workspace layout |
+| [Game Developer's Guide](docs/GAME_DEVELOPER_GUIDE.md) | How to use combat, quests, inventory, interaction, abilities, loot, Lua |
 | [Contributing](CONTRIBUTING.md) | Contribution workflow and expectations |
 
 ## Prerequisites

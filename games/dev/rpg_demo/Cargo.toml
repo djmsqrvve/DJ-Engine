@@ -1,0 +1,17 @@
+[package]
+name = "rpg_demo"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal RPG reference game demonstrating all DJ Engine runtime systems"
+repository.workspace = true
+license.workspace = true
+
+[features]
+default = ["dev"]
+dev = ["bevy/dynamic_linking"]
+
+[dependencies]
+bevy = { workspace = true }
+serde = { workspace = true }
+rand = { workspace = true }
+dj_engine = { path = "../../../engine" }

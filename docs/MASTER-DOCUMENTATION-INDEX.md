@@ -32,6 +32,12 @@
 - `docs/CURRENT_PRIORITIES.md` -- near-term and mid-term execution priorities
 - `docs/LONG_TERM_GOALS.md` -- engine vision and strategic proof points
 
+### Game Development
+
+- `docs/GAME_DEVELOPER_GUIDE.md` -- how to use combat, quests, inventory, interaction, abilities, loot, Lua scripting
+- `docs/examples/` -- Lua scripting examples (quest flow, combat, inventory, NPC dialogue)
+- `games/dev/rpg_demo/` -- minimal reference game demonstrating all engine systems
+
 ### Testing
 
 - `docs/TESTING.md` -- test organization and how to run tests
