@@ -27,7 +27,7 @@
 
 ### Planning
 
-- `docs/ROADMAP.md` -- phased development plan (Phases 1-4 complete, 444 tests)
+- `docs/ROADMAP.md` -- phased development plan (Phases 1-4 complete, 466 tests, runtime systems shipped)
 - `docs/CURRENT_GAPS.md` -- short snapshot of remaining gaps
 - `docs/CURRENT_PRIORITIES.md` -- near-term and mid-term execution priorities
 - `docs/LONG_TERM_GOALS.md` -- engine vision and strategic proof points
