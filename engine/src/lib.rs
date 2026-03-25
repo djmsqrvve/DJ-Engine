@@ -25,6 +25,7 @@ pub mod animation;
 pub mod assets;
 pub mod audio;
 pub mod collision;
+pub mod combat;
 pub mod contracts;
 pub mod core;
 pub mod data;
@@ -60,6 +61,9 @@ pub mod prelude {
     pub use crate::collision::{
         CollisionPlugin, CollisionSet, MovementIntent, RuntimeCollider, RuntimeColliderShape,
         SpatialHash, TriggerContactEvent, TriggerContacts,
+    };
+    pub use crate::combat::{
+        calculate_damage, CombatConfig, CombatEvent, CombatPlugin, DamageEvent,
     };
     pub use crate::diagnostics::DiagnosticsPlugin;
     pub use crate::input::{ActionState, DJInputPlugin, InputAction, InputConfig};
