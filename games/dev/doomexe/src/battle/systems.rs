@@ -140,6 +140,7 @@ pub fn handle_battle_damage(
             // Write to BOTH flag systems so graph executor + HUD tracker both see it
             story.add_flag("DefeatedGlitch");
             flags.0.insert("DefeatedGlitch".to_string(), true);
+            info!("STATE: Battle -> Overworld (victory)");
             next_state.set(GameState::Overworld);
         }
 
@@ -150,6 +151,7 @@ pub fn handle_battle_damage(
                 hamster.expression = Expression::Angry;
                 hamster.corruption = (hamster.corruption + 15.0).min(100.0);
             }
+            info!("STATE: Battle -> Overworld (defeat)");
             next_state.set(GameState::Overworld);
         }
     }

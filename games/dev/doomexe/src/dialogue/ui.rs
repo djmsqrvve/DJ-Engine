@@ -234,8 +234,9 @@ pub fn update_dialogue_ui(
                 // Don't return to Overworld if a battle was triggered by a
                 // story event in this or a previous frame.
                 if battle_pending.0 {
-                    info!("Dialogue complete — battle pending, not returning to overworld");
+                    info!("STATE: NarratorDialogue -> Battle (via BattlePending)");
                 } else {
+                    info!("STATE: NarratorDialogue -> Overworld (graph complete)");
                     next_state.set(GameState::Overworld);
                 }
             }
