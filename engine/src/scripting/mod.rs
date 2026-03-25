@@ -9,7 +9,7 @@ pub mod ecs_bridge;
 pub mod ffi;
 
 pub use context::LuaContext;
-pub use ecs_bridge::{LuaCommandBuffer, LuaEcsCommand};
+pub use ecs_bridge::{LuaCommandBuffer, LuaEcsCommand, LuaQueryResults};
 pub use ffi::{
     create_shared_state, register_core_api, register_generic_state_api, GenericStateBuffer,
     SharedGenericState,
@@ -41,13 +41,20 @@ impl Plugin for DJScriptingPlugin {
             }
         }
 
+        let lua_query_results = ecs_bridge::LuaQueryResults::default();
+
         app.insert_resource(lua_ctx)
             .insert_resource(lua_cmd_buffer)
+            .insert_resource(lua_query_results)
             .register_type::<ScriptCommand>()
             .add_message::<ScriptCommand>()
             .add_systems(
                 Update,
-                (handle_script_commands, ecs_bridge::process_lua_commands),
+                (
+                    handle_script_commands,
+                    ecs_bridge::process_lua_commands,
+                    ecs_bridge::sync_lua_query_results,
+                ),
             );
 
         use crate::contracts::{AppContractExt, ContractEntry, PluginContract};

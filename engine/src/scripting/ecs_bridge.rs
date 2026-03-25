@@ -27,6 +27,26 @@ pub enum LuaEcsCommand {
         field: String,
         value: serde_json::Value,
     },
+    SetPosition {
+        entity_id: u64,
+        x: f32,
+        y: f32,
+    },
+}
+
+/// Read-only query results returned to Lua.
+#[derive(Resource, Default, Clone)]
+pub struct LuaQueryResults {
+    pub results: Arc<Mutex<Vec<LuaQueryResult>>>,
+}
+
+/// A single entity's data returned from a query.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LuaQueryResult {
+    pub entity_id: u64,
+    pub name: Option<String>,
+    pub x: f32,
+    pub y: f32,
 }
 
 /// Shared command buffer between Lua and Bevy.
@@ -92,7 +112,49 @@ pub fn register_ecs_bridge(lua: &mlua::Lua, buffer: LuaCommandBuffer) -> mlua::R
     )?;
     ecs.set("set_field", set_field_fn)?;
 
+    // ecs.set_position(entity_id, x, y)
+    let buf = buffer.clone();
+    let set_pos_fn = lua.create_function(move |_, (entity_id, x, y): (u64, f32, f32)| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::SetPosition { entity_id, x, y });
+        Ok(())
+    })?;
+    ecs.set("set_position", set_pos_fn)?;
+
     lua.globals().set("ecs", ecs)?;
+    Ok(())
+}
+
+/// Extended registration that also provides read-back APIs (get_position, query).
+/// Call this instead of `register_ecs_bridge` when you have query results available.
+pub fn register_ecs_bridge_with_queries(
+    lua: &mlua::Lua,
+    buffer: LuaCommandBuffer,
+    query_results: LuaQueryResults,
+) -> mlua::Result<()> {
+    register_ecs_bridge(lua, buffer)?;
+
+    let ecs: mlua::Table = lua.globals().get("ecs")?;
+
+    // ecs.get_entities() -> array of {entity_id, name, x, y}
+    let qr = query_results.clone();
+    let get_entities_fn = lua.create_function(move |lua_ctx, ()| {
+        let results = qr.results.lock().unwrap();
+        let table = lua_ctx.create_table()?;
+        for (i, result) in results.iter().enumerate() {
+            let entry = lua_ctx.create_table()?;
+            entry.set("entity_id", result.entity_id)?;
+            if let Some(name) = &result.name {
+                entry.set("name", name.as_str())?;
+            }
+            entry.set("x", result.x)?;
+            entry.set("y", result.y)?;
+            table.set(i + 1, entry)?;
+        }
+        Ok(table)
+    })?;
+    ecs.set("get_entities", get_entities_fn)?;
+
     Ok(())
 }
 
@@ -111,7 +173,12 @@ fn lua_value_to_json(value: mlua::Value) -> serde_json::Value {
 }
 
 /// System that drains the Lua command buffer and executes commands.
-pub fn process_lua_commands(mut commands: Commands, buffer: Res<LuaCommandBuffer>) {
+pub fn process_lua_commands(
+    mut commands: Commands,
+    buffer: Res<LuaCommandBuffer>,
+    mut transforms: Query<&mut Transform>,
+    mut visibilities: Query<&mut Visibility>,
+) {
     let mut cmds = buffer.commands.lock().unwrap();
     for cmd in cmds.drain(..) {
         match cmd {
@@ -129,12 +196,117 @@ pub fn process_lua_commands(mut commands: Commands, buffer: Res<LuaCommandBuffer
                 payload,
             } => {
                 info!("Lua: emit event '{event_name}' payload={payload}");
-                // Events will be handled by game-specific systems
             }
-            LuaEcsCommand::SetComponentField { .. } => {
-                warn!("Lua: set_field not yet implemented for runtime components");
+            LuaEcsCommand::SetComponentField {
+                entity_id,
+                component,
+                field,
+                value,
+            } => {
+                let entity = Entity::from_bits(entity_id);
+                apply_set_field(
+                    entity,
+                    &component,
+                    &field,
+                    &value,
+                    &mut transforms,
+                    &mut visibilities,
+                );
+            }
+            LuaEcsCommand::SetPosition { entity_id, x, y } => {
+                let entity = Entity::from_bits(entity_id);
+                if let Ok(mut transform) = transforms.get_mut(entity) {
+                    transform.translation.x = x;
+                    transform.translation.y = y;
+                } else {
+                    warn!("Lua: set_position failed — entity {entity_id} has no Transform");
+                }
             }
         }
+    }
+}
+
+fn apply_set_field(
+    entity: Entity,
+    component: &str,
+    field: &str,
+    value: &serde_json::Value,
+    transforms: &mut Query<&mut Transform>,
+    visibilities: &mut Query<&mut Visibility>,
+) {
+    match component {
+        "transform" | "Transform" => {
+            if let Ok(mut t) = transforms.get_mut(entity) {
+                match field {
+                    "x" => {
+                        if let Some(v) = value.as_f64() {
+                            t.translation.x = v as f32;
+                        }
+                    }
+                    "y" => {
+                        if let Some(v) = value.as_f64() {
+                            t.translation.y = v as f32;
+                        }
+                    }
+                    "scale_x" => {
+                        if let Some(v) = value.as_f64() {
+                            t.scale.x = v as f32;
+                        }
+                    }
+                    "scale_y" => {
+                        if let Some(v) = value.as_f64() {
+                            t.scale.y = v as f32;
+                        }
+                    }
+                    "rotation" => {
+                        if let Some(v) = value.as_f64() {
+                            t.rotation = Quat::from_rotation_z(v as f32);
+                        }
+                    }
+                    _ => {
+                        warn!("Lua: unknown Transform field '{field}'");
+                    }
+                }
+            }
+        }
+        "visibility" | "Visibility" => {
+            if let Ok(mut vis) = visibilities.get_mut(entity) {
+                match field {
+                    "visible" => {
+                        if let Some(v) = value.as_bool() {
+                            *vis = if v {
+                                Visibility::Inherited
+                            } else {
+                                Visibility::Hidden
+                            };
+                        }
+                    }
+                    _ => {
+                        warn!("Lua: unknown Visibility field '{field}'");
+                    }
+                }
+            }
+        }
+        _ => {
+            warn!("Lua: set_field for component '{component}' not supported — use game-specific FFI for custom components");
+        }
+    }
+}
+
+/// System that snapshots entity positions for Lua query access.
+pub fn sync_lua_query_results(
+    query_results: Res<LuaQueryResults>,
+    query: Query<(Entity, &Transform, Option<&Name>)>,
+) {
+    let mut results = query_results.results.lock().unwrap();
+    results.clear();
+    for (entity, transform, name) in query.iter() {
+        results.push(LuaQueryResult {
+            entity_id: entity.to_bits(),
+            name: name.map(|n| n.to_string()),
+            x: transform.translation.x,
+            y: transform.translation.y,
+        });
     }
 }
 
@@ -237,6 +409,144 @@ mod tests {
             }
         }
         assert!(found, "Expected entity with Name 'lua_spawned:hero'");
+    }
+
+    #[test]
+    fn test_lua_set_position_queues_command() {
+        let lua = Lua::new();
+        let buffer = LuaCommandBuffer::default();
+        register_ecs_bridge(&lua, buffer.clone()).unwrap();
+
+        lua.load("ecs.set_position(99, 10.5, 20.0)").exec().unwrap();
+
+        let cmds = buffer.commands.lock().unwrap();
+        assert_eq!(cmds.len(), 1);
+        match &cmds[0] {
+            LuaEcsCommand::SetPosition { entity_id, x, y } => {
+                assert_eq!(*entity_id, 99);
+                assert!((x - 10.5).abs() < f32::EPSILON);
+                assert!((y - 20.0).abs() < f32::EPSILON);
+            }
+            other => panic!("Expected SetPosition, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_lua_set_field_queues_command() {
+        let lua = Lua::new();
+        let buffer = LuaCommandBuffer::default();
+        register_ecs_bridge(&lua, buffer.clone()).unwrap();
+
+        lua.load(r#"ecs.set_field(1, "transform", "x", 42.0)"#)
+            .exec()
+            .unwrap();
+
+        let cmds = buffer.commands.lock().unwrap();
+        assert_eq!(cmds.len(), 1);
+        match &cmds[0] {
+            LuaEcsCommand::SetComponentField {
+                entity_id,
+                component,
+                field,
+                value,
+            } => {
+                assert_eq!(*entity_id, 1);
+                assert_eq!(component, "transform");
+                assert_eq!(field, "x");
+                assert_eq!(*value, serde_json::json!(42.0));
+            }
+            other => panic!("Expected SetComponentField, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_process_set_position_updates_transform() {
+        let mut app = App::new();
+        let buffer = LuaCommandBuffer::default();
+
+        // Spawn an entity with a Transform
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(buffer.clone());
+        app.add_systems(Update, process_lua_commands);
+        app.update(); // initialize
+
+        let entity = app
+            .world_mut()
+            .spawn(Transform::from_xyz(0.0, 0.0, 0.0))
+            .id();
+
+        // Queue a set_position command
+        {
+            let mut cmds = buffer.commands.lock().unwrap();
+            cmds.push(LuaEcsCommand::SetPosition {
+                entity_id: entity.to_bits(),
+                x: 100.0,
+                y: 200.0,
+            });
+        }
+
+        app.update();
+
+        let transform = app.world().get::<Transform>(entity).unwrap();
+        assert!((transform.translation.x - 100.0).abs() < f32::EPSILON);
+        assert!((transform.translation.y - 200.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_process_set_field_transform_x() {
+        let mut app = App::new();
+        let buffer = LuaCommandBuffer::default();
+
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(buffer.clone());
+        app.add_systems(Update, process_lua_commands);
+        app.update();
+
+        let entity = app
+            .world_mut()
+            .spawn(Transform::from_xyz(0.0, 0.0, 0.0))
+            .id();
+
+        {
+            let mut cmds = buffer.commands.lock().unwrap();
+            cmds.push(LuaEcsCommand::SetComponentField {
+                entity_id: entity.to_bits(),
+                component: "transform".into(),
+                field: "x".into(),
+                value: serde_json::json!(55.5),
+            });
+        }
+
+        app.update();
+
+        let transform = app.world().get::<Transform>(entity).unwrap();
+        assert!((transform.translation.x - 55.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_query_results_snapshot() {
+        let mut app = App::new();
+        let query_results = LuaQueryResults::default();
+
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(query_results.clone());
+        app.add_systems(Update, sync_lua_query_results);
+
+        app.world_mut()
+            .spawn((Transform::from_xyz(10.0, 20.0, 0.0), Name::new("hero")));
+        app.world_mut()
+            .spawn((Transform::from_xyz(30.0, 40.0, 0.0), Name::new("npc")));
+
+        app.update();
+
+        let results = query_results.results.lock().unwrap();
+        assert_eq!(results.len(), 2);
+
+        let hero = results.iter().find(|r| r.name.as_deref() == Some("hero"));
+        assert!(hero.is_some());
+        let hero = hero.unwrap();
+        assert!((hero.x - 10.0).abs() < f32::EPSILON);
+        assert!((hero.y - 20.0).abs() < f32::EPSILON);
     }
 
     #[test]
