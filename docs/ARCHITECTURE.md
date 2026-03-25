@@ -207,3 +207,31 @@ Helix-shaped document kinds (`abilities`, `enemy_archetypes`, `evolution_tree`,
 `waves`) as proof that the custom document platform can carry real game data
 shapes. These are engine tests exercising the generic platform, not engine-level
 Helix dependencies.
+
+## Gameplay Systems
+
+25 plugins are registered via `DJEnginePlugin`, each with a typed `PluginContract`
+verified by `make contracts`. The 18 gameplay-facing systems are:
+
+| System | Plugin | Purpose |
+| --- | --- | --- |
+| Combat | CombatPlugin | CombatEvent/DamageEvent, configurable formulas |
+| Combat FX | CombatFxPlugin | Floating damage numbers (float up, fade out) |
+| Quests | QuestPlugin | Accept/progress/complete/turn-in/abandon lifecycle |
+| Inventory | InventoryPlugin | Item slots, stacking, currency balances |
+| NPC Interaction | InteractionPlugin | Proximity detection, InteractionEvent |
+| Animation | DJAnimationPlugin | Frame-cycling sprite sheets, loop/one-shot |
+| Spawner | DataPlugin | Timed waves, SpawnWaveEvent |
+| Status Effects | StatusPlugin | Buff/debuff duration, tick, expiry |
+| Ability Cooldowns | AbilityPlugin | Per-ability timers, ready check |
+| Loot | LootPlugin | LootDropEvent on enemy death |
+| Economy | EconomyPlugin | Consumables, equipment, vendor buy/sell |
+| Character | CharacterPlugin | Titles, weapon skills, bag management |
+| Debug Console | DebugConsolePlugin | F1 panel + objective navigator ([ ] keys) |
+| Zone | ZonePlugin | Zone transitions, boundary checks |
+| Collision | CollisionPlugin | Spatial hash, AABB overlap, collision events |
+| Audio | DJAudioPlugin | BGM crossfade, SFX playback |
+| Save/Load | SavePlugin | JSON serialization to disk |
+| Scripting | DJScriptingPlugin | Lua 5.4 via mlua, 8 API tables |
+
+See `docs/GAME_DEVELOPER_GUIDE.md` for API details and code examples.

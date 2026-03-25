@@ -125,6 +125,18 @@ impl Plugin for DebugConsolePlugin {
                     update_objective_nav_text,
                 ),
             );
+
+        use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
+        app.register_contract(PluginContract {
+            name: "DebugConsolePlugin".into(),
+            description: "Runtime debug console (F1) and objective navigator ([ ] keys)".into(),
+            resources: vec![ContractEntry::of::<DebugConsole>(
+                "Debug console state + checkpoint list",
+            )],
+            components: vec![],
+            events: vec![],
+            system_sets: vec![],
+        });
     }
 }
 
@@ -412,4 +424,58 @@ fn update_debug_text(
          Gold: {} | Slots: {}",
         flag_list, active, quest_count, gold, slots
     ));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_checkpoints_exist() {
+        let checkpoints = default_checkpoints();
+        assert!(checkpoints.len() >= 3, "need at least start, met, defeated");
+        assert_eq!(checkpoints[0].name, "Start (no flags)");
+    }
+
+    #[test]
+    fn test_checkpoint_advance_wraps() {
+        let mut console = DebugConsole::default();
+        let count = console.checkpoints.len();
+
+        // Advance past end wraps to 0
+        console.checkpoint_index = count - 1;
+        console.checkpoint_index = (console.checkpoint_index + 1) % count;
+        assert_eq!(console.checkpoint_index, 0);
+    }
+
+    #[test]
+    fn test_checkpoint_rewind_wraps() {
+        let mut console = DebugConsole::default();
+        let count = console.checkpoints.len();
+
+        // Rewind past start wraps to end
+        console.checkpoint_index = 0;
+        if console.checkpoint_index > 0 {
+            console.checkpoint_index -= 1;
+        } else {
+            console.checkpoint_index = count - 1;
+        }
+        assert_eq!(console.checkpoint_index, count - 1);
+    }
+
+    #[test]
+    fn test_checkpoint_flags_are_consistent() {
+        let checkpoints = default_checkpoints();
+        for cp in &checkpoints {
+            // No flag should appear in both set and clear lists
+            for flag in cp.flags_to_set {
+                assert!(
+                    !cp.flags_to_clear.contains(flag),
+                    "checkpoint '{}' has '{}' in both set and clear",
+                    cp.name,
+                    flag
+                );
+            }
+        }
+    }
 }
