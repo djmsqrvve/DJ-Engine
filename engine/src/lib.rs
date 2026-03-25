@@ -28,6 +28,7 @@ pub mod audio;
 pub mod character;
 pub mod collision;
 pub mod combat;
+pub mod combat_fx;
 pub mod contracts;
 pub mod core;
 pub mod data;

@@ -228,7 +228,10 @@ mod tests {
         // Rebuild spatial hash manually (normally done by collision plugin)
         {
             let mut hash = app.world_mut().resource_mut::<SpatialHash>();
-            hash.rebuild(std::iter::once((Entity::from_bits(1), Vec2::new(10.0, 0.0))));
+            hash.rebuild(std::iter::once((
+                Entity::from_bits(1),
+                Vec2::new(10.0, 0.0),
+            )));
         }
 
         app.update();
