@@ -198,10 +198,10 @@ validate:
 	@cargo run -p dj_engine --bin contracts
 	@echo "[5/5] Checking test count..."
 	@test_count=$$(cargo test --workspace -- --list 2>/dev/null | grep -c ': test$$'); \
-	if [ "$$test_count" -lt 400 ]; then \
-		echo "FAILED: Test count regression ($$test_count < 400)"; exit 1; \
+	if [ "$$test_count" -lt 490 ]; then \
+		echo "FAILED: Test count regression ($$test_count < 490)"; exit 1; \
 	else \
-		echo "Test count: $$test_count (>= 400 minimum)"; \
+		echo "Test count: $$test_count (>= 490 minimum)"; \
 	fi
 	@echo ""
 	@echo "=== All validation passed ==="

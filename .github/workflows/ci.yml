@@ -72,7 +72,7 @@ jobs:
         run: |
           test_count=$(cargo test --workspace -- --list 2>/dev/null | grep -c ': test$')
           echo "Test count: $test_count"
-          if [ "$test_count" -lt 400 ]; then
-            echo "FAILED: Test count regression ($test_count < 400)"
+          if [ "$test_count" -lt 490 ]; then
+            echo "FAILED: Test count regression ($test_count < 490)"
             exit 1
           fi
