@@ -49,6 +49,20 @@ pub struct LuaQueryResult {
     pub y: f32,
 }
 
+/// Cached document payloads for Lua access.
+#[derive(Resource, Default, Clone)]
+pub struct LuaDocumentCache {
+    pub documents: Arc<Mutex<Vec<CachedDocument>>>,
+}
+
+/// A single cached document with its payload as JSON string.
+#[derive(Debug, Clone)]
+pub struct CachedDocument {
+    pub kind: String,
+    pub id: String,
+    pub payload_json: String,
+}
+
 /// Shared command buffer between Lua and Bevy.
 #[derive(Resource, Default, Clone)]
 pub struct LuaCommandBuffer {
@@ -135,6 +149,18 @@ pub fn register_ecs_bridge_with_queries(
     register_ecs_bridge(lua, buffer)?;
 
     let ecs: mlua::Table = lua.globals().get("ecs")?;
+
+    // ecs.get_document(kind, id) -> JSON string or nil
+    let dc = LuaDocumentCache::default();
+    let get_doc_fn = lua.create_function(move |_, (kind, id): (String, String)| {
+        let docs = dc.documents.lock().unwrap();
+        let found = docs
+            .iter()
+            .find(|d| d.kind == kind && d.id == id)
+            .map(|d| d.payload_json.clone());
+        Ok(found)
+    })?;
+    ecs.set("get_document", get_doc_fn)?;
 
     // ecs.get_entities() -> array of {entity_id, name, x, y}
     let qr = query_results.clone();
@@ -289,6 +315,26 @@ fn apply_set_field(
         }
         _ => {
             warn!("Lua: set_field for component '{component}' not supported — use game-specific FFI for custom components");
+        }
+    }
+}
+
+/// System that syncs custom document payloads for Lua access.
+pub fn sync_lua_document_cache(
+    cache: Res<LuaDocumentCache>,
+    docs: Res<crate::data::LoadedCustomDocuments>,
+) {
+    let mut cached = cache.documents.lock().unwrap();
+    cached.clear();
+    for doc in &docs.documents {
+        if let Some(envelope) = &doc.document {
+            if let Ok(json) = serde_json::to_string(&envelope.payload) {
+                cached.push(CachedDocument {
+                    kind: doc.entry.kind.clone(),
+                    id: doc.entry.id.clone(),
+                    payload_json: json,
+                });
+            }
         }
     }
 }
@@ -583,5 +629,45 @@ mod tests {
             .filter(|n| n.as_str().starts_with("lua_spawned:"))
             .count();
         assert_eq!(count, 3, "Expected 3 spawned entities");
+    }
+
+    #[test]
+    fn test_document_cache_stores_payloads() {
+        let cache = LuaDocumentCache::default();
+        {
+            let mut docs = cache.documents.lock().unwrap();
+            docs.push(CachedDocument {
+                kind: "abilities".into(),
+                id: "fireball".into(),
+                payload_json: r#"{"damage":50}"#.into(),
+            });
+            docs.push(CachedDocument {
+                kind: "items".into(),
+                id: "potion".into(),
+                payload_json: r#"{"heal":25}"#.into(),
+            });
+        }
+
+        let docs = cache.documents.lock().unwrap();
+        assert_eq!(docs.len(), 2);
+
+        let fireball = docs.iter().find(|d| d.id == "fireball");
+        assert!(fireball.is_some());
+        assert_eq!(fireball.unwrap().payload_json, r#"{"damage":50}"#);
+    }
+
+    #[test]
+    fn test_lua_get_document_returns_json() {
+        let lua = Lua::new();
+        let buffer = LuaCommandBuffer::default();
+        let query_results = LuaQueryResults::default();
+        register_ecs_bridge_with_queries(&lua, buffer, query_results).unwrap();
+
+        // get_document returns nil when cache is empty
+        let result: Option<String> = lua
+            .load(r#"return ecs.get_document("abilities", "fireball")"#)
+            .eval()
+            .unwrap();
+        assert!(result.is_none());
     }
 }
