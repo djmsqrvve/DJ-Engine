@@ -8,7 +8,7 @@ use bevy::prelude::*;
 pub mod components;
 pub mod systems;
 
-pub use components::{BlinkingAnimation, BreathingAnimation, IdleMotion};
+pub use components::{BlinkingAnimation, BreathingAnimation, IdleMotion, SpriteAnimationPlayer};
 
 /// Animation plugin that registers all animation systems.
 pub struct DJAnimationPlugin;
@@ -21,6 +21,7 @@ impl Plugin for DJAnimationPlugin {
                 systems::breathing_system,
                 systems::blinking_system,
                 systems::idle_motion_system,
+                systems::tick_sprite_animations,
             ),
         );
 
@@ -32,6 +33,7 @@ impl Plugin for DJAnimationPlugin {
                 ContractEntry::of::<BreathingAnimation>("Breathing cycle animation"),
                 ContractEntry::of::<BlinkingAnimation>("Blinking interval animation"),
                 ContractEntry::of::<IdleMotion>("Idle sway motion"),
+                ContractEntry::of::<SpriteAnimationPlayer>("Sprite sheet frame animation player"),
             ],
             events: vec![],
             system_sets: vec![],

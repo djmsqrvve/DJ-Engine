@@ -91,6 +91,64 @@ impl IdleMotion {
     }
 }
 
+/// Component for sprite sheet frame animation.
+///
+/// Attach to an entity with a `Sprite` and `TextureAtlas` to cycle frames
+/// automatically. Supports looping and one-shot playback.
+#[derive(Component, Debug, Clone)]
+pub struct SpriteAnimationPlayer {
+    /// Total number of frames in the animation
+    pub frame_count: usize,
+    /// Seconds per frame (derived from total duration / frame_count)
+    pub frame_duration: f32,
+    /// Current frame index (0-based)
+    pub current_frame: usize,
+    /// Time elapsed in current frame
+    pub elapsed: f32,
+    /// Whether the animation loops
+    pub looping: bool,
+    /// Whether the animation is currently playing
+    pub playing: bool,
+    /// Playback speed multiplier (1.0 = normal)
+    pub speed: f32,
+}
+
+impl SpriteAnimationPlayer {
+    /// Create a new animation player.
+    ///
+    /// `frame_count`: total frames in the sprite sheet row/strip
+    /// `total_duration`: how long one full cycle takes in seconds
+    /// `looping`: whether to loop or stop after one play
+    pub fn new(frame_count: usize, total_duration: f32, looping: bool) -> Self {
+        let frame_duration = if frame_count > 0 {
+            total_duration / frame_count as f32
+        } else {
+            1.0
+        };
+        Self {
+            frame_count,
+            frame_duration,
+            current_frame: 0,
+            elapsed: 0.0,
+            looping,
+            playing: true,
+            speed: 1.0,
+        }
+    }
+
+    /// Whether the animation has finished (only meaningful for non-looping).
+    pub fn is_finished(&self) -> bool {
+        !self.looping && self.current_frame >= self.frame_count.saturating_sub(1) && !self.playing
+    }
+
+    /// Reset to the first frame and start playing.
+    pub fn restart(&mut self) {
+        self.current_frame = 0;
+        self.elapsed = 0.0;
+        self.playing = true;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
