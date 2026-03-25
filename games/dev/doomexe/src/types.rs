@@ -164,4 +164,41 @@ mod tests {
         assert_eq!(config.window_height, 600);
         assert!((config.scale_factor_override - 1.0).abs() < f32::EPSILON);
     }
+
+    #[test]
+    fn test_save_load_roundtrip() {
+        use dj_engine::save::{SaveData, SaveScope};
+        use std::collections::HashMap;
+
+        let scope = SaveScope::Project("doomexe_test".into());
+        let mut flags = HashMap::new();
+        flags.insert("MetHamster".to_string(), true);
+        flags.insert("DefeatedGlitch".to_string(), true);
+
+        let data = SaveData {
+            flags,
+            variables: HashMap::new(),
+            current_node: Some(5),
+            game_state: "Overworld".into(),
+            scene_background: None,
+            project_id: Some("doomexe".into()),
+            scene_id: None,
+            story_graph_id: None,
+        };
+
+        // Save
+        let path = dj_engine::save::save_game_scoped(&scope, 99, &data).unwrap();
+        assert!(path.exists());
+
+        // Load
+        let loaded = dj_engine::save::load_game_scoped(&scope, 99).unwrap();
+        assert_eq!(loaded.flags.len(), 2);
+        assert_eq!(loaded.flags.get("MetHamster"), Some(&true));
+        assert_eq!(loaded.game_state, "Overworld");
+        assert_eq!(loaded.current_node, Some(5));
+
+        // Cleanup
+        dj_engine::save::delete_save_scoped(&scope, 99).unwrap();
+        assert!(!dj_engine::save::has_save_scoped(&scope, 99));
+    }
 }

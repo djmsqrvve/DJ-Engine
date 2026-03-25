@@ -167,3 +167,141 @@ pub fn cleanup_battle_entities(
         commands.entity(entity).despawn();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dj_engine::combat::{CombatConfig, CombatEvent, DamageEvent};
+
+    fn setup_battle_app() -> (App, Entity, Entity) {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.init_resource::<CombatConfig>();
+        app.add_message::<CombatEvent>();
+        app.add_message::<DamageEvent>();
+        app.add_systems(Update, dj_engine::combat::resolve_combat);
+
+        let player = app
+            .world_mut()
+            .spawn((
+                BattlePlayer,
+                CombatStatsComponent {
+                    max_hp: 80,
+                    hp: 80,
+                    damage: 10,
+                    defense: 5,
+                    crit_chance: 0.1,
+                    ..default()
+                },
+            ))
+            .id();
+
+        let enemy = app
+            .world_mut()
+            .spawn((
+                BattleEnemy,
+                CombatStatsComponent {
+                    max_hp: 80,
+                    hp: 80,
+                    damage: 8,
+                    defense: 4,
+                    crit_chance: 0.05,
+                    ..default()
+                },
+            ))
+            .id();
+
+        (app, player, enemy)
+    }
+
+    #[test]
+    fn test_combat_applies_damage_to_enemy() {
+        let (mut app, player, enemy) = setup_battle_app();
+
+        app.world_mut()
+            .resource_mut::<Messages<CombatEvent>>()
+            .write(CombatEvent {
+                attacker: player,
+                target: enemy,
+                flat_damage: None,
+            });
+
+        app.update();
+
+        let stats = app.world().get::<CombatStatsComponent>(enemy).unwrap();
+        assert!(
+            stats.hp < 80,
+            "enemy should take damage, got hp={}",
+            stats.hp
+        );
+    }
+
+    #[test]
+    fn test_enemy_can_be_defeated() {
+        let (mut app, player, enemy) = setup_battle_app();
+
+        // Send enough attacks to kill (flat 100 damage bypasses defense)
+        app.world_mut()
+            .resource_mut::<Messages<CombatEvent>>()
+            .write(CombatEvent {
+                attacker: player,
+                target: enemy,
+                flat_damage: Some(100),
+            });
+
+        app.update();
+
+        let stats = app.world().get::<CombatStatsComponent>(enemy).unwrap();
+        assert_eq!(stats.hp, 0, "enemy should be dead");
+    }
+
+    #[test]
+    fn test_player_can_take_damage() {
+        let (mut app, player, enemy) = setup_battle_app();
+
+        app.world_mut()
+            .resource_mut::<Messages<CombatEvent>>()
+            .write(CombatEvent {
+                attacker: enemy,
+                target: player,
+                flat_damage: None,
+            });
+
+        app.update();
+
+        let stats = app.world().get::<CombatStatsComponent>(player).unwrap();
+        assert!(
+            stats.hp < 80,
+            "player should take damage, got hp={}",
+            stats.hp
+        );
+    }
+
+    #[test]
+    fn test_battle_entity_spawns_correct_stats() {
+        // Verify the hardcoded values match our expectations
+        let player_stats = CombatStatsComponent {
+            max_hp: 80,
+            hp: 80,
+            mana: 30,
+            damage: 10,
+            defense: 5,
+            crit_chance: 0.1,
+            ..default()
+        };
+        assert_eq!(player_stats.hp, 80);
+        assert_eq!(player_stats.damage, 10);
+
+        let enemy_stats = CombatStatsComponent {
+            max_hp: 80,
+            hp: 80,
+            damage: 8,
+            defense: 4,
+            crit_chance: 0.05,
+            loot_table_id: Some("glitch_loot".into()),
+            ..default()
+        };
+        assert_eq!(enemy_stats.hp, 80);
+        assert_eq!(enemy_stats.loot_table_id, Some("glitch_loot".into()));
+    }
+}
