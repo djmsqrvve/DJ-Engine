@@ -65,6 +65,7 @@ impl Plugin for DJEnginePlugin {
         app.add_plugins(crate::interaction::InteractionPlugin);
         app.add_plugins(crate::quest::QuestPlugin);
         app.add_plugins(crate::combat::CombatPlugin);
+        app.add_plugins(crate::inventory::InventoryPlugin);
 
         // Conditionally add diagnostics
         if self.with_diagnostics {
