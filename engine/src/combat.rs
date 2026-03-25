@@ -34,6 +34,42 @@ impl Default for CombatConfig {
     }
 }
 
+/// Attack cooldown — gates how often an entity can attack.
+/// Attach to any entity that should have a delay between attacks.
+#[derive(Component, Debug, Clone, Reflect)]
+pub struct AttackCooldown {
+    pub timer: Timer,
+}
+
+impl AttackCooldown {
+    pub fn new(seconds: f32) -> Self {
+        Self {
+            timer: Timer::from_seconds(seconds, TimerMode::Once),
+        }
+    }
+
+    pub fn ready(&self) -> bool {
+        self.timer.is_finished()
+    }
+
+    pub fn reset(&mut self) {
+        self.timer.reset();
+    }
+}
+
+impl Default for AttackCooldown {
+    fn default() -> Self {
+        Self::new(0.8)
+    }
+}
+
+/// System that ticks attack cooldown timers.
+pub fn tick_attack_cooldowns(time: Res<Time>, mut query: Query<&mut AttackCooldown>) {
+    for mut cooldown in query.iter_mut() {
+        cooldown.timer.tick(time.delta());
+    }
+}
+
 /// Request an attack be calculated.
 #[derive(Message, Debug, Clone, PartialEq)]
 pub struct CombatEvent {
@@ -144,9 +180,10 @@ impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CombatConfig>()
             .register_type::<CombatConfig>()
+            .register_type::<AttackCooldown>()
             .add_message::<CombatEvent>()
             .add_message::<DamageEvent>()
-            .add_systems(Update, resolve_combat);
+            .add_systems(Update, (tick_attack_cooldowns, resolve_combat).chain());
 
         use crate::contracts::{AppContractExt, ContractEntry, PluginContract};
         app.register_contract(PluginContract {
@@ -155,7 +192,9 @@ impl Plugin for CombatPlugin {
             resources: vec![ContractEntry::of::<CombatConfig>(
                 "Combat formula configuration",
             )],
-            components: vec![],
+            components: vec![ContractEntry::of::<AttackCooldown>(
+                "Attack cooldown timer (gates attack frequency)",
+            )],
             events: vec![
                 ContractEntry::of::<CombatEvent>("Attack request"),
                 ContractEntry::of::<DamageEvent>("Resolved damage result"),
@@ -168,6 +207,28 @@ impl Plugin for CombatPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_attack_cooldown_gates_attacks() {
+        let mut cooldown = AttackCooldown::new(1.0);
+        assert!(!cooldown.ready(), "should not be ready immediately");
+
+        cooldown.timer.tick(std::time::Duration::from_secs_f32(0.5));
+        assert!(!cooldown.ready(), "should not be ready at 50%");
+
+        cooldown.timer.tick(std::time::Duration::from_secs_f32(0.6));
+        assert!(cooldown.ready(), "should be ready after full duration");
+
+        cooldown.reset();
+        assert!(!cooldown.ready(), "should not be ready after reset");
+    }
+
+    #[test]
+    fn test_attack_cooldown_default() {
+        let cooldown = AttackCooldown::default();
+        assert!(!cooldown.ready());
+        assert_eq!(cooldown.timer.duration().as_secs_f32(), 0.8);
+    }
 
     #[test]
     fn test_basic_damage_calculation() {

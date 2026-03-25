@@ -2,7 +2,7 @@ use crate::hamster::components::{CharacterRoot, Expression};
 use crate::state::GameState;
 use crate::story::StoryState;
 use bevy::prelude::*;
-use dj_engine::combat::{CombatEvent, DamageEvent};
+use dj_engine::combat::{AttackCooldown, CombatEvent, DamageEvent};
 use dj_engine::data::components::CombatStatsComponent;
 use dj_engine::input::{ActionState, InputAction};
 
@@ -31,6 +31,7 @@ pub fn setup_battle_entities(mut commands: Commands) {
             crit_chance: 0.1,
             ..default()
         },
+        AttackCooldown::new(1.0),
         Name::new("battle_player"),
     ));
 
@@ -54,11 +55,11 @@ pub fn setup_battle_entities(mut commands: Commands) {
     info!("Battle: entities spawned — press Space to attack!");
 }
 
-/// Player attacks when pressing Confirm (Space).
+/// Player attacks when pressing Confirm (Space), gated by AttackCooldown.
 pub fn player_attack(
     time: Res<Time>,
     actions: Res<ActionState>,
-    player_query: Query<Entity, With<BattlePlayer>>,
+    mut player_query: Query<(Entity, &mut AttackCooldown), With<BattlePlayer>>,
     enemy_query: Query<Entity, With<BattleEnemy>>,
     mut combat_events: MessageWriter<CombatEvent>,
     mut delay: Option<ResMut<BattleInputDelay>>,
@@ -75,11 +76,16 @@ pub fn player_attack(
         return;
     }
 
-    let Ok(player) = player_query.single() else {
+    let Ok((player, mut cooldown)) = player_query.single_mut() else {
         return;
     };
 
+    if !cooldown.ready() {
+        return;
+    }
+
     if let Some(enemy) = enemy_query.iter().next() {
+        cooldown.reset();
         combat_events.write(CombatEvent {
             attacker: player,
             target: enemy,

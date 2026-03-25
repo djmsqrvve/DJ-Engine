@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 
 use dj_engine::collision::MovementIntent;
-use dj_engine::combat::{CombatEvent, DamageEvent};
+use dj_engine::combat::{AttackCooldown, CombatEvent, DamageEvent};
 use dj_engine::data::components::{
     AbilityCooldownsComponent, CombatStatsComponent, InteractivityComponent, NpcComponent,
     TriggerType,
@@ -99,6 +99,7 @@ fn setup_world(
             ..default()
         },
         AbilityCooldownsComponent::default(),
+        AttackCooldown::new(0.8),
         InteractionSource,
         MovementIntent::default(),
         Sprite {
@@ -202,11 +203,11 @@ fn setup_world(
 // Systems — demonstrate engine features
 // ---------------------------------------------------------------------------
 
-/// Player attacks nearest enemy when Space is pressed.
-/// Demonstrates: CombatEvent dispatch.
+/// Player attacks nearest enemy when Space is pressed (with cooldown).
+/// Demonstrates: CombatEvent dispatch + AttackCooldown gating.
 fn player_attack_input(
     actions: Res<ActionState>,
-    player_query: Query<Entity, With<Player>>,
+    mut player_query: Query<(Entity, &mut AttackCooldown), With<Player>>,
     enemy_query: Query<Entity, With<Enemy>>,
     mut combat_events: MessageWriter<CombatEvent>,
 ) {
@@ -214,12 +215,17 @@ fn player_attack_input(
         return;
     }
 
-    let Ok(player) = player_query.single() else {
+    let Ok((player, mut cooldown)) = player_query.single_mut() else {
         return;
     };
 
+    if !cooldown.ready() {
+        return;
+    }
+
     // Attack the first enemy found
     if let Some(enemy) = enemy_query.iter().next() {
+        cooldown.reset();
         combat_events.write(CombatEvent {
             attacker: player,
             target: enemy,

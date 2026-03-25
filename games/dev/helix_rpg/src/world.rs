@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 use dj_engine::collision::MovementIntent;
-use dj_engine::combat::{CombatEvent, DamageEvent};
+use dj_engine::combat::{AttackCooldown, CombatEvent, DamageEvent};
 use dj_engine::data::components::{
     AbilityCooldownsComponent, CombatStatsComponent, InteractivityComponent, NpcComponent,
     TriggerType,
@@ -99,6 +99,7 @@ fn setup_world(
             ..default()
         },
         AbilityCooldownsComponent::default(),
+        AttackCooldown::new(0.8),
         InteractionSource,
         MovementIntent::default(),
         Sprite {
@@ -272,7 +273,7 @@ fn player_movement(
 
 fn player_attack(
     actions: Res<ActionState>,
-    player_query: Query<(Entity, &Transform), With<Player>>,
+    mut player_query: Query<(Entity, &Transform, &mut AttackCooldown), With<Player>>,
     enemy_query: Query<(Entity, &Transform), With<HelixEnemy>>,
     mut combat_events: MessageWriter<CombatEvent>,
 ) {
@@ -280,9 +281,13 @@ fn player_attack(
         return;
     }
 
-    let Ok((player, player_pos)) = player_query.single() else {
+    let Ok((player, player_pos, mut cooldown)) = player_query.single_mut() else {
         return;
     };
+
+    if !cooldown.ready() {
+        return;
+    }
 
     // Attack nearest enemy
     let nearest = enemy_query.iter().min_by(|(_, a), (_, b)| {
@@ -292,6 +297,7 @@ fn player_attack(
     });
 
     if let Some((enemy, _)) = nearest {
+        cooldown.reset();
         combat_events.write(CombatEvent {
             attacker: player,
             target: enemy,
