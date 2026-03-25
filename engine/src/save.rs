@@ -205,7 +205,7 @@ mod tests {
     use std::path::Path;
 
     fn with_temp_save_dir<T>(f: impl FnOnce(&Path) -> T) -> T {
-        let _guard = crate::save::save_test_lock().lock().unwrap();
+        let _guard = crate::save::save_test_lock().lock().unwrap_or_else(|e| e.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let previous = std::env::var_os("DJ_ENGINE_SAVE_DIR");
 
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_save_dir_uses_xdg_data_home() {
-        let _guard = crate::save::save_test_lock().lock().unwrap();
+        let _guard = crate::save::save_test_lock().lock().unwrap_or_else(|e| e.into_inner());
         let previous_override = std::env::var_os("DJ_ENGINE_SAVE_DIR");
         let previous_xdg = std::env::var_os("XDG_DATA_HOME");
         let temp_dir = tempfile::tempdir().unwrap();

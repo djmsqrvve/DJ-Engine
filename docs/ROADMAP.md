@@ -1,6 +1,6 @@
 # DJ-Engine Roadmap
 
-Status as of 2026-03-24: 302 tests passing, Phase 1-4 complete. Three game crates: DoomExe, Stratego, Iso Sandbox.
+Status as of 2026-03-24: 411 tests passing, zero failures. Phase 1-4 complete. Three game crates: DoomExe, Stratego, Iso Sandbox.
 
 ## Phase 1: Quick Wins (1 session)
 

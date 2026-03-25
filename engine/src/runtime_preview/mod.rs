@@ -261,6 +261,7 @@ impl Plugin for RuntimePreviewPlugin {
             .init_resource::<RuntimePreviewProfileOverride>()
             .init_resource::<DialoguePresentation>()
             .init_resource::<GraphExecutor>()
+            .init_resource::<crate::editor::grid::GridLevel>()
             .init_resource::<StoryFlags>()
             .init_resource::<StoryVariables>()
             .register_type::<PreviewPlayerController>()
@@ -1445,7 +1446,7 @@ mod tests {
     }
 
     fn with_temp_preview_save_dir<T>(f: impl FnOnce(&Path) -> T) -> T {
-        let _guard = save_test_lock().lock().unwrap();
+        let _guard = save_test_lock().lock().unwrap_or_else(|e| e.into_inner());
         let temp_dir = tempfile::tempdir().unwrap();
         let previous = std::env::var_os("DJ_ENGINE_SAVE_DIR");
 

@@ -89,6 +89,12 @@ pub struct PlacedPiece {
 }
 
 /// How many of each piece rank each team gets.
+/// Total number of pieces each team gets.
+pub fn army_size() -> usize {
+    army_composition().iter().map(|(_, count)| count).sum()
+}
+
+/// How many of each piece rank each team gets.
 pub fn army_composition() -> Vec<(PieceRank, usize)> {
     vec![
         (PieceRank::Marshal, 1),

@@ -158,6 +158,19 @@ impl StrategoBoard {
             );
         }
     }
+
+    /// Count how many pieces a given team has on the board.
+    pub fn piece_count(&self, team: Team) -> usize {
+        self.grid
+            .iter()
+            .filter(|(_, _, cell)| {
+                cell.piece
+                    .as_ref()
+                    .map(|p| p.team == team)
+                    .unwrap_or(false)
+            })
+            .count()
+    }
 }
 
 #[cfg(test)]
@@ -212,7 +225,7 @@ mod tests {
     fn auto_fill_places_correct_count() {
         let mut board = StrategoBoard::new();
         board.auto_fill_army(Team::Red);
-        assert_eq!(board.piece_count(Team::Red), 25);
+        assert_eq!(board.piece_count(Team::Red), crate::pieces::army_size());
         assert_eq!(board.piece_count(Team::Blue), 0);
     }
 }
