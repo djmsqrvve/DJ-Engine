@@ -117,7 +117,7 @@ minimal:
 # Distribution
 
 DIST_DIR := dist
-BUILD_LATEST := /tmp/dj-engine-builds/latest
+BUILD_LATEST := $(HOME)/.cache/dj-engine/builds/latest
 VERSION := $(shell date +%Y%m%d-%H%M%S)
 WINDOWS_TARGET := x86_64-pc-windows-gnu
 

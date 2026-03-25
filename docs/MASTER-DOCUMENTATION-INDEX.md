@@ -36,6 +36,10 @@
 
 - `docs/TESTING.md` -- test organization and how to run tests
 
+### Plugins
+
+- `plugins/helix_data/README.md` -- Helix MMORPG data bridge: TOML import, typed registries, contract validation
+
 ### Tutorials
 
 - `docs/tutorials/` -- 8-chapter Stratego board game walkthrough with full code

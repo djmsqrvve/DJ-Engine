@@ -112,6 +112,19 @@ fn test_add_node_increases_count() {
 - save/load mismatch conditions
 - runtime preview fallback behavior
 
+## Helix Data Plugin
+
+`plugins/helix_data/tests/` contains integration tests:
+
+- `import_integration.rs` -- import fixtures, build runtime index, edit/save/reload round trips
+- `cli_smoke.rs` -- smoke tests for helix_dashboard, helix_import, contracts binaries
+
+Run specifically:
+
+```bash
+cargo test -p dj_engine_helix
+```
+
 ## Current Hot Spots Worth Testing
 
 When touching these areas, add or extend tests nearby:

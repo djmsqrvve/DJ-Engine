@@ -141,8 +141,8 @@ The engine remains understandable:
 The DJ multiverse includes a Helix timeline with multiple game variants (Helix2000,
 Helix 3D, potential Helix MMORPG) that may run on different engines or languages.
 `helix_standardization` (`~/dev/helix/helix_standardization`) is the shared data
-standard across all of them: ~14,491 entities, 22 curated TOML files in
-`dist/helix3d/` (499 entities), covering abilities, items, mobs, quests, zones,
+standard across all of them: ~14,500 entities, 26 curated TOML files in
+`dist/helix3d/` (2,681 entities), covering abilities, items, mobs, quests, zones,
 equipment, mounts, currencies, and more.
 
 The integration path into DJ-Engine is:

@@ -96,9 +96,11 @@ Then run the same validation commands shown above.
 ```bash
 make dev                           # Launch the engine editor
 make preview PROJECT=/path/to/project  # Launch runtime preview for a mounted project
-make helix-import HELIX_DIST=/path/to/helix/dist PROJECT=/tmp/helix_project
-make helix-editor PROJECT=/tmp/helix_project
-make helix-preview PROJECT=/tmp/helix_project
+make helix-import-toml HELIX3D=~/dev/helix/helix_standardization/dist/helix3d/  # typed TOML import (recommended)
+make helix-dashboard HELIX3D=~/dev/helix/helix_standardization/dist/helix3d/   # validate cross-references
+make helix-import HELIX_DIST=/path/to/helix/dist PROJECT=/tmp/helix_project    # legacy JSON import
+make helix-editor PROJECT=/tmp/helix_project                                   # editor with Helix data
+make helix-preview PROJECT=/tmp/helix_project                                  # runtime preview
 make game                          # Run the sample DoomExe game
 make doom                          # Alias for make game
 make minimal                       # Run the minimal rendering binary
