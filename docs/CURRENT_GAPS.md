@@ -28,7 +28,7 @@ DJ Engine now has:
   `HelixRegistries` Bevy Resource with 22 typed `Registry<T>` (2,681 entities),
   bridge layer converting Helix types to engine DB types, balance overlays,
   and a contract validation dashboard (`make helix-dashboard`)
-- 302 passing tests across the workspace
+- 411 passing tests across the workspace, zero clippy warnings
 
 That gives the repo a solid reusable foundation. The biggest remaining gaps are
 no longer about basic launchability; they are about authoring depth, extension
@@ -58,8 +58,8 @@ Short version:
   is the first real consumer.
 - The editor now has a panel data export system and an interactive tutorial
   overlay. Entity placement auto-selects the placed entity.
-- Current docs are much cleaner now, but some older planning/spec artifacts are
-  still historical rather than fully reconciled with the present repo shape.
+- Documentation is current: AI/legacy docs archived, all links verified,
+  crate metadata complete, game READMEs written, Helix integration documented.
 
 Details live in [Current Priorities](CURRENT_PRIORITIES.md).
 

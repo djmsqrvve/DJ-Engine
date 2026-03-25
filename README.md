@@ -15,6 +15,17 @@
   <img src="docs/images/editor_screenshot.png" alt="DJ Engine Editor" width="800">
 </p>
 
+## Why DJ Engine?
+
+Most Bevy frameworks focus on general-purpose 2D/3D rendering. DJ Engine is purpose-built for **data-authored narrative games** -- JRPGs, visual novels, and story-driven prototypes where the content pipeline matters as much as the renderer.
+
+- **Narrative-first architecture** -- story graphs, dialogue branching, and Lua scripting are engine primitives, not afterthoughts
+- **Palette corruption pipeline** -- real-time palette swaps and visual degradation driven by game state, not just shader tricks
+- **Custom document platform** -- register your own game data types (abilities, enemies, quests) and get editor browsing, validation, and runtime loading for free
+- **Multi-game workspace** -- one engine, multiple game crates. DoomExe, Stratego, and Iso Sandbox ship as proof that the framework generalizes
+- **Helix data integration** -- consumes 2,681 MMORPG entities from the Helix standardization pipeline via typed TOML registries
+- **411 tests, zero warnings** -- CI-enforced quality across the full workspace
+
 ## Features
 
 | Feature | Description |
