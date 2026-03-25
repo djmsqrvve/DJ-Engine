@@ -14,6 +14,10 @@ pub struct BattlePlayer;
 #[derive(Component)]
 pub struct BattleEnemy;
 
+/// Brief input lockout at battle start to prevent dialogue Space carrying over.
+#[derive(Resource)]
+pub struct BattleInputDelay(pub Timer);
+
 /// Spawn battle entities with real combat stats.
 pub fn setup_battle_entities(mut commands: Commands) {
     commands.spawn((
@@ -22,9 +26,9 @@ pub fn setup_battle_entities(mut commands: Commands) {
             max_hp: 80,
             hp: 80,
             mana: 30,
-            damage: 20,
+            damage: 10,
             defense: 5,
-            crit_chance: 0.15,
+            crit_chance: 0.1,
             ..default()
         },
         Name::new("battle_player"),
@@ -33,11 +37,11 @@ pub fn setup_battle_entities(mut commands: Commands) {
     commands.spawn((
         BattleEnemy,
         CombatStatsComponent {
-            max_hp: 40,
-            hp: 40,
+            max_hp: 80,
+            hp: 80,
             mana: 0,
-            damage: 12,
-            defense: 3,
+            damage: 8,
+            defense: 4,
             crit_chance: 0.05,
             loot_table_id: Some("glitch_loot".into()),
             ..default()
@@ -45,16 +49,28 @@ pub fn setup_battle_entities(mut commands: Commands) {
         Name::new("battle_enemy"),
     ));
 
-    info!("Battle: entities spawned with real combat stats");
+    commands.insert_resource(BattleInputDelay(Timer::from_seconds(0.3, TimerMode::Once)));
+
+    info!("Battle: entities spawned — press Space to attack!");
 }
 
 /// Player attacks when pressing Confirm (Space).
 pub fn player_attack(
+    time: Res<Time>,
     actions: Res<ActionState>,
     player_query: Query<Entity, With<BattlePlayer>>,
     enemy_query: Query<Entity, With<BattleEnemy>>,
     mut combat_events: MessageWriter<CombatEvent>,
+    mut delay: Option<ResMut<BattleInputDelay>>,
 ) {
+    // Block input briefly at battle start
+    if let Some(ref mut d) = delay {
+        d.0.tick(time.delta());
+        if !d.0.is_finished() {
+            return;
+        }
+    }
+
     if !actions.just_pressed(InputAction::Confirm) {
         return;
     }
