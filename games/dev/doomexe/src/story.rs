@@ -49,3 +49,86 @@ fn handle_story_events(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_story_state_flags() {
+        let mut state = StoryState::default();
+        assert!(!state.has_flag("MetHamster"));
+
+        state.add_flag("MetHamster");
+        assert!(state.has_flag("MetHamster"));
+
+        // Adding duplicate is a no-op
+        state.add_flag("MetHamster");
+        assert_eq!(state.flags.len(), 1);
+    }
+
+    #[test]
+    fn test_battle_pending_default_false() {
+        let bp = BattlePending::default();
+        assert!(!bp.0);
+    }
+
+    #[test]
+    fn test_handle_story_events_sets_battle() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameState>();
+        app.init_resource::<BattlePending>();
+        app.add_message::<StoryEvent>();
+        app.add_systems(Update, handle_story_events);
+
+        // Send StartBattle event
+        app.world_mut()
+            .resource_mut::<Messages<StoryEvent>>()
+            .write(StoryEvent {
+                id: "StartBattle".into(),
+                payload: String::new(),
+            });
+
+        app.update();
+
+        // BattlePending should be true
+        let bp = app.world().resource::<BattlePending>();
+        assert!(bp.0, "BattlePending should be set after StartBattle event");
+
+        // NextState should be Battle
+        let next = app.world().resource::<NextState<GameState>>();
+        assert!(
+            matches!(*next, NextState::Pending(GameState::Battle)),
+            "NextState should be Pending(Battle)"
+        );
+    }
+
+    #[test]
+    fn test_non_battle_events_ignored() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::state::app::StatesPlugin);
+        app.init_state::<GameState>();
+        app.init_resource::<BattlePending>();
+        app.add_message::<StoryEvent>();
+        app.add_systems(Update, handle_story_events);
+
+        // Send a non-battle event
+        app.world_mut()
+            .resource_mut::<Messages<StoryEvent>>()
+            .write(StoryEvent {
+                id: "SomethingElse".into(),
+                payload: String::new(),
+            });
+
+        app.update();
+
+        let bp = app.world().resource::<BattlePending>();
+        assert!(
+            !bp.0,
+            "BattlePending should NOT be set for non-battle events"
+        );
+    }
+}
