@@ -31,6 +31,7 @@ pub mod contracts;
 pub mod core;
 pub mod data;
 pub mod diagnostics;
+pub mod economy;
 pub mod input;
 pub mod interaction;
 pub mod inventory;
@@ -71,6 +72,10 @@ pub mod prelude {
         calculate_damage, CombatConfig, CombatEvent, CombatPlugin, DamageEvent,
     };
     pub use crate::diagnostics::DiagnosticsPlugin;
+    pub use crate::economy::{
+        ConsumableUsedEvent, EconomyPlugin, EquipItemRequest, EquipmentEvent, UnequipItemRequest,
+        UseConsumableRequest, VendorBuyRequest, VendorEvent, VendorSellRequest,
+    };
     pub use crate::input::{ActionState, DJInputPlugin, InputAction, InputConfig};
     pub use crate::interaction::{
         InteractionEvent, InteractionPlugin, InteractionSource, InteractionTarget,
