@@ -1,7 +1,7 @@
-//! Typed registries for all 22 helix3d entity types.
+//! Typed registries for all helix3d entity types.
 //!
 //! `HelixRegistries` is a single Bevy Resource that holds a `Registry<T>` for
-//! each of the 22 entity types defined in the `helix-data` crate.
+//! the 22 primary entity types plus 4 supporting types from `helix-data`.
 
 use bevy::prelude::*;
 use helix_data::registry::Registry;
@@ -15,6 +15,7 @@ use crate::toml_loader::{load_registry, validate_helix3d_dir, HelixLoadError};
 /// Load from a `dist/helix3d/` directory via [`load_helix_registries`].
 #[derive(Resource, Default)]
 pub struct HelixRegistries {
+    // --- 22 primary entity types ---
     pub abilities: Registry<helix_data::ability::Ability>,
     pub achievements: Registry<helix_data::achievement::Achievement>,
     pub auras: Registry<helix_data::aura::Aura>,
@@ -37,6 +38,11 @@ pub struct HelixRegistries {
     pub trade_goods: Registry<helix_data::trade_good::TradeGood>,
     pub weapon_skills: Registry<helix_data::weapon_skill::WeaponSkill>,
     pub zones: Registry<helix_data::zone::Zone>,
+    // --- 4 supporting types ---
+    pub ability_effects: Registry<helix_data::ability_effect::AbilityEffect>,
+    pub factions: Registry<helix_data::faction::Faction>,
+    pub loot_tables: Registry<helix_data::loot_table::LootTable>,
+    pub quest_objectives: Registry<helix_data::quest_objective::QuestObjective>,
 }
 
 impl HelixRegistries {
@@ -64,6 +70,10 @@ impl HelixRegistries {
             + self.trade_goods.len()
             + self.weapon_skills.len()
             + self.zones.len()
+            + self.ability_effects.len()
+            + self.factions.len()
+            + self.loot_tables.len()
+            + self.quest_objectives.len()
     }
 
     /// Iterate all entities across all 22 registries, serializing each to JSON.
@@ -133,6 +143,10 @@ impl HelixRegistries {
             ("trade_goods", self.trade_goods.len()),
             ("weapon_skills", self.weapon_skills.len()),
             ("zones", self.zones.len()),
+            ("ability_effects", self.ability_effects.len()),
+            ("factions", self.factions.len()),
+            ("loot_tables", self.loot_tables.len()),
+            ("quest_objectives", self.quest_objectives.len()),
         ]
     }
 }
@@ -168,7 +182,16 @@ pub fn load_helix_registries(helix3d_dir: &Path) -> Result<HelixRegistries, Heli
         trade_goods: load_registry(helix3d_dir, "trade_goods.toml")?,
         weapon_skills: load_registry(helix3d_dir, "weapon_skills.toml")?,
         zones: load_registry(helix3d_dir, "zones.toml")?,
+        ability_effects: load_or_default(helix3d_dir, "ability_effects.toml"),
+        factions: load_or_default(helix3d_dir, "factions.toml"),
+        loot_tables: load_or_default(helix3d_dir, "loot_tables.toml"),
+        quest_objectives: load_or_default(helix3d_dir, "quest_objectives.toml"),
     })
+}
+
+/// Load a supporting type, returning empty on failure (supporting files are optional).
+fn load_or_default<T: serde::de::DeserializeOwned>(dir: &Path, filename: &str) -> Registry<T> {
+    load_registry(dir, filename).unwrap_or_default()
 }
 
 /// Load helix registries leniently — missing or unparseable files produce
@@ -220,6 +243,10 @@ pub fn load_helix_registries_lenient(
         trade_goods: load_or_empty(helix3d_dir, "trade_goods.toml")?,
         weapon_skills: load_or_empty(helix3d_dir, "weapon_skills.toml")?,
         zones: load_or_empty(helix3d_dir, "zones.toml")?,
+        ability_effects: load_or_empty(helix3d_dir, "ability_effects.toml")?,
+        factions: load_or_empty(helix3d_dir, "factions.toml")?,
+        loot_tables: load_or_empty(helix3d_dir, "loot_tables.toml")?,
+        quest_objectives: load_or_empty(helix3d_dir, "quest_objectives.toml")?,
     })
 }
 
@@ -231,7 +258,7 @@ mod tests {
     fn empty_registries_has_zero_total() {
         let regs = HelixRegistries::default();
         assert_eq!(regs.total_entities(), 0);
-        assert_eq!(regs.summary().len(), 22);
+        assert_eq!(regs.summary().len(), 26);
     }
 
     #[test]

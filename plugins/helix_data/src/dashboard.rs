@@ -207,9 +207,97 @@ fn validate_cross_references(registries: &HelixRegistries, issues: &mut Vec<Vali
         }
     }
 
-    // Note: loot_tables, factions, ability_effects, quest_objectives are supporting
-    // types not loaded into HelixRegistries (they're in the 4 extra TOML files).
-    // Cross-ref validation for these would require extending HelixRegistries.
+    // Loot table entries → items registry
+    for (table_id, table) in registries.loot_tables.iter() {
+        for entry in &table.entries {
+            if !entry.item_id.is_empty() && !registries.items.contains(&entry.item_id) {
+                issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Warning,
+                    code: "helix_broken_ref".into(),
+                    source_kind: Some("loot_tables".into()),
+                    source_id: Some(table_id.to_string()),
+                    field_path: Some("entries.item_id".into()),
+                    message: format!(
+                        "Loot table '{}' references item '{}' which does not exist.",
+                        table_id, entry.item_id
+                    ),
+                    related_refs: vec![entry.item_id.clone()],
+                });
+            }
+        }
+    }
+
+    // Quest objective → zones, items
+    for (obj_id, obj) in registries.quest_objectives.iter() {
+        if let Some(zone_id) = &obj.zone_id {
+            if !zone_id.is_empty() && !registries.zones.contains(zone_id) {
+                issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Warning,
+                    code: "helix_broken_ref".into(),
+                    source_kind: Some("quest_objectives".into()),
+                    source_id: Some(obj_id.to_string()),
+                    field_path: Some("zone_id".into()),
+                    message: format!(
+                        "Quest objective '{}' references zone '{}' which does not exist.",
+                        obj_id, zone_id
+                    ),
+                    related_refs: vec![zone_id.clone()],
+                });
+            }
+        }
+        if let Some(item_id) = &obj.item_id {
+            if !item_id.is_empty() && !registries.items.contains(item_id) {
+                issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Warning,
+                    code: "helix_broken_ref".into(),
+                    source_kind: Some("quest_objectives".into()),
+                    source_id: Some(obj_id.to_string()),
+                    field_path: Some("item_id".into()),
+                    message: format!(
+                        "Quest objective '{}' references item '{}' which does not exist.",
+                        obj_id, item_id
+                    ),
+                    related_refs: vec![item_id.clone()],
+                });
+            }
+        }
+    }
+
+    // Faction allied/enemy → self-referential
+    for (faction_id, faction) in registries.factions.iter() {
+        for allied in &faction.allied_factions {
+            if !allied.is_empty() && !registries.factions.contains(allied) {
+                issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Warning,
+                    code: "helix_broken_ref".into(),
+                    source_kind: Some("factions".into()),
+                    source_id: Some(faction_id.to_string()),
+                    field_path: Some("allied_factions".into()),
+                    message: format!(
+                        "Faction '{}' references allied faction '{}' which does not exist.",
+                        faction_id, allied
+                    ),
+                    related_refs: vec![allied.clone()],
+                });
+            }
+        }
+        for enemy in &faction.enemy_factions {
+            if !enemy.is_empty() && !registries.factions.contains(enemy) {
+                issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Warning,
+                    code: "helix_broken_ref".into(),
+                    source_kind: Some("factions".into()),
+                    source_id: Some(faction_id.to_string()),
+                    field_path: Some("enemy_factions".into()),
+                    message: format!(
+                        "Faction '{}' references enemy faction '{}' which does not exist.",
+                        faction_id, enemy
+                    ),
+                    related_refs: vec![enemy.clone()],
+                });
+            }
+        }
+    }
 
     // Profession recipes → items registry
     for (prof_id, prof) in registries.professions.iter() {
