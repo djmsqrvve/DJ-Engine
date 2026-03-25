@@ -215,6 +215,126 @@ pub fn parse_validate_response(json_str: &str, sample_id: &str) -> Vec<String> {
     issues
 }
 
+/// Summary of the standardization API's /stats endpoint.
+pub struct ApiStatsReport {
+    pub total_entities: usize,
+    pub total_categories: usize,
+    pub top_categories: Vec<(String, usize)>,
+}
+
+/// Fetch aggregate statistics from the standardization API.
+///
+/// Returns `None` if the API is unreachable or returns unparseable data.
+pub fn fetch_api_stats() -> Option<ApiStatsReport> {
+    let url = format!("{}/stats", API_BASE);
+    let output = Command::new("curl")
+        .args(["-sf", "--max-time", TIMEOUT_SECS, &url])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    parse_stats_response(std::str::from_utf8(&output.stdout).ok()?)
+}
+
+/// Parse a stats response JSON string into an `ApiStatsReport`.
+pub fn parse_stats_response(json_str: &str) -> Option<ApiStatsReport> {
+    let json: serde_json::Value = serde_json::from_str(json_str).ok()?;
+    let data = json.get("data")?;
+
+    let total_entities = data.get("total_entities")?.as_u64()? as usize;
+    let total_categories = data
+        .get("total_categories")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as usize;
+
+    let mut top_categories = Vec::new();
+    if let Some(cats) = data.get("top_categories").and_then(|v| v.as_array()) {
+        for cat in cats.iter().take(10) {
+            if let (Some(id), Some(count)) = (
+                cat.get("id").and_then(|v| v.as_str()),
+                cat.get("count").and_then(|v| v.as_u64()),
+            ) {
+                top_categories.push((id.to_string(), count as usize));
+            }
+        }
+    }
+
+    Some(ApiStatsReport {
+        total_entities,
+        total_categories,
+        top_categories,
+    })
+}
+
+/// Summary of the standardization API's /health/deep endpoint.
+pub struct ApiDeepHealthReport {
+    pub checks_passed: usize,
+    pub checks_failed: usize,
+    pub issues: Vec<String>,
+}
+
+/// Run a deep health check against the standardization API.
+///
+/// This calls `/health/deep` which runs all 25+ pipeline validation checks
+/// on the remote side (~500ms). Returns `None` if unreachable.
+pub fn fetch_deep_health() -> Option<ApiDeepHealthReport> {
+    let url = format!("{}/health/deep", API_BASE);
+    let output = Command::new("curl")
+        .args(["-sf", "--max-time", TIMEOUT_SECS, &url])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    parse_deep_health_response(std::str::from_utf8(&output.stdout).ok()?)
+}
+
+/// Parse a deep health response JSON string.
+pub fn parse_deep_health_response(json_str: &str) -> Option<ApiDeepHealthReport> {
+    let json: serde_json::Value = serde_json::from_str(json_str).ok()?;
+    let data = json.get("data")?;
+
+    let mut checks_passed = 0usize;
+    let mut checks_failed = 0usize;
+    let mut issues = Vec::new();
+
+    if let Some(checks) = data.get("checks").and_then(|v| v.as_array()) {
+        for check in checks {
+            let passed = check
+                .get("passed")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if passed {
+                checks_passed += 1;
+            } else {
+                checks_failed += 1;
+                if let Some(msg) = check.get("message").and_then(|v| v.as_str()) {
+                    issues.push(msg.to_string());
+                }
+            }
+        }
+    }
+
+    // Fallback: if no "checks" array, try "status" field
+    if checks_passed == 0 && checks_failed == 0 {
+        let status = data.get("status").and_then(|v| v.as_str()).unwrap_or("");
+        if status == "ok" || status == "healthy" {
+            checks_passed = 1;
+        }
+    }
+
+    Some(ApiDeepHealthReport {
+        checks_passed,
+        checks_failed,
+        issues,
+    })
+}
+
 /// Serialize balance overlays to JSON for future API upload.
 ///
 /// Prepares engine-specific balance tuning as a JSON payload that could
@@ -290,6 +410,75 @@ mod tests {
     fn parse_validate_response_garbage_returns_empty() {
         let issues = parse_validate_response("not json", "test");
         assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn parse_stats_response_valid() {
+        let json = r#"{
+            "data": {
+                "total_entities": 8802,
+                "total_categories": 321,
+                "top_categories": [
+                    {"id": "abilities", "count": 148},
+                    {"id": "items", "count": 50}
+                ]
+            }
+        }"#;
+
+        let report = parse_stats_response(json).unwrap();
+        assert_eq!(report.total_entities, 8802);
+        assert_eq!(report.total_categories, 321);
+        assert_eq!(report.top_categories.len(), 2);
+        assert_eq!(report.top_categories[0], ("abilities".into(), 148));
+    }
+
+    #[test]
+    fn parse_stats_response_missing_entities_returns_none() {
+        let json = r#"{"data": {"total_categories": 10}}"#;
+        assert!(parse_stats_response(json).is_none());
+    }
+
+    #[test]
+    fn parse_deep_health_all_passed() {
+        let json = r#"{
+            "data": {
+                "checks": [
+                    {"name": "toml_coverage", "passed": true},
+                    {"name": "cross_refs", "passed": true}
+                ]
+            }
+        }"#;
+
+        let report = parse_deep_health_response(json).unwrap();
+        assert_eq!(report.checks_passed, 2);
+        assert_eq!(report.checks_failed, 0);
+        assert!(report.issues.is_empty());
+    }
+
+    #[test]
+    fn parse_deep_health_with_failures() {
+        let json = r#"{
+            "data": {
+                "checks": [
+                    {"name": "toml_coverage", "passed": true},
+                    {"name": "cross_refs", "passed": false, "message": "3 broken references"}
+                ]
+            }
+        }"#;
+
+        let report = parse_deep_health_response(json).unwrap();
+        assert_eq!(report.checks_passed, 1);
+        assert_eq!(report.checks_failed, 1);
+        assert_eq!(report.issues.len(), 1);
+        assert!(report.issues[0].contains("broken references"));
+    }
+
+    #[test]
+    fn parse_deep_health_status_only_fallback() {
+        let json = r#"{"data": {"status": "ok"}}"#;
+        let report = parse_deep_health_response(json).unwrap();
+        assert_eq!(report.checks_passed, 1);
+        assert_eq!(report.checks_failed, 0);
     }
 
     #[test]

@@ -499,6 +499,11 @@ impl Plugin for HelixDataPlugin {
                 title: "Re-import Helix Data".into(),
                 kind_filter: None,
             })
+            .register_toolbar_action(RegisteredToolbarAction {
+                action_id: "helix_check_api".into(),
+                title: "Check Helix API".into(),
+                kind_filter: None,
+            })
             .register_preview_preset(RegisteredPreviewPreset {
                 preset_id: "helix_default".into(),
                 title: "Helix Default".into(),
@@ -686,6 +691,7 @@ fn handle_helix_toolbar_actions_system(
     config: Option<Res<HelixImportConfig>>,
     mounted_project: Option<Res<MountedProject>>,
     registry: Option<Res<dj_engine::data::CustomDocumentRegistry>>,
+    registries: Res<HelixRegistries>,
     mut loaded_documents: ResMut<LoadedCustomDocuments>,
     mut index: ResMut<HelixDocumentIndex>,
 ) {
@@ -701,6 +707,41 @@ fn handle_helix_toolbar_actions_system(
     let Some(registry) = registry else {
         return;
     };
+
+    // Handle "Check Helix API" action
+    let had_check_api = action_queue
+        .pending
+        .iter()
+        .any(|a| a.action_id == "helix_check_api");
+    action_queue
+        .pending
+        .retain(|a| a.action_id != "helix_check_api");
+
+    if had_check_api {
+        info!("Checking Helix standardization API...");
+        // Clear previous API-related issues
+        loaded_documents.issues.retain(|i| {
+            !matches!(
+                i.code.as_str(),
+                "helix_api_health"
+                    | "helix_data_freshness"
+                    | "helix_remote_validation"
+                    | "helix_api_stats"
+                    | "helix_deep_health"
+                    | "helix_deep_health_detail"
+            )
+        });
+
+        let mut issues = Vec::new();
+        dashboard::validate_api_health_checks(
+            &registries,
+            config.helix3d_path.as_deref(),
+            &mut issues,
+        );
+        let issue_count = issues.len();
+        loaded_documents.issues.extend(issues);
+        info!("Helix API check complete: {} result(s)", issue_count);
+    }
 
     let had_reimport = action_queue
         .pending

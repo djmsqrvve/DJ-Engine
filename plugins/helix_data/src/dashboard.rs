@@ -23,6 +23,8 @@ pub fn validate_helix_registries(
     validate_api_health(registries, issues);
     validate_data_freshness(helix3d_dir, issues);
     validate_remote_sample(registries, issues);
+    validate_api_stats(registries, issues);
+    validate_deep_health(issues);
 }
 
 /// Check that all 22 expected TOML files exist.
@@ -424,6 +426,19 @@ fn emit_entity_count_summary(registries: &HelixRegistries, issues: &mut Vec<Vali
     }
 }
 
+/// Run only the API-related validation checks (for on-demand toolbar action).
+pub fn validate_api_health_checks(
+    registries: &HelixRegistries,
+    helix3d_dir: Option<&Path>,
+    issues: &mut Vec<ValidationIssue>,
+) {
+    validate_api_health(registries, issues);
+    validate_data_freshness(helix3d_dir, issues);
+    validate_remote_sample(registries, issues);
+    validate_api_stats(registries, issues);
+    validate_deep_health(issues);
+}
+
 /// Check standardization API health (opt-in, Info severity on failure).
 fn validate_api_health(registries: &HelixRegistries, issues: &mut Vec<ValidationIssue>) {
     match api_health::check_api_health() {
@@ -524,6 +539,100 @@ fn validate_remote_sample(registries: &HelixRegistries, issues: &mut Vec<Validat
                 source_id: None,
                 field_path: None,
                 message: msg.clone(),
+                related_refs: Vec::new(),
+            });
+        }
+    }
+}
+
+/// Compare local entity counts with remote API stats.
+fn validate_api_stats(registries: &HelixRegistries, issues: &mut Vec<ValidationIssue>) {
+    let Some(stats) = api_health::fetch_api_stats() else {
+        issues.push(ValidationIssue {
+            severity: ValidationSeverity::Info,
+            code: "helix_api_stats".into(),
+            source_kind: None,
+            source_id: None,
+            field_path: None,
+            message: "API Stats: unavailable".into(),
+            related_refs: Vec::new(),
+        });
+        return;
+    };
+
+    let local_total = registries.total_entities();
+    let drift = stats.total_entities.abs_diff(local_total);
+
+    let severity = if drift > 100 {
+        ValidationSeverity::Warning
+    } else {
+        ValidationSeverity::Info
+    };
+
+    issues.push(ValidationIssue {
+        severity,
+        code: "helix_api_stats".into(),
+        source_kind: None,
+        source_id: None,
+        field_path: None,
+        message: format!(
+            "API Stats: remote {} entities, local {} (drift: {})",
+            stats.total_entities, local_total, drift,
+        ),
+        related_refs: Vec::new(),
+    });
+}
+
+/// Run deep health check against the remote API.
+fn validate_deep_health(issues: &mut Vec<ValidationIssue>) {
+    let Some(report) = api_health::fetch_deep_health() else {
+        issues.push(ValidationIssue {
+            severity: ValidationSeverity::Info,
+            code: "helix_deep_health".into(),
+            source_kind: None,
+            source_id: None,
+            field_path: None,
+            message: "Deep Health: unavailable".into(),
+            related_refs: Vec::new(),
+        });
+        return;
+    };
+
+    if report.checks_failed == 0 {
+        issues.push(ValidationIssue {
+            severity: ValidationSeverity::Info,
+            code: "helix_deep_health".into(),
+            source_kind: None,
+            source_id: None,
+            field_path: None,
+            message: format!(
+                "Deep Health: {}/{} checks passed",
+                report.checks_passed,
+                report.checks_passed + report.checks_failed,
+            ),
+            related_refs: Vec::new(),
+        });
+    } else {
+        issues.push(ValidationIssue {
+            severity: ValidationSeverity::Warning,
+            code: "helix_deep_health".into(),
+            source_kind: None,
+            source_id: None,
+            field_path: None,
+            message: format!(
+                "Deep Health: {} failed, {} passed",
+                report.checks_failed, report.checks_passed,
+            ),
+            related_refs: Vec::new(),
+        });
+        for msg in &report.issues {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_deep_health_detail".into(),
+                source_kind: None,
+                source_id: None,
+                field_path: None,
+                message: format!("Deep Health: {}", msg),
                 related_refs: Vec::new(),
             });
         }
@@ -674,6 +783,51 @@ pub fn print_dashboard_summary(issues: &[ValidationIssue]) {
         println!("| {:width$} |", line, width = w);
     }
 
+    // API Stats
+    let stats_issue = issues.iter().find(|i| i.code == "helix_api_stats");
+    if let Some(issue) = stats_issue {
+        let is_warning = matches!(issue.severity, ValidationSeverity::Warning);
+        let icon = if is_warning {
+            "!!"
+        } else if issue.message.contains("unavailable") {
+            "--"
+        } else {
+            "OK"
+        };
+        let detail = if issue.message.contains("unavailable") {
+            "unavailable".into()
+        } else if let Some(drift_part) = issue.message.split("drift: ").nth(1) {
+            let drift_val = drift_part.trim_end_matches(')');
+            format!("drift {}", drift_val)
+        } else {
+            "checked".into()
+        };
+        let line = format!("  [{}] Entity Drift      {}", icon, detail);
+        println!("| {:width$} |", line, width = w);
+    }
+
+    // Deep Health
+    let deep_issue = issues.iter().find(|i| i.code == "helix_deep_health");
+    if let Some(issue) = deep_issue {
+        let is_warning = matches!(issue.severity, ValidationSeverity::Warning);
+        let icon = if is_warning {
+            "!!"
+        } else if issue.message.contains("unavailable") {
+            "--"
+        } else {
+            "OK"
+        };
+        let detail = if issue.message.contains("unavailable") {
+            "unavailable".into()
+        } else if let Some(rest) = issue.message.strip_prefix("Deep Health: ") {
+            rest.to_string()
+        } else {
+            "checked".into()
+        };
+        let line = format!("  [{}] Deep Health       {}", icon, detail);
+        println!("| {:width$} |", line, width = w);
+    }
+
     println!("{}", bar);
 
     // Result line
@@ -765,6 +919,43 @@ mod tests {
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].code, "helix_remote_validation");
         assert!(matches!(issues[0].severity, ValidationSeverity::Info));
+    }
+
+    #[test]
+    fn api_stats_emits_issue() {
+        let regs = HelixRegistries::default();
+        let mut issues = Vec::new();
+        validate_api_stats(&regs, &mut issues);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "helix_api_stats");
+        // Either connected with data or unavailable — both are valid
+        assert!(
+            matches!(issues[0].severity, ValidationSeverity::Info)
+                || matches!(issues[0].severity, ValidationSeverity::Warning)
+        );
+    }
+
+    #[test]
+    fn deep_health_emits_issue() {
+        let mut issues = Vec::new();
+        validate_deep_health(&mut issues);
+        assert!(!issues.is_empty());
+        assert_eq!(issues[0].code, "helix_deep_health");
+    }
+
+    #[test]
+    fn validate_api_health_checks_runs_all() {
+        let regs = HelixRegistries::default();
+        let mut issues = Vec::new();
+        validate_api_health_checks(&regs, None, &mut issues);
+        // Should have at least 5 issues (one per API check)
+        assert!(issues.len() >= 5, "Expected >= 5 issues, got {}", issues.len());
+        let codes: Vec<&str> = issues.iter().map(|i| i.code.as_str()).collect();
+        assert!(codes.contains(&"helix_api_health"));
+        assert!(codes.contains(&"helix_data_freshness"));
+        assert!(codes.contains(&"helix_remote_validation"));
+        assert!(codes.contains(&"helix_api_stats"));
+        assert!(codes.contains(&"helix_deep_health"));
     }
 
     #[test]
