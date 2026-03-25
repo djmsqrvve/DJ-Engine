@@ -143,12 +143,12 @@ fn title_input(
         if let Some(act) = action {
             match act {
                 MenuAction::NewGame => {
-                    info!("Starting New Game");
+                    info!("Starting New Game — entering overworld");
                     *story_state = StoryState::default();
                     *flags = StoryFlags::default();
                     *variables = StoryVariables::default();
                     loaded_save.0 = None;
-                    next_state.set(GameState::NarratorDialogue);
+                    next_state.set(GameState::Overworld);
                 }
                 MenuAction::Continue => {
                     if !save_exists {
