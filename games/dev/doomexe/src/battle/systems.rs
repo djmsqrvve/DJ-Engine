@@ -114,6 +114,7 @@ pub fn handle_battle_damage(
     mut damage_events: MessageReader<DamageEvent>,
     mut hamster_query: Query<&mut CharacterRoot>,
     mut story: ResMut<StoryState>,
+    mut flags: ResMut<dj_engine::story_graph::StoryFlags>,
     mut next_state: ResMut<NextState<GameState>>,
     player_query: Query<Entity, With<BattlePlayer>>,
     enemy_query: Query<Entity, With<BattleEnemy>>,
@@ -129,7 +130,9 @@ pub fn handle_battle_damage(
                 hamster.expression = Expression::Happy;
                 hamster.corruption = (hamster.corruption - 10.0).max(0.0);
             }
+            // Write to BOTH flag systems so graph executor + HUD tracker both see it
             story.add_flag("DefeatedGlitch");
+            flags.0.insert("DefeatedGlitch".to_string(), true);
             next_state.set(GameState::Overworld);
         }
 

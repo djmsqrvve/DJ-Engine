@@ -40,6 +40,15 @@ fn main() {
         .insert_resource(AutoLoadMidi {
             path: "music/overworld_theme.mid".into(),
         })
+        // Game database with loot table for glitch battle
+        .insert_resource({
+            let mut db = dj_engine::data::database::Database::default();
+            let mut loot = dj_engine::data::database::LootTableRow::new("glitch_loot");
+            loot.add_entry("corrupted_data", 1.0, 1);
+            loot.add_entry("glitch_shard", 0.5, 1);
+            db.loot_tables.push(loot);
+            db
+        })
         // Game-specific scripting extensions
         .add_plugins(scripting::GameScriptingPlugin)
         // Game state

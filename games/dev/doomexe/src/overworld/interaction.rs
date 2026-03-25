@@ -3,11 +3,12 @@ use crate::state::GameState;
 use crate::story::StoryState;
 use bevy::prelude::*;
 use dj_engine::data::InteractivityComponent;
+use dj_engine::input::{ActionState, InputAction};
 use dj_engine::prelude::TriggerContacts;
 use dj_engine::story_graph::{GraphExecutor, StoryGraph, StoryNode};
 
 pub fn interaction_check(
-    keys: Res<ButtonInput<KeyCode>>,
+    actions: Res<ActionState>,
     trigger_contacts: Res<TriggerContacts>,
     mut next_state: ResMut<NextState<GameState>>,
     mut executor: ResMut<GraphExecutor>,
@@ -20,7 +21,7 @@ pub fn interaction_check(
         Option<&InteractivityComponent>,
     )>,
 ) {
-    if !keys.just_pressed(KeyCode::KeyE) {
+    if !actions.just_pressed(InputAction::Confirm) {
         return;
     }
 
@@ -157,8 +158,7 @@ pub fn interaction_check(
 
             let warn2 = graph.add(StoryNode::Dialogue {
                 speaker: "System".to_string(),
-                text: "Talk to the Hamster Narrator first. He might know what to do."
-                    .to_string(),
+                text: "Talk to the Hamster Narrator first. He might know what to do.".to_string(),
                 portrait: None,
                 next: Some(end),
             });
