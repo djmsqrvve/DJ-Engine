@@ -16,7 +16,7 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(bevy::log::LogPlugin {
-                    filter: "wgpu=error,naga=warn,bevy_render=warn,bevy_ecs=warn,dj_engine=info,helix_rpg=info".into(),
+                    filter: "wgpu=error,naga=warn,bevy_render::camera=error,bevy_render=warn,bevy_ecs=warn,dj_engine=info,helix_rpg=info".into(),
                     ..default()
                 })
                 .set(ImagePlugin::default_nearest())

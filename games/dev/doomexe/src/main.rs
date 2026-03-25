@@ -26,7 +26,7 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(bevy::log::LogPlugin {
-                    filter: "wgpu=error,naga=warn,bevy_render=warn,bevy_ecs=warn,bevy_app=warn,bevy_winit=warn,dj_engine=info,doomexe=info".into(),
+                    filter: "wgpu=error,naga=warn,bevy_render::camera=error,bevy_render=warn,bevy_ecs=warn,bevy_app=warn,bevy_winit=warn,dj_engine=info,doomexe=info".into(),
                     ..default()
                 })
                 .set(ImagePlugin::default_nearest()) // Pixel art friendly
