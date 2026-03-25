@@ -28,7 +28,13 @@ DJ Engine now has:
   `HelixRegistries` Bevy Resource with 22 typed `Registry<T>` (2,681 entities),
   bridge layer converting Helix types to engine DB types, balance overlays,
   and a contract validation dashboard (`make helix-dashboard`)
-- 411 passing tests across the workspace, zero clippy warnings
+- 444 passing tests across the workspace, zero clippy warnings
+- combat formula system with configurable damage, crit, defense, and variance
+- quest journal with accept/progress/complete/turn-in/abandon lifecycle
+- NPC interaction system (proximity detection, InteractionEvent, dialogue routing)
+- sprite animation player (frame cycling, loop/one-shot, speed control)
+- spawner wave system (timed waves, SpawnWaveEvent for enemy instantiation)
+- Lua ECS bridge: set_field, set_position, get_entities query, get_document access
 
 That gives the repo a solid reusable foundation. The biggest remaining gaps are
 no longer about basic launchability; they are about authoring depth, extension
