@@ -2,6 +2,7 @@ use super::minimap::MapTarget;
 use crate::overworld::NPC;
 use crate::story::StoryState;
 use bevy::prelude::*;
+use dj_engine::story_graph::StoryFlags;
 
 #[derive(Component)]
 pub struct ObjectiveText;
@@ -35,16 +36,28 @@ pub fn setup_tracker(mut commands: Commands) {
         });
 }
 
-pub fn update_tracker(story: Res<StoryState>, mut query: Query<&mut Text, With<ObjectiveText>>) {
-    if story.is_changed() {
-        for mut text in &mut query {
-            if !story.has_flag("MetHamster") {
-                text.0 = "Objective: Find the Narrator (East)".to_string();
-            } else if !story.has_flag("DefeatedGlitch") {
-                text.0 = "Objective: Investigate Glitch (South-West)".to_string();
-            } else {
-                text.0 = "Objective: Return to Narrator".to_string();
-            }
+pub fn update_tracker(
+    story: Res<StoryState>,
+    flags: Res<StoryFlags>,
+    mut query: Query<&mut Text, With<ObjectiveText>>,
+) {
+    if !story.is_changed() && !flags.is_changed() {
+        return;
+    }
+
+    // Check both DoomExe's StoryState AND engine's StoryFlags
+    let met_hamster =
+        story.has_flag("MetHamster") || flags.0.get("MetHamster").copied().unwrap_or(false);
+    let defeated_glitch =
+        story.has_flag("DefeatedGlitch") || flags.0.get("DefeatedGlitch").copied().unwrap_or(false);
+
+    for mut text in &mut query {
+        if !met_hamster {
+            text.0 = "Objective: Find the Narrator (East)".to_string();
+        } else if !defeated_glitch {
+            text.0 = "Objective: Investigate Glitch (South-West)".to_string();
+        } else {
+            text.0 = "Objective: Return to Narrator".to_string();
         }
     }
 }
@@ -52,13 +65,23 @@ pub fn update_tracker(story: Res<StoryState>, mut query: Query<&mut Text, With<O
 pub fn update_objective_markers(
     mut commands: Commands,
     story: Res<StoryState>,
+    flags: Res<StoryFlags>,
     npc_query: Query<(Entity, &NPC), Without<MapTarget>>,
     target_query: Query<(Entity, &NPC), With<MapTarget>>,
 ) {
-    if story.is_changed() {
-        let target_id = if !story.has_flag("MetHamster") {
+    if !story.is_changed() && !flags.is_changed() {
+        return;
+    }
+
+    let met_hamster =
+        story.has_flag("MetHamster") || flags.0.get("MetHamster").copied().unwrap_or(false);
+    let defeated_glitch =
+        story.has_flag("DefeatedGlitch") || flags.0.get("DefeatedGlitch").copied().unwrap_or(false);
+
+    {
+        let target_id = if !met_hamster {
             "hamster_narrator"
-        } else if !story.has_flag("DefeatedGlitch") {
+        } else if !defeated_glitch {
             "glitch_puddle"
         } else {
             "hamster_narrator"
