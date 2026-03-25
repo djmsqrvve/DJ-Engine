@@ -62,6 +62,7 @@ impl Plugin for DJEnginePlugin {
         app.add_plugins(crate::save::SavePlugin);
         app.add_plugins(crate::data::DataPlugin);
         app.add_plugins(crate::zone::ZonePlugin);
+        app.add_plugins(crate::interaction::InteractionPlugin);
 
         // Conditionally add diagnostics
         if self.with_diagnostics {
