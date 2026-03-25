@@ -33,6 +33,7 @@ pub mod input;
 pub mod interaction;
 pub mod midi;
 pub mod project_mount;
+pub mod quest;
 pub mod rendering;
 pub mod save;
 pub mod scene;
@@ -67,6 +68,9 @@ pub mod prelude {
     };
     pub use crate::midi::AutoLoadMidi;
     pub use crate::project_mount::MountedProject;
+    pub use crate::quest::{
+        ObjectiveProgress, QuestEvent, QuestJournal, QuestPlugin, QuestState, QuestStatus,
+    };
     pub use crate::rendering::RenderingPlugin;
     pub use crate::runtime_preview::{
         bootstrap_mounted_project, parse_runtime_preview_cli_args, PreviewPlayer,
