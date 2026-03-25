@@ -38,9 +38,10 @@
 - `docs/examples/` -- Lua scripting examples (quest flow, combat, inventory, NPC dialogue)
 - `games/dev/rpg_demo/` -- minimal reference game demonstrating all engine systems
 
-### Testing
+### Testing & QA
 
 - `docs/TESTING.md` -- test organization and how to run tests
+- `docs/QA_CHECKLIST.md` -- visual test procedure with per-game test cards and system verification matrix
 
 ### Plugins
 
