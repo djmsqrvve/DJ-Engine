@@ -134,7 +134,7 @@ pub fn interaction_check(
             let trigger_battle = graph.add(StoryNode::Event {
                 event_id: "StartBattle".to_string(),
                 payload: "".to_string(),
-                next: Some(end),
+                next: None, // Don't continue to End — battle state change handles transition
             });
             let battle_warn = graph.add(StoryNode::Dialogue {
                 speaker: "System".to_string(),
@@ -156,14 +156,16 @@ pub fn interaction_check(
             });
 
             let warn2 = graph.add(StoryNode::Dialogue {
-                speaker: "Glitch".to_string(),
-                text: "It seems dangerous to touch without guidance.".to_string(),
+                speaker: "System".to_string(),
+                text: "Talk to the Hamster Narrator first. He might know what to do."
+                    .to_string(),
                 portrait: None,
                 next: Some(end),
             });
             let warn1 = graph.add(StoryNode::Dialogue {
                 speaker: "Glitch".to_string(),
-                text: "It's a writhing mass of corrupted data.".to_string(),
+                text: "A writhing mass of corrupted data. Too dangerous to touch alone."
+                    .to_string(),
                 portrait: None,
                 next: Some(warn2),
             });
