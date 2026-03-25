@@ -82,6 +82,16 @@ pub enum LuaEcsCommand {
     VendorSell {
         item_id: String,
     },
+    EarnTitle {
+        title_id: String,
+    },
+    EquipTitle {
+        title_id: String,
+    },
+    GainWeaponSkill {
+        weapon_skill_id: String,
+        amount: u32,
+    },
 }
 
 /// Read-only query results returned to Lua.
@@ -346,6 +356,40 @@ pub fn register_ecs_bridge(lua: &mlua::Lua, buffer: LuaCommandBuffer) -> mlua::R
     econ_table.set("vendor_sell", vendor_sell_fn)?;
     lua.globals().set("economy", econ_table)?;
 
+    // character.earn_title(title_id)
+    let buf = buffer.clone();
+    let earn_title_fn = lua.create_function(move |_, title_id: String| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::EarnTitle { title_id });
+        Ok(())
+    })?;
+
+    // character.equip_title(title_id)
+    let buf = buffer.clone();
+    let equip_title_fn = lua.create_function(move |_, title_id: String| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::EquipTitle { title_id });
+        Ok(())
+    })?;
+
+    // character.gain_weapon_skill(weapon_skill_id, amount)
+    let buf = buffer.clone();
+    let gain_skill_fn =
+        lua.create_function(move |_, (weapon_skill_id, amount): (String, u32)| {
+            let mut cmds = buf.commands.lock().unwrap();
+            cmds.push(LuaEcsCommand::GainWeaponSkill {
+                weapon_skill_id,
+                amount,
+            });
+            Ok(())
+        })?;
+
+    let char_table = lua.create_table()?;
+    char_table.set("earn_title", earn_title_fn)?;
+    char_table.set("equip_title", equip_title_fn)?;
+    char_table.set("gain_weapon_skill", gain_skill_fn)?;
+    lua.globals().set("character", char_table)?;
+
     lua.globals().set("ecs", ecs)?;
     Ok(())
 }
@@ -422,6 +466,8 @@ pub fn process_lua_commands(
     mut equip_events: MessageWriter<crate::economy::EquipItemRequest>,
     mut vendor_buy_events: MessageWriter<crate::economy::VendorBuyRequest>,
     mut vendor_sell_events: MessageWriter<crate::economy::VendorSellRequest>,
+    mut player_title: ResMut<crate::character::PlayerTitle>,
+    mut weapon_profs: ResMut<crate::character::WeaponProficiencies>,
 ) {
     let mut cmds = buffer.commands.lock().unwrap();
     for cmd in cmds.drain(..) {
@@ -559,6 +605,24 @@ pub fn process_lua_commands(
                     currency_id: "gold".into(),
                 });
             }
+            LuaEcsCommand::EarnTitle { title_id } => {
+                player_title.earn(&title_id);
+                info!("Lua: earned title '{title_id}'");
+            }
+            LuaEcsCommand::EquipTitle { title_id } => {
+                if player_title.equip(&title_id) {
+                    info!("Lua: equipped title '{title_id}'");
+                } else {
+                    warn!("Lua: title '{title_id}' not earned");
+                }
+            }
+            LuaEcsCommand::GainWeaponSkill {
+                weapon_skill_id,
+                amount,
+            } => {
+                let new_level = weapon_profs.gain_skill(&weapon_skill_id, amount, None);
+                info!("Lua: weapon skill '{weapon_skill_id}' now level {new_level}");
+            }
         }
     }
 }
@@ -684,6 +748,8 @@ mod tests {
         app.add_message::<crate::economy::EquipItemRequest>();
         app.add_message::<crate::economy::VendorBuyRequest>();
         app.add_message::<crate::economy::VendorSellRequest>();
+        app.init_resource::<crate::character::PlayerTitle>();
+        app.init_resource::<crate::character::WeaponProficiencies>();
         app.add_systems(Update, process_lua_commands);
         app
     }

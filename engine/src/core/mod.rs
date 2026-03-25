@@ -70,6 +70,7 @@ impl Plugin for DJEnginePlugin {
         app.add_plugins(crate::loot::LootPlugin);
         app.add_plugins(crate::ability::AbilityPlugin);
         app.add_plugins(crate::economy::EconomyPlugin);
+        app.add_plugins(crate::character::CharacterPlugin);
 
         // Conditionally add diagnostics
         if self.with_diagnostics {

@@ -25,6 +25,7 @@ pub mod ability;
 pub mod animation;
 pub mod assets;
 pub mod audio;
+pub mod character;
 pub mod collision;
 pub mod combat;
 pub mod contracts;
@@ -64,6 +65,9 @@ pub mod prelude {
     pub use crate::animation::DJAnimationPlugin;
     pub use crate::assets::DJAssetPlugin;
     pub use crate::audio::{AudioCommand, AudioState, BgmSource, DJAudioPlugin, SfxSource};
+    pub use crate::character::{
+        CharacterPlugin, PlayerTitle, TitleEvent, WeaponProficiencies, WeaponSkillGainEvent,
+    };
     pub use crate::collision::{
         CollisionPlugin, CollisionSet, MovementIntent, RuntimeCollider, RuntimeColliderShape,
         SpatialHash, TriggerContactEvent, TriggerContacts,
