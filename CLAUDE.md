@@ -4,7 +4,7 @@
 
 ## Overview
 
-Custom 2D game engine built with Rust and Bevy 0.18. Plugin-based architecture with 25 registered plugins and typed contracts. 519 tests, zero clippy warnings. 18 runtime systems. 5 game crates. Tile editor complete. Consumes Helix MMORPG data through `plugins/helix_data/`.
+Custom 2D game engine built with Rust and Bevy 0.18. Plugin-based architecture with 25 registered plugins and typed contracts. 526 tests, zero clippy warnings. 18 runtime systems. 5 game crates. Tile editor complete. Consumes Helix MMORPG data through `plugins/helix_data/`.
 
 ## Stack
 

@@ -742,8 +742,7 @@ mod tests {
         assert_eq!(issues[0].code, "helix_api_health");
         assert!(matches!(issues[0].severity, ValidationSeverity::Info));
         assert!(
-            issues[0].message.contains("not running")
-                || issues[0].message.contains("connected")
+            issues[0].message.contains("not running") || issues[0].message.contains("connected")
         );
     }
 

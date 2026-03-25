@@ -295,9 +295,7 @@ mod tests {
     #[test]
     fn serialize_overlays_roundtrip() {
         let mut overlays = crate::BalanceOverlays::default();
-        overlays
-            .get_or_insert("mobs", "wolf")
-            .set("health", 30.0);
+        overlays.get_or_insert("mobs", "wolf").set("health", 30.0);
 
         let json = serialize_overlays_for_api(&overlays);
         let layers = json.get("layers").unwrap().as_object().unwrap();

@@ -15,7 +15,7 @@ Individual steps if validate fails:
 ```bash
 cargo fmt --all --check                           # formatting
 cargo clippy --workspace --all-targets -- -D warnings  # lint
-cargo test --workspace                             # 519+ tests
+cargo test --workspace                             # 526+ tests
 make contracts                                     # API surface check
 ```
 
