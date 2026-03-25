@@ -68,6 +68,7 @@ impl Plugin for DJEnginePlugin {
         app.add_plugins(crate::inventory::InventoryPlugin);
         app.add_plugins(crate::status::StatusPlugin);
         app.add_plugins(crate::loot::LootPlugin);
+        app.add_plugins(crate::ability::AbilityPlugin);
 
         // Conditionally add diagnostics
         if self.with_diagnostics {

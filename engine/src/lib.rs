@@ -21,6 +21,7 @@
 //!     .run();
 //! ```
 
+pub mod ability;
 pub mod animation;
 pub mod assets;
 pub mod audio;
@@ -58,6 +59,7 @@ pub mod prelude {
     pub use crate::core::DJEnginePlugin;
 
     // Individual plugins (for fine-grained control)
+    pub use crate::ability::{AbilityPlugin, AbilityUsedEvent, UseAbilityRequest};
     pub use crate::animation::DJAnimationPlugin;
     pub use crate::assets::DJAssetPlugin;
     pub use crate::audio::{AudioCommand, AudioState, BgmSource, DJAudioPlugin, SfxSource};
