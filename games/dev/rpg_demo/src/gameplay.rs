@@ -60,6 +60,7 @@ impl Plugin for GameplayPlugin {
             .add_systems(
                 Update,
                 (
+                    player_movement_input,
                     player_attack_input,
                     handle_npc_interaction,
                     handle_damage_feedback,
@@ -202,6 +203,39 @@ fn setup_world(
 // ---------------------------------------------------------------------------
 // Systems — demonstrate engine features
 // ---------------------------------------------------------------------------
+
+/// Player moves with WASD.
+/// Demonstrates: MovementIntent driven by ActionState input.
+fn player_movement_input(
+    actions: Res<ActionState>,
+    mut query: Query<&mut MovementIntent, With<Player>>,
+) {
+    let Ok(mut intent) = query.single_mut() else {
+        return;
+    };
+
+    let speed = 120.0;
+    let mut dir = Vec2::ZERO;
+
+    if actions.pressed(InputAction::Up) {
+        dir.y += 1.0;
+    }
+    if actions.pressed(InputAction::Down) {
+        dir.y -= 1.0;
+    }
+    if actions.pressed(InputAction::Left) {
+        dir.x -= 1.0;
+    }
+    if actions.pressed(InputAction::Right) {
+        dir.x += 1.0;
+    }
+
+    intent.0 = if dir != Vec2::ZERO {
+        dir.normalize() * speed
+    } else {
+        Vec2::ZERO
+    };
+}
 
 /// Player attacks nearest enemy when Space is pressed (with cooldown).
 /// Demonstrates: CombatEvent dispatch + AttackCooldown gating.
