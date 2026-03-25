@@ -3,6 +3,7 @@
 //! Validates that helix3d TOML files parse correctly, cross-references
 //! are intact, and balance overlays reference valid fields.
 
+use crate::api_health;
 use crate::registries::HelixRegistries;
 use crate::toml_loader;
 use dj_engine::data::{ValidationIssue, ValidationSeverity};
@@ -19,6 +20,9 @@ pub fn validate_helix_registries(
     validate_cross_references(registries, issues);
     validate_localization(registries, issues);
     emit_entity_count_summary(registries, issues);
+    validate_api_health(registries, issues);
+    validate_data_freshness(helix3d_dir, issues);
+    validate_remote_sample(registries, issues);
 }
 
 /// Check that all 22 expected TOML files exist.
@@ -420,7 +424,117 @@ fn emit_entity_count_summary(registries: &HelixRegistries, issues: &mut Vec<Vali
     }
 }
 
+/// Check standardization API health (opt-in, Info severity on failure).
+fn validate_api_health(registries: &HelixRegistries, issues: &mut Vec<ValidationIssue>) {
+    match api_health::check_api_health() {
+        Some(mut report) => {
+            report.entities_local = registries.total_entities();
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Info,
+                code: "helix_api_health".into(),
+                source_kind: None,
+                source_id: None,
+                field_path: None,
+                message: format!(
+                    "API Health: connected (remote: {} entities, local: {}, age: {} min, status: {})",
+                    report.entities_remote,
+                    report.entities_local,
+                    report.data_age_minutes,
+                    report.version,
+                ),
+                related_refs: Vec::new(),
+            });
+        }
+        None => {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Info,
+                code: "helix_api_health".into(),
+                source_kind: None,
+                source_id: None,
+                field_path: None,
+                message: "API Health: not running (port 6800 unreachable)".into(),
+                related_refs: Vec::new(),
+            });
+        }
+    }
+}
+
+/// Check data freshness by comparing local file age with remote API.
+fn validate_data_freshness(helix3d_dir: Option<&Path>, issues: &mut Vec<ValidationIssue>) {
+    let Some(dir) = helix3d_dir else {
+        issues.push(ValidationIssue {
+            severity: ValidationSeverity::Info,
+            code: "helix_data_freshness".into(),
+            source_kind: None,
+            source_id: None,
+            field_path: None,
+            message: "Data Freshness: unknown (no helix3d directory)".into(),
+            related_refs: Vec::new(),
+        });
+        return;
+    };
+
+    let report = api_health::check_data_freshness(dir);
+
+    if report.needs_refresh {
+        issues.push(ValidationIssue {
+            severity: ValidationSeverity::Warning,
+            code: "helix_data_freshness".into(),
+            source_kind: None,
+            source_id: None,
+            field_path: None,
+            message: format!(
+                "Data Freshness: local files are {} min old (consider re-import)",
+                report.local_age_minutes,
+            ),
+            related_refs: Vec::new(),
+        });
+    } else {
+        issues.push(ValidationIssue {
+            severity: ValidationSeverity::Info,
+            code: "helix_data_freshness".into(),
+            source_kind: None,
+            source_id: None,
+            field_path: None,
+            message: format!("Data Freshness: {} min old", report.local_age_minutes),
+            related_refs: Vec::new(),
+        });
+    }
+}
+
+/// Validate a sample entity against the remote API.
+fn validate_remote_sample(registries: &HelixRegistries, issues: &mut Vec<ValidationIssue>) {
+    let remote_issues = api_health::validate_sample_against_api(registries);
+    if remote_issues.is_empty() {
+        issues.push(ValidationIssue {
+            severity: ValidationSeverity::Info,
+            code: "helix_remote_validation".into(),
+            source_kind: None,
+            source_id: None,
+            field_path: None,
+            message: "Remote Validation: sample valid (or API unavailable)".into(),
+            related_refs: Vec::new(),
+        });
+    } else {
+        for msg in &remote_issues {
+            issues.push(ValidationIssue {
+                severity: ValidationSeverity::Warning,
+                code: "helix_remote_validation".into(),
+                source_kind: None,
+                source_id: None,
+                field_path: None,
+                message: msg.clone(),
+                related_refs: Vec::new(),
+            });
+        }
+    }
+}
+
 /// Print a dashboard summary to stdout (for CLI use).
+///
+/// Renders a boxed dashboard with check-line summaries for TOML coverage,
+/// cross-references, localization, API health, data freshness, and remote
+/// validation. Detail lines follow the box for warnings/errors.
 pub fn print_dashboard_summary(issues: &[ValidationIssue]) {
     let errors = issues
         .iter()
@@ -431,10 +545,158 @@ pub fn print_dashboard_summary(issues: &[ValidationIssue]) {
         .filter(|i| matches!(i.severity, ValidationSeverity::Warning))
         .count();
 
-    if issues.is_empty() {
-        println!("  All checks passed!");
+    // Derive check-line statuses from issues
+    let toml_errors = issues
+        .iter()
+        .filter(|i| i.code == "helix_toml_parse_error" || i.code == "helix_missing_toml")
+        .count();
+    let toml_no_dir = issues.iter().any(|i| i.code == "helix_no_toml_dir");
+    let broken_refs = issues
+        .iter()
+        .filter(|i| i.code == "helix_broken_ref")
+        .count();
+    let missing_en = issues
+        .iter()
+        .filter(|i| i.code == "helix_missing_en_name")
+        .count();
+    let entity_total = issues
+        .iter()
+        .find(|i| i.code == "helix_entity_count" && i.source_kind.is_none())
+        .map(|i| i.message.clone());
+
+    let api_issue = issues.iter().find(|i| i.code == "helix_api_health");
+    let freshness_issue = issues.iter().find(|i| i.code == "helix_data_freshness");
+    let remote_val_issues: Vec<_> = issues
+        .iter()
+        .filter(|i| i.code == "helix_remote_validation")
+        .collect();
+
+    let w = 46;
+    let bar = format!("+{}+", "-".repeat(w));
+
+    println!("{}", bar);
+    println!("| {:^width$} |", "HELIX DATA DASHBOARD", width = w);
+    println!("{}", bar);
+
+    // TOML Coverage
+    if toml_no_dir {
+        println!(
+            "| {:width$} |",
+            "  [--] TOML Coverage     no dir configured",
+            width = w
+        );
+    } else if toml_errors == 0 {
+        println!(
+            "| {:width$} |",
+            "  [OK] TOML Coverage     22/22 loaded",
+            width = w
+        );
     } else {
-        for issue in issues {
+        let line = format!("  [!!] TOML Coverage     {} issue(s)", toml_errors);
+        println!("| {:width$} |", line, width = w);
+    }
+
+    // Cross-References
+    if broken_refs == 0 {
+        println!(
+            "| {:width$} |",
+            "  [OK] Cross-References  0 broken",
+            width = w
+        );
+    } else {
+        let line = format!("  [!!] Cross-References  {} broken", broken_refs);
+        println!("| {:width$} |", line, width = w);
+    }
+
+    // Localization
+    if missing_en == 0 {
+        let total_str = entity_total
+            .as_deref()
+            .and_then(|m| m.split_whitespace().nth(2))
+            .unwrap_or("all");
+        let line = format!("  [OK] Localization      {}/{} en", total_str, total_str);
+        println!("| {:width$} |", line, width = w);
+    } else {
+        let line = format!("  [!!] Localization      {} missing en", missing_en);
+        println!("| {:width$} |", line, width = w);
+    }
+
+    // API Health
+    if let Some(issue) = api_issue {
+        let api_connected = issue.message.contains("connected");
+        let icon = if api_connected { "OK" } else { "--" };
+        let detail = if api_connected {
+            "connected"
+        } else {
+            "not running"
+        };
+        let line = format!("  [{}] API Health        {}", icon, detail);
+        println!("| {:width$} |", line, width = w);
+    }
+
+    // Data Freshness
+    if let Some(issue) = freshness_issue {
+        let is_warning = matches!(issue.severity, ValidationSeverity::Warning);
+        let icon = if is_warning {
+            "!!"
+        } else if issue.message.contains("unknown") {
+            "--"
+        } else {
+            "OK"
+        };
+        let detail: String = if issue.message.contains("unknown") {
+            "unknown".into()
+        } else if let Some(age) = issue
+            .message
+            .split_whitespace()
+            .find(|w| w.parse::<u64>().is_ok())
+        {
+            format!("{} min old", age)
+        } else {
+            "checked".into()
+        };
+        let line = format!("  [{}] Data Freshness    {}", icon, detail);
+        println!("| {:width$} |", line, width = w);
+    }
+
+    // Remote Validation
+    if !remote_val_issues.is_empty() {
+        let has_warnings = remote_val_issues
+            .iter()
+            .any(|i| matches!(i.severity, ValidationSeverity::Warning));
+        let icon = if has_warnings { "!!" } else { "OK" };
+        let detail = if has_warnings {
+            "issues found"
+        } else {
+            "sample valid"
+        };
+        let line = format!("  [{}] Remote Validation {}", icon, detail);
+        println!("| {:width$} |", line, width = w);
+    }
+
+    println!("{}", bar);
+
+    // Result line
+    let result = if errors > 0 {
+        format!("RESULT: {} ERROR(S), {} WARNING(S)", errors, warnings)
+    } else if warnings > 0 {
+        format!("RESULT: {} WARNING(S)", warnings)
+    } else {
+        "RESULT: ALL CHECKS PASSED".into()
+    };
+    println!("| {:^width$} |", result, width = w);
+    println!("{}", bar);
+
+    // Detail lines for non-info issues
+    let detail_issues: Vec<_> = issues
+        .iter()
+        .filter(|i| !matches!(i.severity, ValidationSeverity::Info))
+        .collect();
+
+    if !detail_issues.is_empty() {
+        println!();
+        println!("Details:");
+        for issue in detail_issues {
             let icon = match issue.severity {
                 ValidationSeverity::Error => "ERR",
                 ValidationSeverity::Warning => "WRN",
@@ -446,8 +708,6 @@ pub fn print_dashboard_summary(issues: &[ValidationIssue]) {
             };
             println!("  [{}]{} {}", icon, loc, issue.message);
         }
-        println!();
-        println!("  Summary: {} error(s), {} warning(s)", errors, warnings);
     }
 }
 
@@ -470,6 +730,42 @@ mod tests {
         validate_toml_coverage(None, &mut issues);
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].code, "helix_no_toml_dir");
+    }
+
+    #[test]
+    fn api_health_always_emits_info() {
+        let regs = HelixRegistries::default();
+        let mut issues = Vec::new();
+        validate_api_health(&regs, &mut issues);
+        // Whether API is online or offline, the issue is always Info severity
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "helix_api_health");
+        assert!(matches!(issues[0].severity, ValidationSeverity::Info));
+        assert!(
+            issues[0].message.contains("not running")
+                || issues[0].message.contains("connected")
+        );
+    }
+
+    #[test]
+    fn data_freshness_no_dir_emits_info() {
+        let mut issues = Vec::new();
+        validate_data_freshness(None, &mut issues);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "helix_data_freshness");
+        assert!(matches!(issues[0].severity, ValidationSeverity::Info));
+        assert!(issues[0].message.contains("unknown"));
+    }
+
+    #[test]
+    fn remote_validation_offline_emits_info() {
+        let regs = HelixRegistries::default();
+        let mut issues = Vec::new();
+        validate_remote_sample(&regs, &mut issues);
+        // Empty registries + no API = single Info issue
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "helix_remote_validation");
+        assert!(matches!(issues[0].severity, ValidationSeverity::Info));
     }
 
     #[test]

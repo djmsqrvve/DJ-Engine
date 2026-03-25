@@ -12,6 +12,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+pub mod api_health;
 pub mod balance;
 pub mod bridge;
 pub mod dashboard;
