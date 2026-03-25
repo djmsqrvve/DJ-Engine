@@ -358,11 +358,11 @@ fn check_quest_completion(
 fn update_hud(
     quest_journal: Res<QuestJournal>,
     inventory: Res<Inventory>,
-    player_query: Query<&CombatStatsComponent, With<Player>>,
+    player_query: Query<(&CombatStatsComponent, &AttackCooldown), With<Player>>,
     enemy_query: Query<&CombatStatsComponent, With<Enemy>>,
     mut text_query: Query<&mut Text, With<HudText>>,
 ) {
-    let Ok(stats) = player_query.single() else {
+    let Ok((stats, cooldown)) = player_query.single() else {
         return;
     };
     let Ok(mut text) = text_query.single_mut() else {
@@ -384,9 +384,17 @@ fn update_hud(
     let potions = inventory.count_item("health_potion");
     let slime_gel = inventory.count_item("slime_gel");
 
+    let cd_pct = cooldown.timer.fraction();
+    let cd_bar = if cooldown.ready() {
+        "READY".to_string()
+    } else {
+        let filled = (cd_pct * 10.0) as usize;
+        format!("[{}{}]", "#".repeat(filled), "-".repeat(10 - filled))
+    };
+
     let new_text = format!(
-        "You: {}/{}  Enemy: {}  Gold: {}  Potions: {}  Gel: {}  Quest: {}  [Space=Attack]",
-        stats.hp, stats.max_hp, enemy_hp, gold, potions, slime_gel, quest_status
+        "You: {}/{}  Enemy: {}  Gold: {}  Potions: {}  Gel: {}  Quest: {}  Atk: {}  [WASD=Move Space=Attack]",
+        stats.hp, stats.max_hp, enemy_hp, gold, potions, slime_gel, quest_status, cd_bar
     );
 
     // Debug: log when HUD actually changes
