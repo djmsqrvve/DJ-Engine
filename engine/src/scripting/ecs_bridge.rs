@@ -51,6 +51,23 @@ pub enum LuaEcsCommand {
         target_id: u64,
         flat_damage: Option<i32>,
     },
+    InventoryAddItem {
+        item_id: String,
+        quantity: u32,
+        max_stack: u32,
+    },
+    InventoryRemoveItem {
+        item_id: String,
+        quantity: u32,
+    },
+    InventoryAddCurrency {
+        currency_id: String,
+        amount: u64,
+    },
+    InventorySpendCurrency {
+        currency_id: String,
+        amount: u64,
+    },
 }
 
 /// Read-only query results returned to Lua.
@@ -217,6 +234,58 @@ pub fn register_ecs_bridge(lua: &mlua::Lua, buffer: LuaCommandBuffer) -> mlua::R
     combat_table.set("attack", combat_attack_fn)?;
     lua.globals().set("combat", combat_table)?;
 
+    // inventory.add_item(item_id, quantity, max_stack)
+    let buf = buffer.clone();
+    let inv_add_fn = lua.create_function(
+        move |_, (item_id, quantity, max_stack): (String, u32, u32)| {
+            let mut cmds = buf.commands.lock().unwrap();
+            cmds.push(LuaEcsCommand::InventoryAddItem {
+                item_id,
+                quantity,
+                max_stack,
+            });
+            Ok(())
+        },
+    )?;
+
+    // inventory.remove_item(item_id, quantity)
+    let buf = buffer.clone();
+    let inv_remove_fn = lua.create_function(move |_, (item_id, quantity): (String, u32)| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::InventoryRemoveItem { item_id, quantity });
+        Ok(())
+    })?;
+
+    // inventory.add_currency(currency_id, amount)
+    let buf = buffer.clone();
+    let inv_add_currency_fn =
+        lua.create_function(move |_, (currency_id, amount): (String, u64)| {
+            let mut cmds = buf.commands.lock().unwrap();
+            cmds.push(LuaEcsCommand::InventoryAddCurrency {
+                currency_id,
+                amount,
+            });
+            Ok(())
+        })?;
+
+    // inventory.spend_currency(currency_id, amount)
+    let buf = buffer.clone();
+    let inv_spend_fn = lua.create_function(move |_, (currency_id, amount): (String, u64)| {
+        let mut cmds = buf.commands.lock().unwrap();
+        cmds.push(LuaEcsCommand::InventorySpendCurrency {
+            currency_id,
+            amount,
+        });
+        Ok(())
+    })?;
+
+    let inv_table = lua.create_table()?;
+    inv_table.set("add_item", inv_add_fn)?;
+    inv_table.set("remove_item", inv_remove_fn)?;
+    inv_table.set("add_currency", inv_add_currency_fn)?;
+    inv_table.set("spend_currency", inv_spend_fn)?;
+    lua.globals().set("inventory", inv_table)?;
+
     lua.globals().set("ecs", ecs)?;
     Ok(())
 }
@@ -288,6 +357,7 @@ pub fn process_lua_commands(
     mut visibilities: Query<&mut Visibility>,
     mut quest_journal: ResMut<crate::quest::QuestJournal>,
     mut combat_events: MessageWriter<crate::combat::CombatEvent>,
+    mut inventory: ResMut<crate::inventory::Inventory>,
 ) {
     let mut cmds = buffer.commands.lock().unwrap();
     for cmd in cmds.drain(..) {
@@ -367,6 +437,33 @@ pub fn process_lua_commands(
                     target: Entity::from_bits(target_id),
                     flat_damage,
                 });
+            }
+            LuaEcsCommand::InventoryAddItem {
+                item_id,
+                quantity,
+                max_stack,
+            } => {
+                let leftover = inventory.add_item(&item_id, quantity, max_stack);
+                if leftover > 0 {
+                    warn!("Lua: inventory full, {leftover} {item_id} couldn't fit");
+                }
+            }
+            LuaEcsCommand::InventoryRemoveItem { item_id, quantity } => {
+                inventory.remove_item(&item_id, quantity);
+            }
+            LuaEcsCommand::InventoryAddCurrency {
+                currency_id,
+                amount,
+            } => {
+                inventory.add_currency(&currency_id, amount);
+            }
+            LuaEcsCommand::InventorySpendCurrency {
+                currency_id,
+                amount,
+            } => {
+                if !inventory.spend_currency(&currency_id, amount) {
+                    warn!("Lua: insufficient {currency_id} (need {amount})");
+                }
             }
         }
     }
@@ -487,6 +584,7 @@ mod tests {
         app.add_plugins(MinimalPlugins);
         app.insert_resource(buffer);
         app.init_resource::<crate::quest::QuestJournal>();
+        app.insert_resource(crate::inventory::Inventory::new(20));
         app.add_message::<crate::combat::CombatEvent>();
         app.add_systems(Update, process_lua_commands);
         app
@@ -852,6 +950,55 @@ mod tests {
                 assert!(flat_damage.is_none());
             }
             other => panic!("Expected CombatAttack, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_lua_inventory_add_item_queues_command() {
+        let lua = Lua::new();
+        let buffer = LuaCommandBuffer::default();
+        register_ecs_bridge(&lua, buffer.clone()).unwrap();
+
+        lua.load(r#"inventory.add_item("potion", 5, 10)"#)
+            .exec()
+            .unwrap();
+
+        let cmds = buffer.commands.lock().unwrap();
+        assert_eq!(cmds.len(), 1);
+        match &cmds[0] {
+            LuaEcsCommand::InventoryAddItem {
+                item_id,
+                quantity,
+                max_stack,
+            } => {
+                assert_eq!(item_id, "potion");
+                assert_eq!(*quantity, 5);
+                assert_eq!(*max_stack, 10);
+            }
+            other => panic!("Expected InventoryAddItem, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_lua_inventory_add_currency_queues_command() {
+        let lua = Lua::new();
+        let buffer = LuaCommandBuffer::default();
+        register_ecs_bridge(&lua, buffer.clone()).unwrap();
+
+        lua.load(r#"inventory.add_currency("gold", 100)"#)
+            .exec()
+            .unwrap();
+
+        let cmds = buffer.commands.lock().unwrap();
+        match &cmds[0] {
+            LuaEcsCommand::InventoryAddCurrency {
+                currency_id,
+                amount,
+            } => {
+                assert_eq!(currency_id, "gold");
+                assert_eq!(*amount, 100);
+            }
+            other => panic!("Expected InventoryAddCurrency, got {:?}", other),
         }
     }
 

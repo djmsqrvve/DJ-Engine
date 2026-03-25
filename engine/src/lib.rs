@@ -40,6 +40,7 @@ pub mod rendering;
 pub mod save;
 pub mod scene;
 pub mod scripting;
+pub mod status;
 pub mod story_graph;
 pub mod types;
 pub mod zone;
@@ -89,6 +90,10 @@ pub mod prelude {
     };
     pub use crate::scene::*;
     pub use crate::scripting::*;
+    pub use crate::status::{
+        apply_effect, is_on_cooldown, remove_effect, start_cooldown, AbilityReady,
+        StatusEffectExpired, StatusPlugin,
+    };
     pub use crate::story_graph::*;
     pub use crate::zone::{ActiveZone, PortalComponent, ZonePlugin, ZoneTransitionEvent};
 
