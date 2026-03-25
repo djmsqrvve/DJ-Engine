@@ -305,6 +305,9 @@ pub fn dialogue_input(
     choice_query: Query<Entity, With<ChoiceSelector>>,
 ) {
     if !ui_state.visible {
+        if actions.just_pressed(InputAction::Confirm) {
+            info!("Dialogue: Space pressed but UI not visible yet");
+        }
         return;
     }
 
@@ -357,7 +360,10 @@ pub fn dialogue_input(
             }
 
             if all_finished {
+                info!("Dialogue: advancing to next node");
                 input_events.write(StoryInputEvent::Advance);
+            } else {
+                info!("Dialogue: fast-forwarding typewriter");
             }
         }
     }
