@@ -31,6 +31,7 @@ pub mod combat;
 pub mod contracts;
 pub mod core;
 pub mod data;
+pub mod debug_console;
 pub mod diagnostics;
 pub mod economy;
 pub mod input;
