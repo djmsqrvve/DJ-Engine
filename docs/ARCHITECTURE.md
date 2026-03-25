@@ -176,8 +176,10 @@ external data flows through game plugins that register document kinds.
 
 The primary planned external source is `helix_standardization`
 (`~/dev/helix/helix_standardization`), a mature data standardization pipeline
-with ~14,491 entities across 22 TOML files in `dist/helix3d/` (abilities, items,
-mobs, quests, zones, equipment, mounts, currencies, etc.).
+with 2,681 curated entities across 26 TOML files in `dist/helix3d/` (abilities, items,
+mobs, quests, zones, equipment, mounts, currencies, etc.). The full source pipeline
+contains ~14,500 entities across 305+ categories, but the curated helix3d subset is
+what DJ Engine and Helix 3D consume.
 
 The intended data flow:
 

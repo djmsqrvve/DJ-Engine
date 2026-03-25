@@ -11,8 +11,7 @@ Fixes #(issue number)
 - [ ] Documentation update
 
 ## Checklist
-- [ ] Code compiles without errors (`cargo check --workspace`)
-- [ ] All tests pass (`make test`)
+- [ ] Full quality gate passes (`make validate` — fmt, clippy, tests, contracts, test count)
 - [ ] Documentation updated if needed
 - [ ] No new warnings introduced
 

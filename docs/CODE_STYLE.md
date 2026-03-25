@@ -195,3 +195,13 @@ cargo clippy -- -W clippy::all
 ```
 
 Address all warnings. Use `#[allow(...)]` sparingly and with justification.
+
+### Accepted Workspace-Level Allows
+
+These clippy lints are suppressed at the crate root (`#![allow(...)]`) across the workspace because they conflict with Bevy's ECS patterns:
+
+- `clippy::too_many_arguments` -- Bevy systems receive many resource/query parameters by design
+- `clippy::type_complexity` -- Bevy query types produce deeply nested generics
+- `clippy::upper_case_acronyms` -- engine uses acronyms like `CRT`, `BGM`, `SFX`
+- `clippy::module_inception` -- some modules share names with their parent (e.g., `hamster/tests`)
+- `clippy::drop_non_drop` -- explicit `drop()` is used to end mutable borrows on Bevy `Mut<T>` before re-accessing the world
