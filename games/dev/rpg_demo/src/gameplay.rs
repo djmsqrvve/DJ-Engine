@@ -93,7 +93,7 @@ fn setup_world(
             max_hp: 100,
             hp: 100,
             mana: 50,
-            damage: 25,
+            damage: 12,
             defense: 5,
             crit_chance: 0.1,
             ..default()
@@ -138,8 +138,8 @@ fn setup_world(
         },
         Transform::from_xyz(-100.0, 50.0, 0.0),
         CombatStatsComponent {
-            max_hp: 30,
-            hp: 30,
+            max_hp: 60,
+            hp: 60,
             mana: 0,
             damage: 8,
             defense: 2,
@@ -147,7 +147,7 @@ fn setup_world(
             ..default()
         },
         Sprite {
-            color: Color::srgb(0.4, 0.9, 0.3),
+            color: Color::srgb(0.9, 0.2, 0.2),
             custom_size: Some(Vec2::new(24.0, 24.0)),
             ..default()
         },
