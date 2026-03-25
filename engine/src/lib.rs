@@ -33,6 +33,7 @@ pub mod diagnostics;
 pub mod input;
 pub mod interaction;
 pub mod inventory;
+pub mod loot;
 pub mod midi;
 pub mod project_mount;
 pub mod quest;
@@ -73,6 +74,7 @@ pub mod prelude {
         InteractionEvent, InteractionPlugin, InteractionSource, InteractionTarget,
     };
     pub use crate::inventory::{Inventory, InventoryEvent, InventoryPlugin, ItemStack};
+    pub use crate::loot::{LootDropEvent, LootPlugin};
     pub use crate::midi::AutoLoadMidi;
     pub use crate::project_mount::MountedProject;
     pub use crate::quest::{

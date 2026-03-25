@@ -3,6 +3,7 @@
 //! The database contains static game data that is referenced by entities
 //! and story graphs. Data is stored in JSON and loaded at startup.
 
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -781,7 +782,7 @@ impl PartialEq for DatabaseIndices {
 }
 
 /// The complete game database.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Resource, Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Database {
     /// Item definitions
     #[serde(default)]
