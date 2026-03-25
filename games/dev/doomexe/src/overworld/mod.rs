@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use dj_engine::data::{
     BodyType, CollisionComponent, InteractivityComponent, TriggerType, Vec3Data,
 };
+use dj_engine::interaction::InteractionSource;
 use dj_engine::prelude::{CollisionSet, MovementIntent, SaveData, StoryFlags, StoryVariables};
 use dj_engine::rendering::MainCamera;
 
@@ -60,6 +61,7 @@ fn setup_overworld(
         Transform::from_xyz(-180.0, 0.0, 10.0),
         player::Player { speed: 150.0 },
         MovementIntent::default(),
+        InteractionSource,
         CollisionComponent {
             body_type: BodyType::Kinematic,
             box_size: Some(Vec3Data::new(28.0, 28.0, 0.0)),

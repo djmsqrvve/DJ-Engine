@@ -1,122 +1,67 @@
-use super::BattleResultEvent;
+use super::systems::{BattleEnemy, BattlePlayer};
 use bevy::prelude::*;
-
-#[derive(Component)]
-pub struct BattleButton(pub BattleResultEvent);
+use dj_engine::data::components::CombatStatsComponent;
 
 #[derive(Component)]
 pub struct BattleUIRoot;
 
+#[derive(Component)]
+pub struct BattleHudText;
+
 pub fn setup_battle_ui(mut commands: Commands) {
-    // Root UI Node
     commands
         .spawn((
             Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                align_items: AlignItems::FlexEnd,
-                justify_content: JustifyContent::Center,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::FlexEnd,
                 ..default()
             },
-            // Transparent background
             BackgroundColor(Color::NONE),
             BattleUIRoot,
         ))
         .with_children(|parent| {
-            // Control Panel
-            parent
-                .spawn((
-                    Node {
-                        padding: UiRect::all(Val::Px(10.0)),
-                        column_gap: Val::Px(20.0),
-                        margin: UiRect::bottom(Val::Px(20.0)),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
-                ))
-                .with_children(|panel| {
-                    // Win Button
-                    spawn_button(
-                        panel,
-                        "Simulate WIN",
-                        Color::srgb(0.2, 0.8, 0.2),
-                        BattleResultEvent::Win,
-                    );
-
-                    // Lose Button
-                    spawn_button(
-                        panel,
-                        "Simulate LOSE",
-                        Color::srgb(0.8, 0.2, 0.2),
-                        BattleResultEvent::Lose,
-                    );
-                });
-        });
-}
-
-fn spawn_button(
-    parent: &mut bevy::ecs::hierarchy::ChildSpawnerCommands<'_>,
-    text: &str,
-    color: Color,
-    event: BattleResultEvent,
-) {
-    parent
-        .spawn((
-            Button,
-            Node {
-                width: Val::Px(150.0),
-                height: Val::Px(50.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(color),
-            BattleButton(event),
-        ))
-        .with_children(|parent| {
+            // HUD text showing HP
             parent.spawn((
-                Text::new(text),
+                Text::new("Battle! Press Space to attack."),
                 TextFont {
-                    font_size: 20.0,
+                    font_size: 22.0,
                     ..default()
                 },
                 TextColor(Color::WHITE),
+                Node {
+                    margin: UiRect::bottom(Val::Px(20.0)),
+                    ..default()
+                },
+                BattleHudText,
             ));
         });
 }
 
-pub fn battle_ui_interaction(
-    mut interaction_query: Query<
-        (&Interaction, &BattleButton, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
-    mut ev_writer: MessageWriter<BattleResultEvent>,
+pub fn update_battle_hud(
+    player_query: Query<&CombatStatsComponent, With<BattlePlayer>>,
+    enemy_query: Query<&CombatStatsComponent, With<BattleEnemy>>,
+    mut text_query: Query<&mut Text, With<BattleHudText>>,
 ) {
-    for (interaction, button_type, mut bg_color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                // Dim on press
-                bg_color.0.set_alpha(0.5);
+    let Ok(player_stats) = player_query.single() else {
+        return;
+    };
+    let Ok(mut text) = text_query.single_mut() else {
+        return;
+    };
 
-                // Fire event based on button type
-                match button_type.0 {
-                    BattleResultEvent::Win => {
-                        ev_writer.write(BattleResultEvent::Win);
-                    }
-                    BattleResultEvent::Lose => {
-                        ev_writer.write(BattleResultEvent::Lose);
-                    }
-                }
-            }
-            Interaction::Hovered => {
-                // Slight highlight (handled by changing alpha or brightness if we had base color stored)
-                bg_color.0.set_alpha(0.9);
-            }
-            Interaction::None => {
-                bg_color.0.set_alpha(1.0);
-            }
-        }
-    }
+    let enemy_hp = enemy_query
+        .iter()
+        .next()
+        .map(|s| format!("{}/{}", s.hp, s.max_hp))
+        .unwrap_or_else(|| "defeated".into());
+
+    **text = format!(
+        "BATTLE  |  You: {}/{}  |  Glitch: {}  |  [Space = Attack]",
+        player_stats.hp, player_stats.max_hp, enemy_hp
+    );
 }
 
 pub fn cleanup_battle_ui(mut commands: Commands, query: Query<Entity, With<BattleUIRoot>>) {
