@@ -16,7 +16,7 @@ impl Plugin for BattlePlugin {
             Update,
             (
                 systems::player_attack,
-                systems::enemy_counterattack,
+                systems::enemy_ai_attack,
                 systems::handle_battle_damage,
                 ui::update_battle_hud,
             )

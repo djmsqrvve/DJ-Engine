@@ -10,6 +10,7 @@ use types::DoomExeAppConfig;
 mod assets;
 mod battle;
 mod dialogue;
+mod gameover;
 mod hamster;
 mod hud;
 mod overworld;
@@ -61,6 +62,7 @@ fn main() {
         .add_plugins(hud::HudPlugin)
         .add_plugins(dialogue::DialoguePlugin)
         .add_plugins(battle::BattlePlugin)
+        .add_plugins(gameover::GameOverPlugin)
         .add_plugins(assets::GameAssetsPlugin)
         .run();
 }

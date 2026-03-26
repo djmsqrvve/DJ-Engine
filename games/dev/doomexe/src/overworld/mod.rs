@@ -22,6 +22,7 @@ impl Plugin for OverworldPlugin {
                     player::player_movement.before(CollisionSet::MoveBodies),
                     camera::camera_follow_system.after(CollisionSet::MoveBodies),
                     interaction::interaction_check.after(CollisionSet::DetectTriggers),
+                    npc_proximity_highlight,
                 )
                     .run_if(in_state(GameState::Overworld)),
             )
@@ -142,6 +143,49 @@ fn spawn_npc(commands: &mut Commands, name: &str, id: &str, color: Color, positi
         },
         OverworldEntity,
     ));
+}
+
+/// Highlight NPCs when player is within interaction range.
+/// NPCs pulse brighter when close, return to normal when far.
+fn npc_proximity_highlight(
+    player_query: Query<&Transform, With<player::Player>>,
+    mut npc_query: Query<(&Transform, &mut Sprite, &NPC), Without<player::Player>>,
+) {
+    let Ok(player_pos) = player_query.single() else {
+        return;
+    };
+
+    let highlight_range = 60.0;
+
+    for (npc_pos, mut sprite, npc) in npc_query.iter_mut() {
+        let dist = player_pos
+            .translation
+            .truncate()
+            .distance(npc_pos.translation.truncate());
+
+        if dist < highlight_range {
+            // Brighten — pulse toward white
+            let t = 1.0 - (dist / highlight_range);
+            let base = match npc.id.as_str() {
+                "hamster_narrator" => Color::srgb(0.5, 0.3, 0.1),
+                "glitch_puddle" => Color::srgb(0.8, 0.2, 0.8),
+                _ => Color::WHITE,
+            };
+            let r = base.to_srgba();
+            sprite.color = Color::srgb(
+                (r.red + t * 0.4).min(1.0),
+                (r.green + t * 0.4).min(1.0),
+                (r.blue + t * 0.4).min(1.0),
+            );
+        } else {
+            // Reset to base color
+            sprite.color = match npc.id.as_str() {
+                "hamster_narrator" => Color::srgb(0.5, 0.3, 0.1),
+                "glitch_puddle" => Color::srgb(0.8, 0.2, 0.8),
+                _ => Color::WHITE,
+            };
+        }
+    }
 }
 
 fn teardown_overworld(mut commands: Commands, query: Query<Entity, With<OverworldEntity>>) {

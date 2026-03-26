@@ -48,6 +48,7 @@ pub fn setup_battle_entities(mut commands: Commands, mut battle_pending: ResMut<
             loot_table_id: Some("glitch_loot".into()),
             ..default()
         },
+        AttackCooldown::new(1.5), // Enemy attacks every 1.5s
         Name::new("battle_enemy"),
     ));
 
@@ -95,23 +96,30 @@ pub fn player_attack(
     }
 }
 
-/// Enemy attacks back after player attacks (simple turn-based).
-pub fn enemy_counterattack(
-    mut damage_events: MessageReader<DamageEvent>,
+/// Enemy AI — attacks player on its own cooldown timer.
+/// Creates real turn-based tension instead of instant counterattacks.
+pub fn enemy_ai_attack(
+    mut enemy_query: Query<(Entity, &mut AttackCooldown, &CombatStatsComponent), With<BattleEnemy>>,
     player_query: Query<Entity, With<BattlePlayer>>,
-    enemy_query: Query<Entity, With<BattleEnemy>>,
     mut combat_events: MessageWriter<CombatEvent>,
 ) {
-    for event in damage_events.read() {
-        // Only counterattack if the enemy was hit and survived
-        if enemy_query.get(event.target).is_ok() && !event.target_defeated {
-            if let Ok(player) = player_query.single() {
-                combat_events.write(CombatEvent {
-                    attacker: event.target,
-                    target: player,
-                    flat_damage: None,
-                });
-            }
+    let Ok(player) = player_query.single() else {
+        return;
+    };
+
+    for (enemy, mut cooldown, stats) in enemy_query.iter_mut() {
+        if stats.hp <= 0 {
+            continue;
+        }
+
+        if cooldown.ready() {
+            cooldown.reset();
+            combat_events.write(CombatEvent {
+                attacker: enemy,
+                target: player,
+                flat_damage: None,
+            });
+            info!("Enemy attacks!");
         }
     }
 }
@@ -151,8 +159,8 @@ pub fn handle_battle_damage(
                 hamster.expression = Expression::Angry;
                 hamster.corruption = (hamster.corruption + 15.0).min(100.0);
             }
-            info!("STATE: Battle -> Overworld (defeat)");
-            next_state.set(GameState::Overworld);
+            info!("STATE: Battle -> GameOver (defeat)");
+            next_state.set(GameState::GameOver);
         }
     }
 }

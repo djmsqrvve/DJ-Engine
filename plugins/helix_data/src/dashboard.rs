@@ -949,7 +949,11 @@ mod tests {
         let mut issues = Vec::new();
         validate_api_health_checks(&regs, None, &mut issues);
         // Should have at least 5 issues (one per API check)
-        assert!(issues.len() >= 5, "Expected >= 5 issues, got {}", issues.len());
+        assert!(
+            issues.len() >= 5,
+            "Expected >= 5 issues, got {}",
+            issues.len()
+        );
         let codes: Vec<&str> = issues.iter().map(|i| i.code.as_str()).collect();
         assert!(codes.contains(&"helix_api_health"));
         assert!(codes.contains(&"helix_data_freshness"));
