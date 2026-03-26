@@ -13,7 +13,7 @@ Custom 2D game engine built with Rust and Bevy 0.18. Plugin-based architecture w
 ## Key Commands
 
 ```bash
-make test                            # 519 workspace tests
+make test                            # 526 workspace tests
 make lint                            # clippy (zero warnings enforced)
 make fmt                             # format check
 make quality-check                   # fmt + clippy + test
@@ -41,7 +41,7 @@ make helix-preview PROJECT=/tmp/helix_project
 - **Lua API**: 8 tables (ecs, quest, combat, inventory, economy, character) + global log/warn/error
 - **5 game crates**: doomexe (JRPG), stratego (board game), iso_sandbox (isometric), rpg_demo (SDK reference), helix_rpg (MMORPG data consumer)
 - **Helix data plugin** (`plugins/helix_data/`):
-  - `HelixRegistries` Bevy Resource: 22 typed `Registry<T>` collections (2,681 entities when loaded)
+  - `HelixRegistries` Bevy Resource: 22 typed `Registry<T>` collections (2,868 entities when loaded)
   - Bridge layer (`bridge.rs`): converts Helix types to engine-native `HelixDatabase` types
   - Balance overlays: per-engine tuning applied during bridge conversion
   - Dashboard (`dashboard.rs`): cross-ref validation (mobs->abilities, quests->prereqs, etc.)
