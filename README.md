@@ -8,7 +8,7 @@
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.94.0-orange?style=flat-square" alt="Rust 1.94.0"></a>
   <a href="https://bevyengine.org/"><img src="https://img.shields.io/badge/Bevy-0.18-green?style=flat-square" alt="Bevy 0.18"></a>
   <a href="https://github.com/djmsqrvve/DJ-Engine/actions/workflows/ci.yml"><img src="https://github.com/djmsqrvve/DJ-Engine/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/tests-526-brightgreen?style=flat-square" alt="526 tests">
+  <img src="https://img.shields.io/badge/tests-539-brightgreen?style=flat-square" alt="539 tests">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License"></a>
 </p>
 
@@ -24,8 +24,8 @@ Most Bevy frameworks focus on general-purpose 2D/3D rendering. DJ Engine is purp
 - **Palette corruption pipeline** -- real-time palette swaps and visual degradation driven by game state, not just shader tricks
 - **Custom document platform** -- register your own game data types (abilities, enemies, quests) and get editor browsing, validation, and runtime loading for free
 - **Multi-game workspace** -- one engine, multiple game crates. DoomExe, Stratego, and Iso Sandbox ship as proof that the framework generalizes
-- **Helix data integration** -- consumes 2,681 MMORPG entities from the Helix standardization pipeline via typed TOML registries
-- **526 tests, zero warnings** -- CI-enforced quality across the full workspace
+- **Helix data integration** -- consumes 2,868 MMORPG entities from the Helix standardization pipeline via typed TOML registries
+- **539 tests, zero warnings** -- CI-enforced quality across the full workspace
 
 ## Features
 

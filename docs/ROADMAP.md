@@ -1,6 +1,6 @@
 # DJ-Engine Roadmap
 
-Status as of 2026-03-25: 499 tests passing, zero failures, zero clippy warnings. Phase 1-5 complete, runtime deepening shipped. 18 gameplay systems: combat, combat FX (floating text), quests, inventory, interaction, animation, spawner, status effects, ability cooldowns, loot, economy (consumables, equipment, vendor), character (titles, weapon skills, bags), Lua API (8 tables), debug console, objective navigator. Five game crates: DoomExe, Stratego, Iso Sandbox, RPG Demo (SDK reference), Helix RPG (MMORPG data consumer). QA checklist with 6 visual test cards.
+Status as of 2026-03-27: 539 tests passing, zero failures, zero clippy warnings. Phase 1-5 complete, runtime deepening shipped, save/load done. 18 gameplay systems: combat, combat FX (floating text), quests, inventory, interaction, animation, spawner, status effects, ability cooldowns, loot, economy (consumables, equipment, vendor), character (titles, weapon skills, bags), Lua API (8 tables), debug console, objective navigator. Five game crates: DoomExe, Stratego, Iso Sandbox, RPG Demo (SDK reference), Helix RPG (MMORPG data consumer). QA checklist with 6 visual test cards.
 
 ## Phase 1: Quick Wins (1 session)
 
@@ -41,19 +41,11 @@ Status as of 2026-03-25: 499 tests passing, zero failures, zero clippy warnings.
 - `StopBgm`: fade out current BGM over `fade_out` duration
 - ~100 lines + tests
 
-## Phase 3: Save/Load System (1-2 sessions)
+## Phase 3: Save/Load System (1-2 sessions) DONE (2026-03-25)
 
-### What exists
-- Title screen with NEW GAME / CONTINUE / QUIT (`games/dev/doomexe/src/title.rs`)
-- `StoryFlags`, `StoryVariables` resources (serializable state)
-- `StoryGraphData` with JSON serialization patterns throughout `engine/src/data/`
-- serde already in workspace
-
-### What to build
-- `SaveData` struct: story flags, story variables, current scene ID, graph position
-- `save_game()` / `load_game()` functions writing JSON to `~/.local/share/dj_engine/saves/`
-- Wire CONTINUE button to load, NEW GAME to reset
-- ~150 lines + tests
+- Auto-save + slot system implemented (`engine/src/save.rs`)
+- DoomExe CONTINUE button wired to load, NEW GAME resets
+- Save/load roundtrip tests passing
 
 ## Phase 4: CRT Post-Processing Pipeline (2-3 sessions)
 
@@ -95,6 +87,6 @@ Status as of 2026-03-25: 499 tests passing, zero failures, zero clippy warnings.
 | Done    | Phase 1: Quick wins      | 302         |
 | Done    | Phase 2: Audio crossfade | 411         |
 | Done    | Runtime deepening        | 499         |
-| Next    | Phase 3: Save/load       | ~510        |
-| +1      | Phase 4: CRT pipeline    | ~520        |
-| +2      | Phase 5: Physics/collision | ~535      |
+| Done    | Phase 3: Save/load       | 526         |
+| Next    | Phase 4: CRT pipeline    | ~550        |
+| +1      | Phase 5: Physics/collision | ~565      |

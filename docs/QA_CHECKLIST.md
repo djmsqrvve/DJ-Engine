@@ -7,7 +7,7 @@ Structured procedure for verifying DJ Engine works end-to-end. Run this before a
 Run these first. If any fail, fix before proceeding.
 
 ```bash
-make validate    # fmt + clippy + test + contracts + test count (495+ required)
+make validate    # fmt + clippy + test + contracts + test count (510+ required)
 ```
 
 Individual steps if validate fails:
@@ -15,13 +15,33 @@ Individual steps if validate fails:
 ```bash
 cargo fmt --all --check                           # formatting
 cargo clippy --workspace --all-targets -- -D warnings  # lint
-cargo test --workspace                             # 526+ tests
+cargo test --workspace                             # 539+ tests
 make contracts                                     # API surface check
 ```
 
 - [ ] `make validate` passes
 - [ ] Zero clippy warnings
 - [ ] Test count >= 510
+
+## Quick Status Check
+
+Run this for a fast health snapshot without the full QA walkthrough:
+
+```bash
+make status    # ~2 min: test count, clippy, contracts, doc staleness, smoke tests
+```
+
+**When to use:**
+- After a multi-commit session, before pushing
+- When resuming after a break
+- Before starting a new QA session
+
+| Check | When | Time |
+|-------|------|------|
+| `make status` | Daily / after sessions | ~2 min |
+| `make validate` | Before push | ~5 min |
+| `make qa` | Before release | ~7 min |
+| Manual cards (below) | Monthly or after major feature | ~30 min |
 
 ## Automated Smoke Tests
 
@@ -53,7 +73,6 @@ This verifies no game crashes on startup. It does NOT verify visual correctness.
 **Systems exercised:** Combat, Quest, Inventory, Loot, Input, HUD rendering
 
 **Known issues:**
-- Combat is instant (no attack cooldown) -- spam kills
 - No movement in this demo (player is stationary)
 
 ---
@@ -76,10 +95,13 @@ This verifies no game crashes on startup. It does NOT verify visual correctness.
 8. [ ] Walk to purple "Glitch Puddle" NPC, press E
 9. [ ] Dialogue triggers battle transition
 10. [ ] Battle screen shows HP display: "You: 80/80 | Glitch: 40/40"
-11. [ ] Press Space to attack -- damage numbers update
-12. [ ] Enemy defeated or player defeated -- returns to overworld
+11. [ ] Press Space to attack -- damage numbers update, attack cooldown gates spam
+12. [ ] Enemy attacks back on 1.5s timer (AI-driven, not instant counterattack)
+13. [ ] Enemy defeated -- returns to overworld
+14. [ ] Player defeated (HP reaches 0) -- Game Over screen appears (red, "GAME OVER" text)
+15. [ ] Press Space on Game Over screen -- returns to title
 
-**Systems exercised:** Collision, Input, Story Graph, NPC Interaction, Combat (CombatEvent/DamageEvent), State Machine
+**Systems exercised:** Collision, Input, Story Graph, NPC Interaction, Combat (CombatEvent/DamageEvent), State Machine, Attack Cooldown, Game Over
 
 **Known issues:**
 - MIDI audio may be silent (audio backend dependent)
@@ -183,6 +205,7 @@ Which games exercise which engine systems:
 | System | rpg_demo | doomexe | helix_rpg | stratego | iso |
 |--------|----------|---------|-----------|----------|-----|
 | Combat (CombatEvent) | X | X | X | | |
+| Attack Cooldown | X | X | X | | |
 | Quest (QuestJournal) | X | | X | | |
 | Inventory | X | | X | | |
 | Loot (LootDropEvent) | X | | | | |
@@ -193,6 +216,9 @@ Which games exercise which engine systems:
 | Input (ActionState) | X | X | X | X | X |
 | Save/Load | | X | | | |
 | Movement (MovementIntent) | | X | X | | |
+| Game Over | | X | | | |
+| Debug Console (F1) | X | X | X | X | X |
+| Objective Navigator | | X | | | |
 | Grid system | | | | X | X |
 | Economy | | | | | |
 | Character (Titles) | | | | | |
@@ -244,6 +270,22 @@ After completing visual tests:
 
 **Issues found:**
 
-- Camera ambiguity warning (2 cameras spawned) -- log spam, needs dedup
-- DoomExe battle resolves too fast (no attack cooldown)
 - Economy and Character systems not exercised by any game yet
+- Cards 3-6 have never been manually tested
+
+### Session: 2026-03-27
+
+**Pre-flight:** 539 tests, 0 failures, 0 clippy warnings
+
+| Card | Result | Notes |
+|------|--------|-------|
+| 1: RPG Demo | | |
+| 2: DoomExe | | Re-test: GameOver screen, enemy AI cooldowns, NPC highlights, battle pacing |
+| 3: Helix RPG | | First manual test |
+| 4: Stratego | | First manual test |
+| 5: Iso Sandbox | | First manual test |
+| 6: Editor | | First manual test |
+
+**Fixes shipped during session:**
+
+**Issues found:**

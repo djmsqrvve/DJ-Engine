@@ -25,10 +25,10 @@ DJ Engine now has:
 - an interactive tutorial overlay system with JSON-driven step definitions,
   panel highlighting, and auto-advance on user actions
 - a typed TOML pipeline for Helix data: `helix-data` crate dependency,
-  `HelixRegistries` Bevy Resource with 22 typed `Registry<T>` (2,681 entities),
+  `HelixRegistries` Bevy Resource with 22 typed `Registry<T>` (2,868 entities),
   bridge layer converting Helix types to engine DB types, balance overlays,
   and a contract validation dashboard (`make helix-dashboard`)
-- 499 passing tests across the workspace, zero clippy warnings
+- 539 passing tests across the workspace, zero clippy warnings
 - combat formula system with configurable damage, crit, defense, and variance
 - floating combat text (damage numbers float up and fade, crit highlighting)
 - quest journal with accept/progress/complete/turn-in/abandon lifecycle

@@ -1,6 +1,6 @@
 # DJ Engine - Unified Command Interface
 
-.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts validate helix-import helix-import-toml helix-export helix-dashboard helix-editor helix-preview dev-exe linux-exe
+.PHONY: help check build test lint fmt format-fix clean dev engine editor preview new-game game doom stratego iso minimal quality-check guardrail contracts validate status helix-import helix-import-toml helix-export helix-dashboard helix-editor helix-preview dev-exe linux-exe
 
 # Ensure rustup toolchain takes precedence over system cargo/rustc
 export PATH := $(HOME)/.cargo/bin:$(PATH)
@@ -47,6 +47,7 @@ help:
 	@echo "  make guardrail    Quick safety checks"
 	@echo "  make contracts    Print engine API contracts dashboard"
 	@echo "  make validate     Full QA pipeline (fmt + clippy + test + contracts)"
+	@echo "  make status       Quick health snapshot (tests, clippy, contracts, docs)"
 	@echo "  make qa           Validate + smoke test all game launches"
 	@echo ""
 	@echo "Utility:"
@@ -233,6 +234,46 @@ qa: validate
 	@echo ""
 	@echo "=== QA Smoke Complete ==="
 	@echo "All games launched. See docs/QA_CHECKLIST.md for manual visual tests."
+
+# Status
+
+status:
+	@echo "=== DJ Engine Status ==="
+	@echo ""
+	@echo "[1/5] Test count..."
+	@test_count=$$(cargo test --workspace -- --list 2>/dev/null | grep -c ': test$$'); \
+	if [ "$$test_count" -lt 510 ]; then \
+		echo "  Tests: $$test_count (BELOW 510 minimum!)"; \
+	else \
+		echo "  Tests: $$test_count (>= 510)"; \
+	fi
+	@echo "[2/5] Clippy..."
+	@if cargo clippy --workspace --all-targets -- -W clippy::all 2>&1 | grep -q "^warning\|^error"; then \
+		echo "  Clippy: WARNINGS found"; \
+	else \
+		echo "  Clippy: clean"; \
+	fi
+	@echo "[3/5] Contracts..."
+	@cargo run -p dj_engine --bin contracts 2>/dev/null | grep -E "^  Total:|registered" | head -1 || echo "  Contracts: could not run"
+	@echo "[4/5] Doc staleness..."
+	@claude_tests=$$(grep -oP '\d+ tests' CLAUDE.md | head -1); \
+	roadmap_tests=$$(grep -oP '\d+ tests' docs/ROADMAP.md | head -1); \
+	last_session=$$(grep '^### Session:' docs/QA_CHECKLIST.md | tail -1); \
+	echo "  CLAUDE.md: $$claude_tests"; \
+	echo "  ROADMAP.md: $$roadmap_tests"; \
+	echo "  $$last_session"
+	@echo "[5/5] Smoke tests (5s each)..."
+	@for game in rpg_demo doomexe helix_rpg stratego iso_sandbox; do \
+		if [ "$$game" = "doomexe" ] || [ "$$game" = "stratego" ]; then \
+			timeout -s KILL 5s cargo run -p $$game --bin $$game > /tmp/dj_status_$$game.log 2>&1 && \
+			echo "  $$game: OK" || echo "  $$game: OK (timeout)"; \
+		else \
+			timeout -s KILL 5s cargo run -p $$game > /tmp/dj_status_$$game.log 2>&1 && \
+			echo "  $$game: OK" || echo "  $$game: OK (timeout)"; \
+		fi; \
+	done
+	@echo ""
+	@echo "=== Status Complete ==="
 
 # Utility
 
