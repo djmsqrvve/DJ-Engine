@@ -5,6 +5,8 @@ use bevy::prelude::*;
 use dj_engine::combat::{AttackCooldown, CombatEvent, DamageEvent};
 use dj_engine::data::components::CombatStatsComponent;
 use dj_engine::input::{ActionState, InputAction};
+use dj_engine::particles::{ParticleConfig, ParticleEvent};
+use dj_engine::screen_fx::{ScreenFlashEvent, ScreenShakeEvent};
 
 /// Marker for the player's battle entity.
 #[derive(Component)]
@@ -125,6 +127,7 @@ pub fn enemy_ai_attack(
 }
 
 /// Handle combat results — check for victory/defeat, update hamster.
+/// Also triggers screen effects and particles for visual feedback.
 pub fn handle_battle_damage(
     mut damage_events: MessageReader<DamageEvent>,
     mut hamster_query: Query<&mut CharacterRoot>,
@@ -133,8 +136,25 @@ pub fn handle_battle_damage(
     mut next_state: ResMut<NextState<GameState>>,
     player_query: Query<Entity, With<BattlePlayer>>,
     enemy_query: Query<Entity, With<BattleEnemy>>,
+    mut shake_events: MessageWriter<ScreenShakeEvent>,
+    mut flash_events: MessageWriter<ScreenFlashEvent>,
+    mut particle_events: MessageWriter<ParticleEvent>,
 ) {
     for event in damage_events.read() {
+        // Screen shake on any hit
+        if player_query.get(event.target).is_ok() {
+            // Player taking damage — shake + red flash
+            shake_events.write(if event.is_critical {
+                ScreenShakeEvent::heavy()
+            } else {
+                ScreenShakeEvent::medium()
+            });
+            flash_events.write(ScreenFlashEvent::damage());
+        } else {
+            // Enemy taking damage — light shake
+            shake_events.write(ScreenShakeEvent::light());
+        }
+
         // Enemy defeated → victory
         if event.target_defeated && enemy_query.get(event.target).is_ok() {
             info!(
@@ -148,6 +168,12 @@ pub fn handle_battle_damage(
             // Write to BOTH flag systems so graph executor + HUD tracker both see it
             story.add_flag("DefeatedGlitch");
             flags.0.insert("DefeatedGlitch".to_string(), true);
+            // Victory particles + gold flash
+            particle_events.write(ParticleEvent {
+                position: Vec3::ZERO,
+                config: ParticleConfig::gold_sparkle(),
+            });
+            flash_events.write(ScreenFlashEvent::gold());
             info!("STATE: Battle -> Overworld (victory)");
             next_state.set(GameState::Overworld);
         }
@@ -159,6 +185,12 @@ pub fn handle_battle_damage(
                 hamster.expression = Expression::Angry;
                 hamster.corruption = (hamster.corruption + 15.0).min(100.0);
             }
+            // Death burst particles + heavy shake
+            particle_events.write(ParticleEvent {
+                position: Vec3::ZERO,
+                config: ParticleConfig::death_burst(),
+            });
+            shake_events.write(ScreenShakeEvent::heavy());
             info!("STATE: Battle -> GameOver (defeat)");
             next_state.set(GameState::GameOver);
         }

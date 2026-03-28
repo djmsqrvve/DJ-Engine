@@ -14,6 +14,7 @@ mod gameover;
 mod hamster;
 mod hud;
 mod overworld;
+mod pause;
 mod scripting;
 mod state;
 mod story;
@@ -63,6 +64,7 @@ fn main() {
         .add_plugins(dialogue::DialoguePlugin)
         .add_plugins(battle::BattlePlugin)
         .add_plugins(gameover::GameOverPlugin)
+        .add_plugins(pause::PausePlugin)
         .add_plugins(assets::GameAssetsPlugin)
         .run();
 }
