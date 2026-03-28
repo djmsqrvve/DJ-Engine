@@ -21,6 +21,74 @@ mod story;
 mod title;
 mod types;
 
+fn build_game_database() -> dj_engine::data::database::Database {
+    use dj_engine::data::database::*;
+
+    let mut db = Database::default();
+
+    // -- Items --
+    db.items.push(ItemRow {
+        id: "health_potion".into(),
+        name: [("en".into(), "Health Potion".into())].into(),
+        heal_amount: 25,
+        price: 10,
+        sell_value: 5,
+        max_stack: 10,
+        ..Default::default()
+    });
+    db.items.push(ItemRow {
+        id: "rat_tail".into(),
+        name: [("en".into(), "Rat Tail".into())].into(),
+        price: 5,
+        sell_value: 3,
+        max_stack: 20,
+        ..Default::default()
+    });
+    db.items.push(ItemRow {
+        id: "rusty_sword".into(),
+        name: [("en".into(), "Rusty Sword".into())].into(),
+        damage: 3,
+        price: 25,
+        sell_value: 10,
+        max_stack: 1,
+        ..Default::default()
+    });
+    db.items.push(ItemRow {
+        id: "corrupted_data".into(),
+        name: [("en".into(), "Corrupted Data".into())].into(),
+        sell_value: 8,
+        ..Default::default()
+    });
+    db.items.push(ItemRow {
+        id: "glitch_shard".into(),
+        name: [("en".into(), "Glitch Shard".into())].into(),
+        sell_value: 15,
+        ..Default::default()
+    });
+
+    // -- Consumables --
+    db.consumables.push(ConsumableRow {
+        id: "health_potion".into(),
+        name: [("en".into(), "Health Potion".into())].into(),
+        consumable_type: "potion".into(),
+        stack_size: 10,
+        ..Default::default()
+    });
+
+    // -- Loot Tables --
+    let mut glitch_loot = LootTableRow::new("glitch_loot");
+    glitch_loot.add_entry("corrupted_data", 1.0, 1);
+    glitch_loot.add_entry("glitch_shard", 0.5, 1);
+    db.loot_tables.push(glitch_loot);
+
+    let mut rat_loot = LootTableRow::new("rat_loot");
+    rat_loot.add_entry("rat_tail", 0.8, 1);
+    rat_loot.add_entry("health_potion", 0.3, 1);
+    db.loot_tables.push(rat_loot);
+
+    db
+}
+
 fn main() {
     let app_config = DoomExeAppConfig::default();
 
@@ -42,15 +110,8 @@ fn main() {
         .insert_resource(AutoLoadMidi {
             path: "music/overworld_theme.mid".into(),
         })
-        // Game database with loot table for glitch battle
-        .insert_resource({
-            let mut db = dj_engine::data::database::Database::default();
-            let mut loot = dj_engine::data::database::LootTableRow::new("glitch_loot");
-            loot.add_entry("corrupted_data", 1.0, 1);
-            loot.add_entry("glitch_shard", 0.5, 1);
-            db.loot_tables.push(loot);
-            db
-        })
+        // Game database: items, loot, consumables for the gameplay loop
+        .insert_resource(build_game_database())
         // Game-specific scripting extensions
         .add_plugins(scripting::GameScriptingPlugin)
         // Game state

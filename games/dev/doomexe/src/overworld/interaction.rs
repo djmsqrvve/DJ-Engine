@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use dj_engine::data::InteractivityComponent;
 use dj_engine::input::{ActionState, InputAction};
 use dj_engine::prelude::TriggerContacts;
-use dj_engine::story_graph::{GraphExecutor, StoryGraph, StoryNode};
+use dj_engine::story_graph::{GraphChoice, GraphExecutor, StoryGraph, StoryNode};
 
 pub fn interaction_check(
     actions: Res<ActionState>,
@@ -174,6 +174,183 @@ pub fn interaction_check(
                 flag: "MetHamster".to_string(),
                 if_true: Some(branch_victory),
                 if_false: Some(warn1),
+            });
+
+            graph.set_start(root);
+            executor.start(graph);
+            next_state.set(GameState::NarratorDialogue);
+        }
+        "vendor" => {
+            let mut graph = StoryGraph::new();
+            let end = graph.add(StoryNode::End);
+
+            let bought = graph.add(StoryNode::Dialogue {
+                speaker: "Old Ratcatcher".to_string(),
+                text: "Here's your potion. Don't drink it all at once.".to_string(),
+                portrait: Some("vendor".to_string()),
+                next: Some(end),
+            });
+            let buy = graph.add(StoryNode::Event {
+                event_id: "VendorBuy_health_potion".to_string(),
+                payload: "".to_string(),
+                next: Some(bought),
+            });
+            let no_gold = graph.add(StoryNode::Dialogue {
+                speaker: "Old Ratcatcher".to_string(),
+                text: "You can't afford that. Come back when you've got coin.".to_string(),
+                portrait: Some("vendor".to_string()),
+                next: Some(end),
+            });
+            let leave = graph.add(StoryNode::Dialogue {
+                speaker: "Old Ratcatcher".to_string(),
+                text: "Come back when you need supplies.".to_string(),
+                portrait: Some("vendor".to_string()),
+                next: Some(end),
+            });
+
+            let greeting = graph.add(StoryNode::Choice {
+                speaker: "Old Ratcatcher".to_string(),
+                prompt: "What'll it be?".to_string(),
+                options: vec![
+                    GraphChoice {
+                        text: "Buy Health Potion (10 gold)".into(),
+                        next: Some(buy),
+                        flag_required: None,
+                    },
+                    GraphChoice {
+                        text: "Leave".into(),
+                        next: Some(leave),
+                        flag_required: None,
+                    },
+                ],
+            });
+            let intro = graph.add(StoryNode::Dialogue {
+                speaker: "Old Ratcatcher".to_string(),
+                text: "Potions, supplies, the usual. I used to catch rats for a living, but my knees gave out.".to_string(),
+                portrait: Some("vendor".to_string()),
+                next: Some(greeting),
+            });
+
+            graph.set_start(intro);
+            executor.start(graph);
+            next_state.set(GameState::NarratorDialogue);
+        }
+        "village_elder" => {
+            let mut graph = StoryGraph::new();
+            let end = graph.add(StoryNode::End);
+
+            // After quest complete — turn-in dialogue
+            let reward_done = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "The village is safe. You've earned your rest, hero.".to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(end),
+            });
+            let branch_turned_in = graph.add(StoryNode::Branch {
+                flag: "QuestTurnedIn_cellar".to_string(),
+                if_true: Some(reward_done),
+                if_false: Some(end), // placeholder — filled below
+            });
+
+            let reward_text = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "Excellent work! Here — 50 gold and a new title. You've earned it."
+                    .to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(end),
+            });
+            let turn_in_event = graph.add(StoryNode::Event {
+                event_id: "QuestTurnIn_cellar".to_string(),
+                payload: "".to_string(),
+                next: Some(reward_text),
+            });
+            let turn_in_dialog = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "You cleared them all? Let me see... yes! The cellar is clean!".to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(turn_in_event),
+            });
+            let branch_complete = graph.add(StoryNode::Branch {
+                flag: "QuestComplete_cellar".to_string(),
+                if_true: Some(turn_in_dialog),
+                if_false: Some(end), // placeholder
+            });
+
+            // Quest in progress
+            let in_progress = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "The cellar still has rats. Get down there and finish the job!".to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(end),
+            });
+
+            // Quest accept
+            let accept_event = graph.add(StoryNode::Event {
+                event_id: "QuestAccept_cellar".to_string(),
+                payload: "".to_string(),
+                next: Some(end),
+            });
+            let accept2 = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "The cellar entrance is to the south. Be careful down there.".to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(accept_event),
+            });
+            let accept1 = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text:
+                    "Rats have infested the cellar! Please, clear them out. I'll pay you 50 gold."
+                        .to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(accept2),
+            });
+
+            // Root: branch on quest state
+            let branch_accepted = graph.add(StoryNode::Branch {
+                flag: "QuestAccepted_cellar".to_string(),
+                if_true: Some(branch_complete),
+                if_false: Some(accept1),
+            });
+
+            // If already turned in, show that. Otherwise check accepted.
+            let root = graph.add(StoryNode::Branch {
+                flag: "QuestTurnedIn_cellar".to_string(),
+                if_true: Some(reward_done),
+                if_false: Some(branch_accepted),
+            });
+
+            graph.set_start(root);
+            executor.start(graph);
+            next_state.set(GameState::NarratorDialogue);
+        }
+        "cellar_entrance" => {
+            let mut graph = StoryGraph::new();
+            let end = graph.add(StoryNode::End);
+
+            let enter = graph.add(StoryNode::Event {
+                event_id: "EnterCellar".to_string(),
+                payload: "".to_string(),
+                next: None,
+            });
+            let enter_text = graph.add(StoryNode::Dialogue {
+                speaker: "System".to_string(),
+                text: "You descend into the dark cellar...".to_string(),
+                portrait: Some("system".to_string()),
+                next: Some(enter),
+            });
+
+            let locked = graph.add(StoryNode::Dialogue {
+                speaker: "System".to_string(),
+                text: "The cellar is locked. Maybe someone in the village knows what's down there."
+                    .to_string(),
+                portrait: Some("system".to_string()),
+                next: Some(end),
+            });
+
+            let root = graph.add(StoryNode::Branch {
+                flag: "QuestAccepted_cellar".to_string(),
+                if_true: Some(enter_text),
+                if_false: Some(locked),
             });
 
             graph.set_start(root);

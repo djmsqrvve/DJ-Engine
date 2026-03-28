@@ -5,6 +5,7 @@ pub enum GameState {
     #[default]
     TitleScreen,
     Overworld,
+    Cellar,
 
     // Narrative states
     NarratorDialogue,
@@ -20,7 +21,10 @@ impl GameState {
         match self {
             GameState::TitleScreen => &[GameState::Overworld, GameState::Battle],
             GameState::Overworld => &[GameState::NarratorDialogue],
-            GameState::NarratorDialogue => &[GameState::Overworld, GameState::Battle],
+            GameState::Cellar => &[GameState::Overworld, GameState::Battle, GameState::GameOver],
+            GameState::NarratorDialogue => {
+                &[GameState::Overworld, GameState::Battle, GameState::Cellar]
+            }
             GameState::Battle => &[GameState::Overworld, GameState::GameOver],
             GameState::GameOver => &[GameState::TitleScreen],
         }

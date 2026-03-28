@@ -4,7 +4,9 @@ use dj_engine::data::{
     BodyType, CollisionComponent, InteractivityComponent, TriggerType, Vec3Data,
 };
 use dj_engine::interaction::InteractionSource;
-use dj_engine::prelude::{CollisionSet, MovementIntent, SaveData, StoryFlags, StoryVariables};
+use dj_engine::prelude::{
+    CollisionSet, Inventory, MovementIntent, QuestJournal, SaveData, StoryFlags, StoryVariables,
+};
 use dj_engine::rendering::MainCamera;
 use dj_engine::story_graph::{GraphExecutor, StoryGraph, StoryNode};
 
@@ -90,6 +92,52 @@ fn setup_overworld(
         Vec3::new(150.0, -80.0, 10.0),
     );
 
+    // Village NPCs
+    spawn_npc(
+        &mut commands,
+        "Old Ratcatcher",
+        "vendor",
+        Color::srgb(0.5, 0.35, 0.2),
+        Vec3::new(-60.0, 100.0, 10.0),
+    );
+    spawn_npc(
+        &mut commands,
+        "Village Elder",
+        "village_elder",
+        Color::srgb(0.2, 0.6, 0.3),
+        Vec3::new(80.0, 100.0, 10.0),
+    );
+
+    // Cellar entrance portal (dark square at south edge)
+    commands.spawn((
+        Name::new("Cellar Entrance"),
+        Sprite {
+            color: Color::srgb(0.15, 0.1, 0.05),
+            custom_size: Some(Vec2::new(48.0, 48.0)),
+            ..default()
+        },
+        Transform::from_xyz(0.0, -200.0, 9.0),
+        NPC {
+            id: "cellar_entrance".to_string(),
+        },
+        CollisionComponent {
+            body_type: BodyType::Static,
+            box_size: Some(Vec3Data::new(56.0, 56.0, 0.0)),
+            is_trigger: true,
+            ..Default::default()
+        },
+        InteractivityComponent {
+            trigger_type: TriggerType::Npc,
+            trigger_id: "cellar_entrance".to_string(),
+            events: dj_engine::data::InteractivityEvents {
+                on_interact: Some("start_dialogue".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        OverworldEntity,
+    ));
+
     // Central blocker used to prove collision resolution in the overworld.
     commands.spawn((
         Name::new("Corrupted Wall"),
@@ -170,11 +218,7 @@ fn npc_proximity_highlight(
         if dist < highlight_range {
             // Brighten — pulse toward white
             let t = 1.0 - (dist / highlight_range);
-            let base = match npc.id.as_str() {
-                "hamster_narrator" => Color::srgb(0.5, 0.3, 0.1),
-                "glitch_puddle" => Color::srgb(0.8, 0.2, 0.8),
-                _ => Color::WHITE,
-            };
+            let base = npc_base_color(&npc.id);
             let r = base.to_srgba();
             sprite.color = Color::srgb(
                 (r.red + t * 0.4).min(1.0),
@@ -182,13 +226,19 @@ fn npc_proximity_highlight(
                 (r.blue + t * 0.4).min(1.0),
             );
         } else {
-            // Reset to base color
-            sprite.color = match npc.id.as_str() {
-                "hamster_narrator" => Color::srgb(0.5, 0.3, 0.1),
-                "glitch_puddle" => Color::srgb(0.8, 0.2, 0.8),
-                _ => Color::WHITE,
-            };
+            sprite.color = npc_base_color(&npc.id);
         }
+    }
+}
+
+fn npc_base_color(id: &str) -> Color {
+    match id {
+        "hamster_narrator" => Color::srgb(0.5, 0.3, 0.1),
+        "glitch_puddle" => Color::srgb(0.8, 0.2, 0.8),
+        "vendor" => Color::srgb(0.5, 0.35, 0.2),
+        "village_elder" => Color::srgb(0.2, 0.6, 0.3),
+        "cellar_entrance" => Color::srgb(0.15, 0.1, 0.05),
+        _ => Color::WHITE,
     }
 }
 
@@ -196,10 +246,15 @@ fn trigger_intro(
     flags: Res<StoryFlags>,
     mut executor: ResMut<GraphExecutor>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut inventory: ResMut<Inventory>,
 ) {
     if flags.0.get("IntroComplete").copied().unwrap_or(false) {
         return;
     }
+
+    // Starting resources for new game
+    inventory.add_currency("gold", 25);
+    info!("New game: granted 25 starting gold");
 
     let mut graph = StoryGraph::new();
     let end = graph.add(StoryNode::End);

@@ -51,11 +51,36 @@ pub fn update_tracker(
     let defeated_glitch =
         story.has_flag("DefeatedGlitch") || flags.0.get("DefeatedGlitch").copied().unwrap_or(false);
 
+    let intro_complete = flags.0.get("IntroComplete").copied().unwrap_or(false);
+    let quest_accepted = flags
+        .0
+        .get("QuestAccepted_cellar")
+        .copied()
+        .unwrap_or(false);
+    let quest_complete = flags
+        .0
+        .get("QuestComplete_cellar")
+        .copied()
+        .unwrap_or(false);
+    let quest_turned_in = flags
+        .0
+        .get("QuestTurnedIn_cellar")
+        .copied()
+        .unwrap_or(false);
+
     for mut text in &mut query {
-        if !met_hamster {
+        if !intro_complete {
+            text.0 = "Objective: Listen to the Narrator".to_string();
+        } else if !met_hamster {
             text.0 = "Objective: Find the Narrator (East)".to_string();
+        } else if quest_turned_in {
+            text.0 = "Objective: Explore the village".to_string();
+        } else if quest_complete {
+            text.0 = "Objective: Return to Village Elder".to_string();
+        } else if quest_accepted {
+            text.0 = "Objective: Clear rats in the cellar (South)".to_string();
         } else if !defeated_glitch {
-            text.0 = "Objective: Investigate Glitch (South-West)".to_string();
+            text.0 = "Objective: Talk to Village Elder (North-East)".to_string();
         } else {
             text.0 = "Objective: Return to Narrator".to_string();
         }
