@@ -83,29 +83,35 @@ This verifies no game crashes on startup. It does NOT verify visual correctness.
 
 **Setup:** None required. Assets (MIDI, Lua) are included.
 
-**Steps:**
+**Steps (full gameplay loop):**
 
-1. [ ] Window opens (800x600) with title screen
-2. [ ] Title screen shows game options
-3. [ ] Navigate to overworld (arrow keys or WASD)
-4. [ ] Blue player square moves with collision (blocked by gray wall)
-5. [ ] Walk to brown "Hamster Narrator" NPC, press E
-6. [ ] Dialogue appears with story graph text
-7. [ ] Advance dialogue (Space/Enter)
-8. [ ] Walk to purple "Glitch Puddle" NPC, press E
-9. [ ] Dialogue triggers battle transition
-10. [ ] Battle screen shows HP display: "You: 80/80 | Glitch: 40/40"
-11. [ ] Press Space to attack -- damage numbers update, attack cooldown gates spam
-12. [ ] Enemy attacks back on 1.5s timer (AI-driven, not instant counterattack)
-13. [ ] Enemy defeated -- returns to overworld
-14. [ ] Player defeated (HP reaches 0) -- Game Over screen appears (red, "GAME OVER" text)
-15. [ ] Press Space on Game Over screen -- returns to title
+1. [ ] Window opens (800x600) with CRT shader active (scanlines, barrel distortion)
+2. [ ] Title screen: "DOOM EXE" with NEW GAME / CONTINUE / QUIT
+3. [ ] Select NEW GAME -- narrator intro triggers (4 lines, brown portrait)
+4. [ ] After intro, overworld spawns: player (blue), 4 NPCs, cellar entrance
+5. [ ] Walk to green "Village Elder" NPC, press Space -- quest dialogue
+6. [ ] Accept "Clear the cellar" quest -- objective tracker updates
+7. [ ] Walk to brown "Old Ratcatcher" vendor, press Space -- buy potion (10 gold)
+8. [ ] Walk to dark "Cellar Entrance" (south), press Space -- zone transition
+9. [ ] Cellar: 3 brown rat enemies, yellow weapon chest
+10. [ ] WASD to move, Space to attack nearest rat -- screen shake on hits
+11. [ ] Rats attack back on 2s timer -- red flash when player hit
+12. [ ] Walk near chest, press Space -- "Found: Rusty Sword" + gold flash
+13. [ ] Kill all 3 rats -- quest complete flash, "QuestComplete_cellar" flag set
+14. [ ] Press ESC to return to overworld
+15. [ ] Talk to Village Elder -- turn in quest, receive 50 gold + "rat_slayer" title
+16. [ ] Talk to Hamster Narrator -- outro dialogue ("Not bad for a prototype!")
+17. [ ] Q to use health potion during combat (heals 25 HP, green flash)
+18. [ ] Low health vignette: red edges when HP drops below 30%
+19. [ ] ESC during overworld/battle -- pause menu (Resume / Quit to Title)
+20. [ ] Player defeated (HP reaches 0) -- Game Over screen, Space returns to title
 
-**Systems exercised:** Collision, Input, Story Graph, NPC Interaction, Combat (CombatEvent/DamageEvent), State Machine, Attack Cooldown, Game Over
+**Systems exercised:** Collision, Input, Story Graph, NPC Interaction, Combat, State Machine, Attack Cooldown, Game Over, Economy (vendor buy), Quest (accept/progress/complete/turn-in), Character (titles), Zone (cellar transition), Inventory (potions, loot), Loot (rat drops), Particles, Screen FX (shake/flash/vignette), CRT, Pause Menu
 
 **Known issues:**
 - MIDI audio may be silent (audio backend dependent)
 - Hamster narrator expressions change on battle result but no visual sprite
+- CRT shader phosphor dots may be subtle at lower resolutions
 
 ---
 

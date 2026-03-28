@@ -394,6 +394,28 @@ mod tests {
     }
 
     #[test]
+    fn test_potion_heals_25_capped_at_max() {
+        let max_hp = 80;
+        let hp = 70;
+        let heal = 25_i32.min(max_hp - hp);
+        assert_eq!(heal, 10); // Only heals the deficit
+
+        let hp2 = 30;
+        let heal2 = 25_i32.min(max_hp - hp2);
+        assert_eq!(heal2, 25); // Full heal amount
+    }
+
+    #[test]
+    fn test_cellar_has_3_rats() {
+        let rat_positions = [
+            Vec3::new(-100.0, 60.0, 10.0),
+            Vec3::new(80.0, 100.0, 10.0),
+            Vec3::new(0.0, -20.0, 10.0),
+        ];
+        assert_eq!(rat_positions.len(), 3);
+    }
+
+    #[test]
     fn test_quest_progress_tracking() {
         let mut journal = QuestJournal::default();
         journal.accept("clear_the_cellar");

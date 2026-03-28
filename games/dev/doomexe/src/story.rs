@@ -266,4 +266,47 @@ mod tests {
             "should NOT have potion without gold"
         );
     }
+
+    #[test]
+    fn test_enter_cellar_sets_state() {
+        let mut app = setup_story_test_app();
+
+        app.world_mut()
+            .resource_mut::<Messages<StoryEvent>>()
+            .write(StoryEvent {
+                id: "EnterCellar".into(),
+                payload: String::new(),
+            });
+
+        app.update();
+
+        let bp = app.world().resource::<BattlePending>();
+        assert!(bp.0, "BattlePending should be set for cellar entry");
+
+        let next = app.world().resource::<NextState<GameState>>();
+        assert!(
+            matches!(*next, NextState::Pending(GameState::Cellar)),
+            "NextState should be Pending(Cellar)"
+        );
+    }
+
+    #[test]
+    fn test_demo_complete_sets_flag() {
+        let mut app = setup_story_test_app();
+
+        app.world_mut()
+            .resource_mut::<Messages<StoryEvent>>()
+            .write(StoryEvent {
+                id: "DemoComplete".into(),
+                payload: String::new(),
+            });
+
+        app.update();
+
+        let flags = app.world().resource::<StoryFlags>();
+        assert!(
+            flags.0.get("DemoComplete").copied().unwrap_or(false),
+            "DemoComplete flag should be set"
+        );
+    }
 }

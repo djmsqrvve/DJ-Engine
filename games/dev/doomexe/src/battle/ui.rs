@@ -1,6 +1,8 @@
 use super::systems::{BattleEnemy, BattlePlayer};
 use bevy::prelude::*;
+use dj_engine::combat::AttackCooldown;
 use dj_engine::data::components::CombatStatsComponent;
+use dj_engine::inventory::Inventory;
 
 #[derive(Component)]
 pub struct BattleUIRoot;
@@ -41,11 +43,12 @@ pub fn setup_battle_ui(mut commands: Commands) {
 }
 
 pub fn update_battle_hud(
-    player_query: Query<&CombatStatsComponent, With<BattlePlayer>>,
+    player_query: Query<(&CombatStatsComponent, &AttackCooldown), With<BattlePlayer>>,
     enemy_query: Query<&CombatStatsComponent, With<BattleEnemy>>,
+    inventory: Res<Inventory>,
     mut text_query: Query<&mut Text, With<BattleHudText>>,
 ) {
-    let Ok(player_stats) = player_query.single() else {
+    let Ok((player_stats, cooldown)) = player_query.single() else {
         return;
     };
     let Ok(mut text) = text_query.single_mut() else {
@@ -58,9 +61,19 @@ pub fn update_battle_hud(
         .map(|s| format!("{}/{}", s.hp, s.max_hp))
         .unwrap_or_else(|| "defeated".into());
 
+    let potions = inventory.count_item("health_potion");
+    let gold = inventory.currency_balance("gold");
+
+    let cd_bar = if cooldown.ready() {
+        "READY".to_string()
+    } else {
+        let filled = (cooldown.timer.fraction() * 8.0) as usize;
+        format!("[{}{}]", "#".repeat(filled), "-".repeat(8 - filled))
+    };
+
     **text = format!(
-        "BATTLE  |  You: {}/{}  |  Glitch: {}  |  [Space = Attack]",
-        player_stats.hp, player_stats.max_hp, enemy_hp
+        "BATTLE  |  You: {}/{}  |  Glitch: {}  |  Atk: {}  |  Potions: {} (Q)  |  Gold: {}",
+        player_stats.hp, player_stats.max_hp, enemy_hp, cd_bar, potions, gold
     );
 }
 
