@@ -1,6 +1,6 @@
 # DJ-Engine Roadmap
 
-Status as of 2026-03-27: 539 tests passing, zero failures, zero clippy warnings. Phase 1-5 complete, runtime deepening shipped, save/load done. 18 gameplay systems: combat, combat FX (floating text), quests, inventory, interaction, animation, spawner, status effects, ability cooldowns, loot, economy (consumables, equipment, vendor), character (titles, weapon skills, bags), Lua API (8 tables), debug console, objective navigator. Five game crates: DoomExe, Stratego, Iso Sandbox, RPG Demo (SDK reference), Helix RPG (MMORPG data consumer). QA checklist with 6 visual test cards.
+Status as of 2026-03-27: 558 tests passing, zero failures, zero clippy warnings. Phase 1-5 complete, runtime deepening shipped, save/load done, CRT + visual FX done. 21 gameplay systems: combat, combat FX (floating text), quests, inventory, interaction, animation, spawner, status effects, ability cooldowns, loot, economy (consumables, equipment, vendor), character (titles, weapon skills, bags), Lua API (8 tables), debug console, objective navigator. Five game crates: DoomExe, Stratego, Iso Sandbox, RPG Demo (SDK reference), Helix RPG (MMORPG data consumer). QA checklist with 6 visual test cards.
 
 ## Phase 1: Quick Wins (1 session)
 
@@ -47,19 +47,14 @@ Status as of 2026-03-27: 539 tests passing, zero failures, zero clippy warnings.
 - DoomExe CONTINUE button wired to load, NEW GAME resets
 - Save/load roundtrip tests passing
 
-## Phase 4: CRT Post-Processing Pipeline (2-3 sessions)
+## Phase 4: CRT + Visual FX (2-3 sessions) DONE (2026-03-27)
 
-### What exists
-- Camera at 320x240 with 4x zoom (`engine/src/rendering/camera.rs`)
-- `GAME_WIDTH`/`GAME_HEIGHT` constants
-- Offscreen render target and CRT shader already implemented (`engine/src/rendering/offscreen.rs`, `engine/src/rendering/crt_material.rs`)
-
-### What to build
-- Session A: Offscreen render target (320x240 texture), upscaling blit to window
-- Session B: CRT shader (scanlines, slight barrel distortion, color bleeding)
-- Session C: Toggle system (enable/disable CRT via config), intensity controls
-- Requires Bevy 0.18 render graph / post-processing API research
-- Largest feature gap
+- CRT shader enabled by default (scanlines, barrel distortion, color bleeding,
+  phosphor dots, vignette), F10 toggle in debug console, F11/F12 scanline adjust
+- Particle system: 4 presets (hit_sparks, death_burst, heal_swirl, gold_sparkle),
+  ParticleEmitter component, auto-spawns on DamageEvent
+- Screen FX: shake (3 presets), flash (4 presets), LowHealthVignette component
+- DoomExe integration: pause menu (ESC), battle screen shake/flash/particles
 
 ## Phase 5: Physics/Collision (2-3 sessions)
 
@@ -88,5 +83,5 @@ Status as of 2026-03-27: 539 tests passing, zero failures, zero clippy warnings.
 | Done    | Phase 2: Audio crossfade | 411         |
 | Done    | Runtime deepening        | 499         |
 | Done    | Phase 3: Save/load       | 526         |
-| Next    | Phase 4: CRT pipeline    | ~550        |
-| +1      | Phase 5: Physics/collision | ~565      |
+| Done    | Phase 4: CRT + Visual FX | 558         |
+| Next    | Phase 5: Physics/collision | ~575      |

@@ -4,7 +4,7 @@
 
 ## Overview
 
-Custom 2D game engine built with Rust and Bevy 0.18. Plugin-based architecture with 25 registered plugins and typed contracts. 539 tests, zero clippy warnings. 18 runtime systems. 5 game crates. Tile editor complete. Consumes Helix MMORPG data through `plugins/helix_data/`.
+Custom 2D game engine built with Rust and Bevy 0.18. Plugin-based architecture with 27 registered plugins and typed contracts. 558 tests, zero clippy warnings. 21 runtime systems. 5 game crates. Tile editor complete. Consumes Helix MMORPG data through `plugins/helix_data/`.
 
 ## Stack
 
@@ -13,7 +13,7 @@ Custom 2D game engine built with Rust and Bevy 0.18. Plugin-based architecture w
 ## Key Commands
 
 ```bash
-make test                            # 539 workspace tests
+make test                            # 558 workspace tests
 make lint                            # clippy (zero warnings enforced)
 make fmt                             # format check
 make quality-check                   # fmt + clippy + test
@@ -36,8 +36,8 @@ make helix-preview PROJECT=/tmp/helix_project
 
 ## Architecture
 
-- **25 plugins** registered via `DJEnginePlugin`, each with a typed `PluginContract`
-- **18 runtime systems**: combat, combat FX, quests, inventory, interaction, animation, spawner, status effects, ability cooldowns, loot, economy, character, debug console, objective navigator, zone, collision, audio, save/load
+- **27 plugins** registered via `DJEnginePlugin`, each with a typed `PluginContract`
+- **21 runtime systems**: combat, combat FX, quests, inventory, interaction, animation, spawner, status effects, ability cooldowns, loot, economy, character, debug console, objective navigator, zone, collision, audio, save/load, particles, screen FX, CRT post-processing
 - **Lua API**: 8 tables (ecs, quest, combat, inventory, economy, character) + global log/warn/error
 - **5 game crates**: doomexe (JRPG), stratego (board game), iso_sandbox (isometric), rpg_demo (SDK reference), helix_rpg (MMORPG data consumer)
 - **Helix data plugin** (`plugins/helix_data/`):
