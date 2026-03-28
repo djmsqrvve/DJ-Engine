@@ -17,7 +17,9 @@ use dj_engine::input::{ActionState, InputAction};
 use dj_engine::interaction::{InteractionEvent, InteractionSource};
 use dj_engine::inventory::Inventory;
 use dj_engine::loot::LootDropEvent;
+use dj_engine::particles::{ParticleConfig, ParticleEvent};
 use dj_engine::quest::{QuestJournal, QuestStatus};
+use dj_engine::screen_fx::{ScreenFlashEvent, ScreenShakeEvent};
 
 // ---------------------------------------------------------------------------
 // Game state
@@ -297,6 +299,10 @@ fn handle_damage_feedback(
     mut quest_journal: ResMut<QuestJournal>,
     mut commands: Commands,
     enemy_query: Query<&Enemy>,
+    player_query: Query<Entity, With<Player>>,
+    mut shake_events: MessageWriter<ScreenShakeEvent>,
+    mut flash_events: MessageWriter<ScreenFlashEvent>,
+    mut particle_events: MessageWriter<ParticleEvent>,
 ) {
     for event in events.read() {
         info!(
@@ -304,8 +310,23 @@ fn handle_damage_feedback(
             event.final_damage, event.is_critical, event.target_hp_after
         );
 
+        // Screen FX on hits
+        if player_query.get(event.target).is_ok() {
+            shake_events.write(ScreenShakeEvent::medium());
+            flash_events.write(ScreenFlashEvent::damage());
+        } else {
+            shake_events.write(ScreenShakeEvent::light());
+        }
+
         if event.target_defeated {
             info!("RPG Demo: enemy defeated!");
+
+            // Victory particles
+            particle_events.write(ParticleEvent {
+                position: Vec3::ZERO,
+                config: ParticleConfig::gold_sparkle(),
+            });
+            flash_events.write(ScreenFlashEvent::gold());
 
             // Check if it's an enemy with an ID for quest tracking
             if let Ok(enemy) = enemy_query.get(event.target) {
