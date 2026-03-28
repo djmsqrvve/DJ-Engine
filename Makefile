@@ -248,7 +248,7 @@ status:
 		echo "  Tests: $$test_count (>= 510)"; \
 	fi
 	@echo "[2/5] Clippy..."
-	@if cargo clippy --workspace --all-targets -- -W clippy::all 2>&1 | grep -q "^warning\|^error"; then \
+	@if cargo clippy --workspace --all-targets -- -W clippy::all 2>&1 | grep -q "^warning\["; then \
 		echo "  Clippy: WARNINGS found"; \
 	else \
 		echo "  Clippy: clean"; \

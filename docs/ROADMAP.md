@@ -1,6 +1,6 @@
 # DJ-Engine Roadmap
 
-Status as of 2026-03-27: 558 tests passing, zero failures, zero clippy warnings. Phase 1-5 complete, runtime deepening shipped, save/load done, CRT + visual FX done. 21 gameplay systems: combat, combat FX (floating text), quests, inventory, interaction, animation, spawner, status effects, ability cooldowns, loot, economy (consumables, equipment, vendor), character (titles, weapon skills, bags), Lua API (8 tables), debug console, objective navigator. Five game crates: DoomExe, Stratego, Iso Sandbox, RPG Demo (SDK reference), Helix RPG (MMORPG data consumer). QA checklist with 6 visual test cards.
+Status as of 2026-03-27: 564 tests passing, zero failures, zero clippy warnings. Phase 1-5 complete, runtime deepening shipped, save/load done, CRT + visual FX done. 21 gameplay systems: combat, combat FX (floating text), quests, inventory, interaction, animation, spawner, status effects, ability cooldowns, loot, economy (consumables, equipment, vendor), character (titles, weapon skills, bags), Lua API (8 tables), debug console, objective navigator. Five game crates: DoomExe, Stratego, Iso Sandbox, RPG Demo (SDK reference), Helix RPG (MMORPG data consumer). QA checklist with 6 visual test cards.
 
 ## Phase 1: Quick Wins (1 session)
 
