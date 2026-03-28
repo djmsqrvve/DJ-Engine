@@ -46,6 +46,7 @@ pub mod quest;
 pub mod rendering;
 pub mod save;
 pub mod scene;
+pub mod screen_fx;
 pub mod scripting;
 pub mod status;
 pub mod story_graph;
@@ -108,6 +109,9 @@ pub mod prelude {
         LoadCommand, LoadedSave, SaveCommand, SaveData, SavePlugin, SaveScope,
     };
     pub use crate::scene::*;
+    pub use crate::screen_fx::{
+        LowHealthVignette, ScreenFlashEvent, ScreenFxConfig, ScreenFxPlugin, ScreenShakeEvent,
+    };
     pub use crate::scripting::*;
     pub use crate::status::{
         apply_effect, is_on_cooldown, remove_effect, start_cooldown, AbilityReady,
