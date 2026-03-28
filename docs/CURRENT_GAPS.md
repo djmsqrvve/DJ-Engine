@@ -28,7 +28,7 @@ DJ Engine now has:
   `HelixRegistries` Bevy Resource with 22 typed `Registry<T>` (2,868 entities),
   bridge layer converting Helix types to engine DB types, balance overlays,
   and a contract validation dashboard (`make helix-dashboard`)
-- 539 passing tests across the workspace, zero clippy warnings
+- 564 passing tests across the workspace, zero clippy warnings
 - combat formula system with configurable damage, crit, defense, and variance
 - floating combat text (damage numbers float up and fade, crit highlighting)
 - quest journal with accept/progress/complete/turn-in/abandon lifecycle

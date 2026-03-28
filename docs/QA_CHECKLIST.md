@@ -220,11 +220,14 @@ Which games exercise which engine systems:
 | Debug Console (F1) | X | X | X | X | X |
 | Objective Navigator | | X | | | |
 | Grid system | | | | X | X |
-| Economy | | | | | |
-| Character (Titles) | | | | | |
+| Economy | | X | | | |
+| Character (Titles) | | X | | | |
 | Weapon Skills | | | | | |
+| Zone Transition | | X | | | |
+| Particles | X | X | X | | |
+| Screen FX | | X | X | | |
 
-**Gap:** Economy and Character systems are not exercised by any game yet. Consider adding vendor NPC to helix_rpg.
+**Gap:** Weapon Skills not exercised yet. Economy and Character now exercised by DoomExe.
 
 ## Known Acceptable Warnings
 
