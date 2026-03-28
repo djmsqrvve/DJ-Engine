@@ -16,7 +16,9 @@ use dj_engine::input::{ActionState, InputAction};
 use dj_engine::interaction::{InteractionEvent, InteractionSource};
 use dj_engine::inventory::Inventory;
 use dj_engine::loot::LootDropEvent;
+use dj_engine::particles::{ParticleConfig, ParticleEvent};
 use dj_engine::quest::QuestJournal;
+use dj_engine::screen_fx::{ScreenFlashEvent, ScreenShakeEvent};
 
 // ---------------------------------------------------------------------------
 // State
@@ -311,14 +313,31 @@ fn handle_damage(
     mut quest_journal: ResMut<QuestJournal>,
     mut commands: Commands,
     enemy_query: Query<&HelixEnemy>,
+    player_query: Query<Entity, With<Player>>,
+    mut shake_events: MessageWriter<ScreenShakeEvent>,
+    mut flash_events: MessageWriter<ScreenFlashEvent>,
+    mut particle_events: MessageWriter<ParticleEvent>,
 ) {
     for event in events.read() {
+        // Screen FX
+        if player_query.get(event.target).is_ok() {
+            shake_events.write(ScreenShakeEvent::medium());
+            flash_events.write(ScreenFlashEvent::damage());
+        } else {
+            shake_events.write(ScreenShakeEvent::light());
+        }
+
         if event.target_defeated {
             if let Ok(enemy) = enemy_query.get(event.target) {
                 info!(
                     "Helix RPG: defeated '{}' ({} damage, crit={})",
                     enemy.enemy_id, event.final_damage, event.is_critical
                 );
+                particle_events.write(ParticleEvent {
+                    position: Vec3::ZERO,
+                    config: ParticleConfig::death_burst(),
+                });
+                flash_events.write(ScreenFlashEvent::gold());
                 quest_journal.progress_objective("helix_hunt", "defeat_enemies", 1);
                 commands.entity(event.target).despawn();
             }
