@@ -72,6 +72,7 @@ impl Plugin for DJEnginePlugin {
         app.add_plugins(crate::economy::EconomyPlugin);
         app.add_plugins(crate::character::CharacterPlugin);
         app.add_plugins(crate::combat_fx::CombatFxPlugin);
+        app.add_plugins(crate::particles::ParticlesPlugin);
         app.add_plugins(crate::debug_console::DebugConsolePlugin);
 
         // Conditionally add diagnostics

@@ -40,6 +40,7 @@ pub mod interaction;
 pub mod inventory;
 pub mod loot;
 pub mod midi;
+pub mod particles;
 pub mod project_mount;
 pub mod quest;
 pub mod rendering;
@@ -89,6 +90,9 @@ pub mod prelude {
     pub use crate::inventory::{Inventory, InventoryEvent, InventoryPlugin, ItemStack};
     pub use crate::loot::{LootDropEvent, LootPlugin};
     pub use crate::midi::AutoLoadMidi;
+    pub use crate::particles::{
+        ParticleConfig, ParticleEmitter, ParticleEvent, ParticleSystemConfig, ParticlesPlugin,
+    };
     pub use crate::project_mount::MountedProject;
     pub use crate::quest::{
         ObjectiveProgress, QuestEvent, QuestJournal, QuestPlugin, QuestState, QuestStatus,
