@@ -6,6 +6,7 @@ use dj_engine::combat::{AttackCooldown, CombatEvent, DamageEvent};
 use dj_engine::data::components::CombatStatsComponent;
 use dj_engine::input::{ActionState, InputAction};
 use dj_engine::particles::{ParticleConfig, ParticleEvent};
+use dj_engine::prelude::{Inventory, LowHealthVignette};
 use dj_engine::screen_fx::{ScreenFlashEvent, ScreenShakeEvent};
 
 /// Marker for the player's battle entity.
@@ -205,6 +206,55 @@ pub fn cleanup_battle_entities(
 ) {
     for entity in player_query.iter().chain(enemy_query.iter()) {
         commands.entity(entity).despawn();
+    }
+}
+
+/// Press Q to use a health potion during battle.
+pub fn use_potion(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut inventory: ResMut<Inventory>,
+    mut player_query: Query<&mut CombatStatsComponent, With<BattlePlayer>>,
+    mut flash_events: MessageWriter<ScreenFlashEvent>,
+) {
+    if !keys.just_pressed(KeyCode::KeyQ) {
+        return;
+    }
+
+    let Ok(mut stats) = player_query.single_mut() else {
+        return;
+    };
+
+    if !inventory.has_item("health_potion", 1) {
+        info!("No health potions!");
+        return;
+    }
+
+    if stats.hp >= stats.max_hp {
+        info!("Already at full HP");
+        return;
+    }
+
+    inventory.remove_item("health_potion", 1);
+    let heal = 25.min(stats.max_hp - stats.hp);
+    stats.hp += heal;
+    flash_events.write(ScreenFlashEvent::heal());
+    info!(
+        "Used health potion! Healed {} HP ({}/{})",
+        heal, stats.hp, stats.max_hp
+    );
+}
+
+/// Update low-health vignette based on player HP.
+pub fn update_health_vignette(
+    player_query: Query<&CombatStatsComponent, With<BattlePlayer>>,
+    mut vignette_query: Query<&mut LowHealthVignette>,
+) {
+    let Ok(stats) = player_query.single() else {
+        return;
+    };
+
+    for mut vignette in vignette_query.iter_mut() {
+        vignette.hp_fraction = stats.hp as f32 / stats.max_hp as f32;
     }
 }
 

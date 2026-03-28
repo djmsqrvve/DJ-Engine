@@ -18,6 +18,8 @@ impl Plugin for BattlePlugin {
                 systems::player_attack,
                 systems::enemy_ai_attack,
                 systems::handle_battle_damage,
+                systems::use_potion,
+                systems::update_health_vignette,
                 ui::update_battle_hud,
             )
                 .run_if(in_state(GameState::Battle)),

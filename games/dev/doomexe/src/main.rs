@@ -5,6 +5,7 @@
 )]
 use bevy::prelude::*;
 use dj_engine::prelude::*;
+use dj_engine::screen_fx::LowHealthVignette;
 use types::DoomExeAppConfig;
 
 mod assets;
@@ -90,6 +91,21 @@ fn build_game_database() -> dj_engine::data::database::Database {
     db
 }
 
+fn spawn_health_vignette(mut commands: Commands) {
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(0.0),
+            left: Val::Px(0.0),
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0)),
+        LowHealthVignette::default(),
+    ));
+}
+
 fn main() {
     let app_config = DoomExeAppConfig::default();
 
@@ -129,5 +145,6 @@ fn main() {
         .add_plugins(gameover::GameOverPlugin)
         .add_plugins(pause::PausePlugin)
         .add_plugins(assets::GameAssetsPlugin)
+        .add_systems(Startup, spawn_health_vignette)
         .run();
 }

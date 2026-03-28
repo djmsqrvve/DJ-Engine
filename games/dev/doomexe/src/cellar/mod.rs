@@ -28,6 +28,8 @@ impl Plugin for CellarPlugin {
                 systems::update_cellar_hud,
                 systems::check_cellar_clear,
                 systems::chest_interaction,
+                systems::use_potion,
+                systems::update_health_vignette,
             )
                 .chain()
                 .run_if(in_state(GameState::Cellar)),
