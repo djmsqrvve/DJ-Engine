@@ -9,6 +9,7 @@ use types::DoomExeAppConfig;
 
 mod assets;
 mod battle;
+mod cellar;
 mod dialogue;
 mod gameover;
 mod hamster;
@@ -124,6 +125,7 @@ fn main() {
         .add_plugins(hud::HudPlugin)
         .add_plugins(dialogue::DialoguePlugin)
         .add_plugins(battle::BattlePlugin)
+        .add_plugins(cellar::CellarPlugin)
         .add_plugins(gameover::GameOverPlugin)
         .add_plugins(pause::PausePlugin)
         .add_plugins(assets::GameAssetsPlugin)
