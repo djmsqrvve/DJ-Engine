@@ -6,6 +6,7 @@ use dj_engine::data::{
 use dj_engine::interaction::InteractionSource;
 use dj_engine::prelude::{CollisionSet, MovementIntent, SaveData, StoryFlags, StoryVariables};
 use dj_engine::rendering::MainCamera;
+use dj_engine::story_graph::{GraphExecutor, StoryGraph, StoryNode};
 
 mod camera;
 pub mod interaction;
@@ -15,18 +16,21 @@ pub struct OverworldPlugin;
 
 impl Plugin for OverworldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Overworld), (setup_overworld, auto_save))
-            .add_systems(
-                Update,
-                (
-                    player::player_movement.before(CollisionSet::MoveBodies),
-                    camera::camera_follow_system.after(CollisionSet::MoveBodies),
-                    interaction::interaction_check.after(CollisionSet::DetectTriggers),
-                    npc_proximity_highlight,
-                )
-                    .run_if(in_state(GameState::Overworld)),
+        app.add_systems(
+            OnEnter(GameState::Overworld),
+            (setup_overworld, auto_save, trigger_intro),
+        )
+        .add_systems(
+            Update,
+            (
+                player::player_movement.before(CollisionSet::MoveBodies),
+                camera::camera_follow_system.after(CollisionSet::MoveBodies),
+                interaction::interaction_check.after(CollisionSet::DetectTriggers),
+                npc_proximity_highlight,
             )
-            .add_systems(OnExit(GameState::Overworld), teardown_overworld);
+                .run_if(in_state(GameState::Overworld)),
+        )
+        .add_systems(OnExit(GameState::Overworld), teardown_overworld);
     }
 }
 
@@ -186,6 +190,57 @@ fn npc_proximity_highlight(
             };
         }
     }
+}
+
+fn trigger_intro(
+    flags: Res<StoryFlags>,
+    mut executor: ResMut<GraphExecutor>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    if flags.0.get("IntroComplete").copied().unwrap_or(false) {
+        return;
+    }
+
+    let mut graph = StoryGraph::new();
+    let end = graph.add(StoryNode::End);
+
+    let set_flag = graph.add(StoryNode::SetFlag {
+        flag: "IntroComplete".to_string(),
+        value: true,
+        next: Some(end),
+    });
+
+    let intro4 = graph.add(StoryNode::Dialogue {
+        speaker: "Hamster Narrator".to_string(),
+        text: "Look around. Talk to people. Try not to die. ...No promises on that last one."
+            .to_string(),
+        portrait: Some("hamster".to_string()),
+        next: Some(set_flag),
+    });
+    let intro3 = graph.add(StoryNode::Dialogue {
+        speaker: "Hamster Narrator".to_string(),
+        text: "Welcome to the village. It's not much, but it's all we have left after the corruption spread.".to_string(),
+        portrait: Some("hamster".to_string()),
+        next: Some(intro4),
+    });
+    let intro2 = graph.add(StoryNode::Dialogue {
+        speaker: "Hamster Narrator".to_string(),
+        text: "I'm your narrator. Yes, I'm a hamster. No, I don't want to talk about it."
+            .to_string(),
+        portrait: Some("hamster".to_string()),
+        next: Some(intro3),
+    });
+    let intro1 = graph.add(StoryNode::Dialogue {
+        speaker: "Hamster Narrator".to_string(),
+        text: "Oh. Another player found this cursed executable. Lucky you.".to_string(),
+        portrait: Some("hamster".to_string()),
+        next: Some(intro2),
+    });
+
+    graph.set_start(intro1);
+    executor.start(graph);
+    next_state.set(GameState::NarratorDialogue);
+    info!("Intro sequence triggered");
 }
 
 fn teardown_overworld(mut commands: Commands, query: Query<Entity, With<OverworldEntity>>) {
