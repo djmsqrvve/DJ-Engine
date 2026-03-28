@@ -48,10 +48,26 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let scanline_factor = 1.0 - material.scanline_intensity * (1.0 - scanline);
     color = vec4<f32>(color.rgb * scanline_factor, 1.0);
 
-    // Slight vignette at edges
+    // Phosphor dot pattern: subtle RGB subpixel simulation
+    let pixel_x = uv.x * resolution.x * 3.0;
+    let phosphor_phase = pixel_x % 3.0;
+    var phosphor = vec3<f32>(0.85, 0.85, 0.85);
+    if (phosphor_phase < 1.0) {
+        phosphor = vec3<f32>(1.0, 0.85, 0.85);
+    } else if (phosphor_phase < 2.0) {
+        phosphor = vec3<f32>(0.85, 1.0, 0.85);
+    } else {
+        phosphor = vec3<f32>(0.85, 0.85, 1.0);
+    }
+    color = vec4<f32>(color.rgb * phosphor, 1.0);
+
+    // Vignette: darken edges with screen curvature feel
     let vignette_uv = uv * (1.0 - uv);
     let vignette = clamp(vignette_uv.x * vignette_uv.y * 15.0, 0.0, 1.0);
-    color = vec4<f32>(color.rgb * (0.8 + 0.2 * vignette), 1.0);
+    color = vec4<f32>(color.rgb * (0.75 + 0.25 * vignette), 1.0);
+
+    // Slight brightness boost to compensate for scanline/phosphor darkening
+    color = vec4<f32>(color.rgb * 1.15, 1.0);
 
     return color;
 }

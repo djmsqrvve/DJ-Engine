@@ -41,7 +41,7 @@ pub struct CrtConfig {
 impl Default for CrtConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             scanline_intensity: 0.3,
             barrel_distortion: 0.02,
             color_bleeding: 0.5,
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn test_crt_config_defaults() {
         let config = CrtConfig::default();
-        assert!(!config.enabled);
+        assert!(config.enabled);
         assert!((config.scanline_intensity - 0.3).abs() < f32::EPSILON);
         assert!((config.barrel_distortion - 0.02).abs() < f32::EPSILON);
         assert!((config.color_bleeding - 0.5).abs() < f32::EPSILON);

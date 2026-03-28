@@ -55,15 +55,9 @@ fn helix_import_exits_nonzero_without_args() {
 
 #[test]
 fn contracts_binary_succeeds() {
-    let status = Command::new("cargo")
-        .args(["build", "-p", "dj_engine", "--bin", "contracts"])
+    let output = Command::new("cargo")
+        .args(["run", "-p", "dj_engine", "--bin", "contracts"])
         .env("CARGO_TARGET_DIR", cargo_target_dir())
-        .status()
-        .expect("failed to build contracts binary");
-    assert!(status.success(), "failed to compile contracts");
-
-    let bin_path = format!("{}/debug/contracts", cargo_target_dir());
-    let output = Command::new(&bin_path)
         .output()
         .expect("failed to run contracts");
     assert!(

@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use crate::character::PlayerTitle;
 use crate::inventory::Inventory;
 use crate::quest::QuestJournal;
+use crate::rendering::CrtConfig;
 use crate::story_graph::StoryFlags;
 
 // ---------------------------------------------------------------------------
@@ -314,6 +315,7 @@ fn handle_debug_keys(
     mut quest_journal: ResMut<QuestJournal>,
     mut inventory: ResMut<Inventory>,
     mut player_title: ResMut<PlayerTitle>,
+    mut crt_config: ResMut<CrtConfig>,
 ) {
     if !console.open {
         return;
@@ -384,6 +386,31 @@ fn handle_debug_keys(
         );
         info!("  Title: {:?}", player_title.active_title_id);
     }
+
+    // CRT controls
+    if keys.just_pressed(KeyCode::F10) {
+        crt_config.enabled = !crt_config.enabled;
+        info!(
+            "DEBUG: CRT {}",
+            if crt_config.enabled { "ON" } else { "OFF" }
+        );
+    }
+
+    if keys.just_pressed(KeyCode::F11) {
+        crt_config.scanline_intensity = (crt_config.scanline_intensity + 0.1).min(1.0);
+        info!(
+            "DEBUG: CRT scanlines = {:.1}",
+            crt_config.scanline_intensity
+        );
+    }
+
+    if keys.just_pressed(KeyCode::F12) {
+        crt_config.scanline_intensity = (crt_config.scanline_intensity - 0.1).max(0.0);
+        info!(
+            "DEBUG: CRT scanlines = {:.1}",
+            crt_config.scanline_intensity
+        );
+    }
 }
 
 fn update_debug_text(
@@ -391,6 +418,7 @@ fn update_debug_text(
     flags: Res<StoryFlags>,
     quest_journal: Res<QuestJournal>,
     inventory: Res<Inventory>,
+    crt_config: Res<CrtConfig>,
     mut text_query: Query<&mut Text, With<DebugText>>,
 ) {
     if !console.open {
@@ -406,6 +434,7 @@ fn update_debug_text(
     let active = quest_journal.active_count();
     let gold = inventory.currency_balance("gold");
     let slots = inventory.used_slots();
+    let crt_status = if crt_config.enabled { "ON" } else { "OFF" };
 
     *text = Text::new(format!(
         "[F1] Debug Console\n\
@@ -418,11 +447,14 @@ fn update_debug_text(
          F7: Grant Title\n\
          F8: Clear Flags\n\
          F9: Print State\n\
+         F10: CRT Toggle\n\
+         F11/F12: Scanlines +/-\n\
          ──────────────────\n\
+         CRT: {} (scanlines {:.1})\n\
          Flags: {:?}\n\
          Quests: {}/{} active\n\
          Gold: {} | Slots: {}",
-        flag_list, active, quest_count, gold, slots
+        crt_status, crt_config.scanline_intensity, flag_list, active, quest_count, gold, slots
     ));
 }
 
@@ -461,6 +493,31 @@ mod tests {
             console.checkpoint_index = count - 1;
         }
         assert_eq!(console.checkpoint_index, count - 1);
+    }
+
+    #[test]
+    fn test_crt_toggle_flips_enabled() {
+        let mut config = CrtConfig::default();
+        assert!(config.enabled);
+        config.enabled = !config.enabled;
+        assert!(!config.enabled);
+        config.enabled = !config.enabled;
+        assert!(config.enabled);
+    }
+
+    #[test]
+    fn test_crt_scanline_clamps() {
+        let mut intensity = 0.9_f32;
+        intensity = (intensity + 0.1).min(1.0);
+        assert!((intensity - 1.0).abs() < f32::EPSILON);
+        intensity = (intensity + 0.1).min(1.0);
+        assert!((intensity - 1.0).abs() < f32::EPSILON);
+
+        intensity = 0.1;
+        intensity = (intensity - 0.1).max(0.0);
+        assert!(intensity.abs() < f32::EPSILON);
+        intensity = (intensity - 0.1).max(0.0);
+        assert!(intensity.abs() < f32::EPSILON);
     }
 
     #[test]
