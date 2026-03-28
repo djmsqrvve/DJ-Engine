@@ -90,8 +90,15 @@ fn handle_story_events(
             }
             "EnterCellar" => {
                 info!("Story Event: Entering cellar");
-                battle_pending.0 = true; // Prevent dialogue from returning to overworld
+                battle_pending.0 = true;
                 next_state.set(GameState::Cellar);
+            }
+            "DemoComplete" => {
+                info!("Story Event: Demo complete!");
+                flags.0.insert("DemoComplete".to_string(), true);
+                if let Some(ref mut flash) = flash_events {
+                    flash.write(ScreenFlashEvent::gold());
+                }
             }
             _ => {}
         }

@@ -53,6 +53,42 @@ pub fn interaction_check(
 
             let end = graph.add(StoryNode::End);
 
+            // -- Demo complete outro --
+            let set_demo = graph.add(StoryNode::Event {
+                event_id: "DemoComplete".to_string(),
+                payload: "".to_string(),
+                next: Some(end),
+            });
+            let outro3 = graph.add(StoryNode::Dialogue {
+                speaker: "Hamster Narrator".to_string(),
+                text: "To be continued... probably. If someone doesn't delete this exe first."
+                    .to_string(),
+                portrait: Some("hamster".to_string()),
+                next: Some(set_demo),
+            });
+            let outro2 = graph.add(StoryNode::Dialogue {
+                speaker: "Hamster Narrator".to_string(),
+                text: "The corruption runs deeper than a cellar full of rats. But that's a story for another build.".to_string(),
+                portrait: Some("hamster".to_string()),
+                next: Some(outro3),
+            });
+            let outro1 = graph.add(StoryNode::Dialogue {
+                speaker: "Hamster Narrator".to_string(),
+                text: "Not bad for a prototype! You cleared the cellar AND got a fancy title. I'm almost impressed.".to_string(),
+                portrait: Some("hamster".to_string()),
+                next: Some(outro2),
+            });
+
+            // -- Already completed outro (replay) --
+            let replay = graph.add(StoryNode::Dialogue {
+                speaker: "Hamster Narrator".to_string(),
+                text: "You already beat the demo. Go touch grass. ...Or wait for the next build."
+                    .to_string(),
+                portrait: Some("hamster".to_string()),
+                next: Some(end),
+            });
+
+            // -- Glitch victory branch --
             let win2 = graph.add(StoryNode::Dialogue {
                 speaker: "Hamster Narrator".to_string(),
                 text: "But the corruption runs deeper...".to_string(),
@@ -66,15 +102,17 @@ pub fn interaction_check(
                 next: Some(win2),
             });
 
+            // -- Quest direction --
             let quest2 = graph.add(StoryNode::Dialogue {
                 speaker: "Hamster Narrator".to_string(),
-                text: "Go investigate that purple puddle.".to_string(),
+                text: "Talk to the Village Elder to the north-east. He's got a job for you."
+                    .to_string(),
                 portrait: Some("hamster".to_string()),
                 next: Some(end),
             });
             let quest1 = graph.add(StoryNode::Dialogue {
                 speaker: "Hamster Narrator".to_string(),
-                text: "There is a corruption to the south-west.".to_string(),
+                text: "This village has problems. Rats, corruption, the usual.".to_string(),
                 portrait: Some("hamster".to_string()),
                 next: Some(quest2),
             });
@@ -85,6 +123,7 @@ pub fn interaction_check(
                 if_false: Some(quest1),
             });
 
+            // -- First meeting --
             let set_met = graph.add(StoryNode::SetFlag {
                 flag: "MetHamster".to_string(),
                 value: true,
@@ -111,10 +150,21 @@ pub fn interaction_check(
                 next: Some(intro2),
             });
 
-            let root = graph.add(StoryNode::Branch {
+            // -- Root: check quest state first, then met hamster --
+            let branch_met = graph.add(StoryNode::Branch {
                 flag: "MetHamster".to_string(),
                 if_true: Some(branch_glitch),
                 if_false: Some(intro1),
+            });
+            let branch_turned_in = graph.add(StoryNode::Branch {
+                flag: "QuestTurnedIn_cellar".to_string(),
+                if_true: Some(outro1),
+                if_false: Some(branch_met),
+            });
+            let root = graph.add(StoryNode::Branch {
+                flag: "DemoComplete".to_string(),
+                if_true: Some(replay),
+                if_false: Some(branch_turned_in),
             });
 
             graph.set_start(root);
