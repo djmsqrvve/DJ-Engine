@@ -56,26 +56,26 @@ pub fn interaction_check(
             let win2 = graph.add(StoryNode::Dialogue {
                 speaker: "Hamster Narrator".to_string(),
                 text: "But the corruption runs deeper...".to_string(),
-                portrait: None,
+                portrait: Some("hamster".to_string()),
                 next: Some(end),
             });
             let win1 = graph.add(StoryNode::Dialogue {
                 speaker: "Hamster Narrator".to_string(),
                 text: "Incredible! You purged the glitch.".to_string(),
-                portrait: None,
+                portrait: Some("hamster".to_string()),
                 next: Some(win2),
             });
 
             let quest2 = graph.add(StoryNode::Dialogue {
                 speaker: "Hamster Narrator".to_string(),
                 text: "Go investigate that purple puddle.".to_string(),
-                portrait: None,
+                portrait: Some("hamster".to_string()),
                 next: Some(end),
             });
             let quest1 = graph.add(StoryNode::Dialogue {
                 speaker: "Hamster Narrator".to_string(),
                 text: "There is a corruption to the south-west.".to_string(),
-                portrait: None,
+                portrait: Some("hamster".to_string()),
                 next: Some(quest2),
             });
 
@@ -93,7 +93,7 @@ pub fn interaction_check(
             let intro3 = graph.add(StoryNode::Dialogue {
                 speaker: "Hamster Narrator".to_string(),
                 text: "I am the Narrator. I will guide you.".to_string(),
-                portrait: None,
+                portrait: Some("hamster".to_string()),
                 next: Some(set_met),
             });
             let intro2 = graph.add(StoryNode::Dialogue {
@@ -101,13 +101,13 @@ pub fn interaction_check(
                 text:
                     "This prototype was scraped from the internet after it caused too much... doom."
                         .to_string(),
-                portrait: None,
+                portrait: Some("hamster".to_string()),
                 next: Some(intro3),
             });
             let intro1 = graph.add(StoryNode::Dialogue {
                 speaker: "Hamster Narrator".to_string(),
                 text: "Oh you managed to find this lost exe.".to_string(),
-                portrait: None,
+                portrait: Some("hamster".to_string()),
                 next: Some(intro2),
             });
 
@@ -140,7 +140,7 @@ pub fn interaction_check(
             let battle_warn = graph.add(StoryNode::Dialogue {
                 speaker: "System".to_string(),
                 text: "Initiating Battle Protocol...".to_string(),
-                portrait: None,
+                portrait: Some("system".to_string()),
                 next: Some(trigger_battle),
             });
             let screech = graph.add(StoryNode::Dialogue {
@@ -159,7 +159,7 @@ pub fn interaction_check(
             let warn2 = graph.add(StoryNode::Dialogue {
                 speaker: "System".to_string(),
                 text: "Talk to the Hamster Narrator first. He might know what to do.".to_string(),
-                portrait: None,
+                portrait: Some("system".to_string()),
                 next: Some(end),
             });
             let warn1 = graph.add(StoryNode::Dialogue {

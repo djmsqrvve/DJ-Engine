@@ -148,11 +148,10 @@ pub fn update_dialogue_ui(
     mut ui_query: Query<&mut Node, With<DialogueUI>>,
     mut text_query: Query<(&mut Text, &mut Typewriter), With<DialogueText>>,
     mut speaker_query: Query<&mut Text, (With<SpeakerText>, Without<DialogueText>)>,
-    mut portrait_query: Query<(&mut ImageNode, &mut BackgroundColor), With<PortraitImage>>,
+    mut portrait_query: Query<&mut BackgroundColor, With<PortraitImage>>,
     choice_query: Query<Entity, With<ChoiceSelector>>,
     mut next_state: ResMut<NextState<GameState>>,
     battle_pending: Res<crate::story::BattlePending>,
-    asset_server: Res<AssetServer>,
 ) {
     for event in events.read() {
         match event {
@@ -185,14 +184,17 @@ pub fn update_dialogue_ui(
                     s.0 = speaker.clone();
                 }
 
-                // Update Portrait
-                for (mut image, mut bg) in portrait_query.iter_mut() {
-                    if let Some(path) = portrait {
-                        image.image = asset_server.load(path);
-                        bg.0 = Color::WHITE; // Visible
+                // Update Portrait — procedural color portraits for named characters
+                for mut bg in portrait_query.iter_mut() {
+                    if let Some(id) = portrait {
+                        bg.0 = match id.as_str() {
+                            "hamster" => Color::srgb(0.6, 0.4, 0.2), // brown
+                            "elder" => Color::srgb(0.2, 0.6, 0.3),   // green
+                            "vendor" => Color::srgb(0.5, 0.35, 0.2), // dark brown
+                            "system" => Color::srgb(0.3, 0.0, 0.5),  // purple
+                            _ => Color::srgb(0.3, 0.3, 0.3),         // gray fallback
+                        };
                     } else {
-                        // image.image = Handle::default(); // How to clear?
-                        // Just make transparent
                         bg.0 = Color::NONE;
                     }
                 }
