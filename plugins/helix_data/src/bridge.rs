@@ -32,6 +32,7 @@ fn map_item_type(helix_type: &helix_data::item::ItemType) -> ItemType {
         helix_data::item::ItemType::Container => ItemType::Misc,
         helix_data::item::ItemType::TradeGood => ItemType::Currency,
         helix_data::item::ItemType::Miscellaneous => ItemType::Misc,
+        helix_data::item::ItemType::Material => ItemType::Misc,
     }
 }
 
@@ -110,6 +111,7 @@ pub fn mob_to_enemy_row(
         attack_speed: balance
             .and_then(|b| b.get_f64("attack_speed"))
             .unwrap_or(mob.attack_speed) as f32,
+        zone_ids: mob.zone_ids.clone(),
     }
 }
 
@@ -460,6 +462,27 @@ pub fn weapon_skill_to_weapon_skill_row(
     }
 }
 
+/// Convert a helix LootTable to a DJ Engine LootTableRow.
+pub fn loot_table_to_loot_table_row(
+    id: &str,
+    lt: &helix_data::loot_table::LootTable,
+    _balance: Option<&BalanceOverlay>,
+) -> dj_engine::data::database::LootTableRow {
+    dj_engine::data::database::LootTableRow {
+        id: id.to_string(),
+        entries: lt
+            .entries
+            .iter()
+            .map(|e| dj_engine::data::database::LootEntry {
+                item_id: e.item_id.clone(),
+                chance: e.chance as f32,
+                min_quantity: e.min_count,
+                max_quantity: e.max_count,
+            })
+            .collect(),
+    }
+}
+
 /// Populate a DJ Engine `Database` from all 22 typed Helix registries.
 ///
 /// Balance overlays (if provided) are applied during conversion.
@@ -587,6 +610,12 @@ pub fn populate_database_from_helix(
         let overlay = balance.and_then(|b| b.get("weapon_skills", id));
         db.weapon_skills
             .push(weapon_skill_to_weapon_skill_row(id, ws, overlay));
+    }
+
+    for (id, lt) in registries.loot_tables.iter() {
+        let overlay = balance.and_then(|b| b.get("loot_tables", id));
+        db.loot_tables
+            .push(loot_table_to_loot_table_row(id, lt, overlay));
     }
 
     db

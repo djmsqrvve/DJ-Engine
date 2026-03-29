@@ -292,6 +292,9 @@ pub struct EnemyRow {
     /// Attack speed multiplier
     #[serde(default)]
     pub attack_speed: f32,
+    /// Zone IDs this enemy spawns in
+    #[serde(default)]
+    pub zone_ids: Vec<String>,
 }
 
 fn default_hp() -> i32 {
@@ -316,6 +319,7 @@ impl Default for EnemyRow {
             faction: String::new(),
             respawn_time: 0.0,
             attack_speed: 0.0,
+            zone_ids: Vec::new(),
         }
     }
 }

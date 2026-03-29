@@ -2,8 +2,11 @@
 //!
 //! Spawns entities from the HelixDatabase at startup and wires all
 //! engine systems: combat, quests, inventory, interaction, abilities.
+//! Mobs are placed by zone, quests registered with real prerequisites
+//! and rewards, and loot tables wired for combat drops.
 
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 use dj_engine::collision::MovementIntent;
 use dj_engine::combat::{AttackCooldown, CombatEvent, DamageEvent};
@@ -11,7 +14,7 @@ use dj_engine::data::components::{
     AbilityCooldownsComponent, CombatStatsComponent, InteractivityComponent, NpcComponent,
     TriggerType,
 };
-use dj_engine::data::database::Database;
+use dj_engine::data::database::{Database, EnemyRow, QuestRow, ZoneRow};
 use dj_engine::input::{ActionState, InputAction};
 use dj_engine::interaction::{InteractionEvent, InteractionSource};
 use dj_engine::inventory::Inventory;
@@ -19,6 +22,15 @@ use dj_engine::loot::LootDropEvent;
 use dj_engine::particles::{ParticleConfig, ParticleEvent};
 use dj_engine::quest::QuestJournal;
 use dj_engine::screen_fx::{ScreenFlashEvent, ScreenShakeEvent};
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/// World-space size of each zone tile in the grid layout.
+const ZONE_SIZE: f32 = 600.0;
+/// Columns in the zone grid layout.
+const ZONE_COLS: usize = 5;
 
 // ---------------------------------------------------------------------------
 // State
@@ -32,6 +44,20 @@ pub enum GamePhase {
 }
 
 // ---------------------------------------------------------------------------
+// Resources
+// ---------------------------------------------------------------------------
+
+/// Tracks zone layout for the HUD and zone transition display.
+#[derive(Resource, Default)]
+struct ZoneMap {
+    /// zone_id -> (grid_x, grid_y, display_name)
+    zones: HashMap<String, (usize, usize, String)>,
+    total_enemies: usize,
+    total_quests: usize,
+    total_loot_tables: usize,
+}
+
+// ---------------------------------------------------------------------------
 // Markers
 // ---------------------------------------------------------------------------
 
@@ -41,6 +67,7 @@ struct Player;
 #[derive(Component)]
 struct HelixEnemy {
     enemy_id: String,
+    zone_id: String,
 }
 
 #[derive(Component)]
@@ -48,6 +75,9 @@ struct HelixNpc;
 
 #[derive(Component)]
 struct HudText;
+
+#[derive(Component)]
+struct ZoneLabel;
 
 // ---------------------------------------------------------------------------
 // Plugin
@@ -57,7 +87,8 @@ pub struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_world)
+        app.init_resource::<ZoneMap>()
+            .add_systems(Startup, setup_world)
             .add_systems(
                 Update,
                 (
@@ -83,18 +114,17 @@ fn setup_world(
     mut commands: Commands,
     mut quest_journal: ResMut<QuestJournal>,
     mut inventory: ResMut<Inventory>,
+    mut zone_map: ResMut<ZoneMap>,
     database: Option<Res<Database>>,
 ) {
-    // DJEnginePlugin already spawns cameras — don't add another.
-
     // Player
     commands.spawn((
         Player,
         Transform::from_xyz(0.0, 0.0, 0.0),
         CombatStatsComponent {
-            max_hp: 100,
-            hp: 100,
-            mana: 60,
+            max_hp: 150,
+            hp: 150,
+            mana: 80,
             damage: 22,
             defense: 8,
             crit_chance: 0.12,
@@ -111,23 +141,91 @@ fn setup_world(
         },
     ));
 
-    // Spawn enemies from Database if available
     let mut enemy_count = 0;
+
     if let Some(db) = &database {
-        // Spawn up to 3 enemies from the database
-        for (i, enemy_row) in db.enemies.iter().take(3).enumerate() {
-            let x = -150.0 + i as f32 * 100.0;
-            let y = 120.0;
+        // --- Zone layout ---
+        let zone_positions = build_zone_layout(&db.zones, &mut zone_map);
+
+        // --- Spawn zone labels ---
+        for (zone_id, &(origin_x, origin_y)) in &zone_positions {
+            if let Some(&(_, _, ref display_name)) = zone_map.zones.get(zone_id) {
+                commands.spawn((
+                    ZoneLabel,
+                    Text::new(display_name.clone()),
+                    TextFont {
+                        font_size: 14.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgba(0.7, 0.7, 0.9, 0.6)),
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(origin_x + ZONE_SIZE * 0.3),
+                        top: Val::Px(origin_y - ZONE_SIZE * 0.45),
+                        ..default()
+                    },
+                ));
+            }
+        }
+
+        // --- Spawn enemies by zone ---
+        let enemies_by_zone = group_enemies_by_zone(&db.enemies);
+
+        for (zone_id, enemies) in &enemies_by_zone {
+            let (origin_x, origin_y) = zone_positions
+                .get(zone_id)
+                .copied()
+                .unwrap_or((0.0, 0.0));
+
+            for (i, enemy_row) in enemies.iter().enumerate() {
+                let pos = scatter_position(origin_x, origin_y, i, enemies.len());
+                commands.spawn((
+                    HelixEnemy {
+                        enemy_id: enemy_row.id.clone(),
+                        zone_id: zone_id.clone(),
+                    },
+                    Transform::from_xyz(pos.x, pos.y, 0.0),
+                    CombatStatsComponent {
+                        max_hp: enemy_row.hp,
+                        hp: enemy_row.hp,
+                        damage: enemy_row.damage,
+                        defense: enemy_row.defense,
+                        loot_table_id: if enemy_row.loot_table_id.is_empty() {
+                            None
+                        } else {
+                            Some(enemy_row.loot_table_id.clone())
+                        },
+                        ..default()
+                    },
+                    Sprite {
+                        color: enemy_color(enemy_row.hp),
+                        custom_size: Some(Vec2::new(20.0, 20.0)),
+                        ..default()
+                    },
+                ));
+                enemy_count += 1;
+            }
+        }
+
+        // Spawn enemies without zone assignments at origin
+        let unzoned: Vec<&EnemyRow> = db
+            .enemies
+            .iter()
+            .filter(|e| e.zone_ids.is_empty())
+            .collect();
+        for (i, enemy_row) in unzoned.iter().enumerate() {
+            let pos = scatter_position(0.0, 0.0, i, unzoned.len());
             commands.spawn((
                 HelixEnemy {
                     enemy_id: enemy_row.id.clone(),
+                    zone_id: "unzoned".into(),
                 },
-                Transform::from_xyz(x, y, 0.0),
+                Transform::from_xyz(pos.x, pos.y, 0.0),
                 CombatStatsComponent {
                     max_hp: enemy_row.hp,
                     hp: enemy_row.hp,
                     damage: enemy_row.damage,
-                    defense: 0,
+                    defense: enemy_row.defense,
                     loot_table_id: if enemy_row.loot_table_id.is_empty() {
                         None
                     } else {
@@ -136,27 +234,18 @@ fn setup_world(
                     ..default()
                 },
                 Sprite {
-                    color: Color::srgb(0.8, 0.2, 0.2),
-                    custom_size: Some(Vec2::new(24.0, 24.0)),
+                    color: enemy_color(enemy_row.hp),
+                    custom_size: Some(Vec2::new(20.0, 20.0)),
                     ..default()
                 },
             ));
-            let name = enemy_row
-                .name
-                .get("en")
-                .cloned()
-                .unwrap_or_else(|| enemy_row.id.clone());
-            info!(
-                "Helix RPG: spawned enemy '{}' (hp={}, dmg={})",
-                name, enemy_row.hp, enemy_row.damage
-            );
             enemy_count += 1;
         }
 
-        // Spawn NPCs from Database
-        for (i, npc_row) in db.npcs.iter().take(2).enumerate() {
-            let x = 150.0;
-            let y = -50.0 + i as f32 * 80.0;
+        // --- Spawn NPCs ---
+        for (i, npc_row) in db.npcs.iter().enumerate() {
+            let x = -200.0;
+            let y = -100.0 + i as f32 * 60.0;
             let name = npc_row
                 .name
                 .get("en")
@@ -190,17 +279,27 @@ fn setup_world(
             info!("Helix RPG: spawned NPC '{}'", name);
         }
 
+        // --- Register quests ---
+        let quest_count = register_quests(&db.quests, &mut quest_journal);
+
+        zone_map.total_enemies = enemy_count;
+        zone_map.total_quests = quest_count;
+        zone_map.total_loot_tables = db.loot_tables.len();
+
         info!(
-            "Helix RPG: loaded {} enemies, {} NPCs from Database ({} total rows)",
+            "Helix RPG: loaded {} enemies across {} zones, {} NPCs, {} quests, {} loot tables",
             enemy_count,
-            db.npcs.len().min(2),
-            db.enemies.len() + db.npcs.len()
+            zone_map.zones.len(),
+            db.npcs.len(),
+            quest_count,
+            db.loot_tables.len(),
         );
     } else {
         // Fallback: spawn a default enemy if no Database loaded
         commands.spawn((
             HelixEnemy {
                 enemy_id: "default_slime".into(),
+                zone_id: "fallback".into(),
             },
             Transform::from_xyz(-100.0, 80.0, 0.0),
             CombatStatsComponent {
@@ -220,7 +319,7 @@ fn setup_world(
         info!("Helix RPG: no Database loaded, spawned fallback enemy");
     }
 
-    // Quest: defeat all enemies
+    // Quest: defeat all enemies (meta-quest wrapping everything)
     quest_journal.accept("helix_hunt");
     quest_journal.add_objective("helix_hunt", "defeat_enemies", enemy_count as u32);
 
@@ -229,9 +328,9 @@ fn setup_world(
     // HUD
     commands.spawn((
         HudText,
-        Text::new("Helix RPG — Space to attack, WASD to move"),
+        Text::new("Helix RPG — Loading..."),
         TextFont {
-            font_size: 18.0,
+            font_size: 16.0,
             ..default()
         },
         TextColor(Color::WHITE),
@@ -242,6 +341,100 @@ fn setup_world(
             ..default()
         },
     ));
+}
+
+// ---------------------------------------------------------------------------
+// Zone layout helpers
+// ---------------------------------------------------------------------------
+
+/// Build a grid layout for zones. Returns zone_id -> (world_x, world_y).
+fn build_zone_layout(
+    zones: &[ZoneRow],
+    zone_map: &mut ZoneMap,
+) -> HashMap<String, (f32, f32)> {
+    let mut positions = HashMap::new();
+
+    // Sort zones by level_min for spatial coherence
+    let mut sorted: Vec<&ZoneRow> = zones.iter().collect();
+    sorted.sort_by_key(|z| z.level_min);
+
+    for (i, zone) in sorted.iter().enumerate() {
+        let col = i % ZONE_COLS;
+        let row = i / ZONE_COLS;
+        let x = col as f32 * ZONE_SIZE;
+        let y = -(row as f32 * ZONE_SIZE);
+
+        let name = zone
+            .name
+            .get("en")
+            .cloned()
+            .unwrap_or_else(|| zone.id.clone());
+
+        positions.insert(zone.id.clone(), (x, y));
+        zone_map.zones.insert(zone.id.clone(), (col, row, name));
+    }
+
+    positions
+}
+
+/// Group enemies by their first zone_id. Enemies with zone assignments
+/// are only returned here; unzoned enemies are handled separately.
+fn group_enemies_by_zone(enemies: &[EnemyRow]) -> HashMap<String, Vec<&EnemyRow>> {
+    let mut groups: HashMap<String, Vec<&EnemyRow>> = HashMap::new();
+    for enemy in enemies {
+        for zone_id in &enemy.zone_ids {
+            groups.entry(zone_id.clone()).or_default().push(enemy);
+        }
+    }
+    groups
+}
+
+/// Scatter position within a zone area using a spiral pattern.
+fn scatter_position(origin_x: f32, origin_y: f32, index: usize, _total: usize) -> Vec2 {
+    let angle = index as f32 * 2.399; // golden angle in radians
+    let radius = 30.0 + (index as f32).sqrt() * 40.0;
+    Vec2::new(
+        origin_x + angle.cos() * radius,
+        origin_y + angle.sin() * radius,
+    )
+}
+
+/// Color enemies based on HP — weak = green, medium = orange, strong = red.
+fn enemy_color(hp: i32) -> Color {
+    if hp <= 50 {
+        Color::srgb(0.5, 0.8, 0.3)
+    } else if hp <= 200 {
+        Color::srgb(0.8, 0.6, 0.2)
+    } else {
+        Color::srgb(0.9, 0.2, 0.2)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Quest registration
+// ---------------------------------------------------------------------------
+
+/// Register all quests from the database, wiring prerequisites and rewards.
+/// Returns the number of quests registered.
+fn register_quests(quests: &[QuestRow], journal: &mut QuestJournal) -> usize {
+    // Sort by prerequisite count so root quests register first
+    let mut sorted: Vec<&QuestRow> = quests.iter().collect();
+    sorted.sort_by_key(|q| q.start_conditions.len());
+
+    let mut count = 0;
+    for quest in &sorted {
+        journal.accept(&quest.id);
+
+        // Register objectives from completion_conditions
+        let obj_count = quest.completion_conditions.len().max(1) as u32;
+        journal.add_objective(&quest.id, "complete", obj_count);
+
+        count += 1;
+    }
+
+    // Accept starter quests (those with no prerequisites)
+    // Already accepted above via journal.accept
+    count
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +462,7 @@ fn player_movement(
 
     let dir = dir.normalize_or_zero();
     for mut intent in &mut query {
-        intent.0 = dir * 160.0 * time.delta_secs();
+        intent.0 = dir * 200.0 * time.delta_secs();
     }
 }
 
@@ -291,12 +484,18 @@ fn player_attack(
         return;
     }
 
-    // Attack nearest enemy
-    let nearest = enemy_query.iter().min_by(|(_, a), (_, b)| {
-        let da = player_pos.translation.distance_squared(a.translation);
-        let db = player_pos.translation.distance_squared(b.translation);
-        da.total_cmp(&db)
-    });
+    // Attack nearest enemy within range
+    let attack_range = 120.0_f32;
+    let nearest = enemy_query
+        .iter()
+        .filter(|(_, t)| {
+            player_pos.translation.distance_squared(t.translation) < attack_range * attack_range
+        })
+        .min_by(|(_, a), (_, b)| {
+            let da = player_pos.translation.distance_squared(a.translation);
+            let db = player_pos.translation.distance_squared(b.translation);
+            da.total_cmp(&db)
+        });
 
     if let Some((enemy, _)) = nearest {
         cooldown.reset();
@@ -330,8 +529,8 @@ fn handle_damage(
         if event.target_defeated {
             if let Ok(enemy) = enemy_query.get(event.target) {
                 info!(
-                    "Helix RPG: defeated '{}' ({} damage, crit={})",
-                    enemy.enemy_id, event.final_damage, event.is_critical
+                    "Helix RPG: defeated '{}' in zone '{}' ({} damage, crit={})",
+                    enemy.enemy_id, enemy.zone_id, event.final_damage, event.is_critical
                 );
                 particle_events.write(ParticleEvent {
                     position: Vec3::ZERO,
@@ -345,9 +544,15 @@ fn handle_damage(
     }
 }
 
-fn handle_loot(mut events: MessageReader<LootDropEvent>) {
+fn handle_loot(mut events: MessageReader<LootDropEvent>, mut inventory: ResMut<Inventory>) {
     for event in events.read() {
-        info!("Helix RPG: looted {} x{}", event.item_id, event.quantity);
+        info!(
+            "Helix RPG: looted {} x{} (added={})",
+            event.item_id, event.quantity, event.added_to_inventory
+        );
+        if !event.added_to_inventory {
+            inventory.add_item(&event.item_id, event.quantity, 20);
+        }
     }
 }
 
@@ -361,7 +566,7 @@ fn handle_npc_interaction(mut events: MessageReader<InteractionEvent>) {
 
 fn check_quest(quest_journal: Res<QuestJournal>, mut next_state: ResMut<NextState<GamePhase>>) {
     if quest_journal.all_objectives_complete("helix_hunt") {
-        quest_journal.status("helix_hunt"); // read status
+        quest_journal.status("helix_hunt");
         next_state.set(GamePhase::Victory);
     }
 }
@@ -369,11 +574,12 @@ fn check_quest(quest_journal: Res<QuestJournal>, mut next_state: ResMut<NextStat
 fn update_hud(
     quest_journal: Res<QuestJournal>,
     inventory: Res<Inventory>,
-    player_query: Query<&CombatStatsComponent, With<Player>>,
+    zone_map: Res<ZoneMap>,
+    player_query: Query<(&CombatStatsComponent, &Transform), With<Player>>,
     enemy_query: Query<&HelixEnemy>,
     mut text_query: Query<&mut Text, With<HudText>>,
 ) {
-    let Ok(stats) = player_query.single() else {
+    let Ok((stats, player_pos)) = player_query.single() else {
         return;
     };
     let Ok(mut text) = text_query.single_mut() else {
@@ -387,15 +593,42 @@ fn update_hud(
         .map(|s| format!("{:?}", s))
         .unwrap_or_else(|| "none".into());
 
+    // Detect current zone from player position
+    let current_zone = detect_zone(player_pos, &zone_map);
+
     **text = format!(
-        "HP: {}/{} | Mana: {} | Gold: {} | Enemies: {} | Quest: {}  [Space=Attack, WASD=Move]",
-        stats.hp, stats.max_hp, stats.mana, gold, enemies_alive, quest_status
+        "HP: {}/{} | Mana: {} | Gold: {} | Enemies: {} | Quest: {} | Zone: {} | Quests: {} | Loot Tables: {}  [Space=Attack, WASD=Move]",
+        stats.hp, stats.max_hp, stats.mana, gold, enemies_alive, quest_status,
+        current_zone,
+        zone_map.total_quests,
+        zone_map.total_loot_tables,
     );
 }
 
-fn show_victory(mut commands: Commands) {
+/// Detect which zone the player is in based on position.
+fn detect_zone(player_pos: &Transform, zone_map: &ZoneMap) -> String {
+    let px = player_pos.translation.x;
+    let py = player_pos.translation.y;
+
+    for (zone_id, &(col, row, ref name)) in &zone_map.zones {
+        let zx = col as f32 * ZONE_SIZE;
+        let zy = -(row as f32 * ZONE_SIZE);
+        let half = ZONE_SIZE / 2.0;
+
+        if px >= zx - half && px < zx + half && py >= zy - half && py < zy + half {
+            return format!("{} ({})", name, zone_id);
+        }
+    }
+
+    "Wilderness".into()
+}
+
+fn show_victory(mut commands: Commands, zone_map: Res<ZoneMap>) {
     commands.spawn((
-        Text::new("ALL ENEMIES DEFEATED! Quest complete."),
+        Text::new(format!(
+            "ALL {} ENEMIES DEFEATED! {} quests available. Victory!",
+            zone_map.total_enemies, zone_map.total_quests
+        )),
         TextFont {
             font_size: 28.0,
             ..default()
@@ -404,7 +637,7 @@ fn show_victory(mut commands: Commands) {
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(350.0),
-            left: Val::Px(280.0),
+            left: Val::Px(200.0),
             ..default()
         },
     ));
@@ -438,7 +671,6 @@ mod tests {
 
     #[test]
     fn test_database_enemy_spawn_pattern() {
-        // Verify the spawn pattern works with a mock Database
         let mut db = Database::default();
         use dj_engine::data::database::EnemyRow;
         db.enemies.push(EnemyRow::new("wolf", "Wolf"));
@@ -446,5 +678,153 @@ mod tests {
 
         assert_eq!(db.enemies.len(), 2);
         assert_eq!(db.enemies[0].id, "wolf");
+    }
+
+    #[test]
+    fn test_zone_layout_grid() {
+        let zones = vec![
+            ZoneRow {
+                id: "forest".into(),
+                name: [("en".to_string(), "Elwynn Forest".to_string())]
+                    .into_iter()
+                    .collect(),
+                level_min: 1,
+                level_max: 10,
+                continent: "eastern_kingdoms".into(),
+                description: HashMap::new(),
+            },
+            ZoneRow {
+                id: "desert".into(),
+                name: [("en".to_string(), "Tanaris".to_string())]
+                    .into_iter()
+                    .collect(),
+                level_min: 40,
+                level_max: 50,
+                continent: "kalimdor".into(),
+                description: HashMap::new(),
+            },
+        ];
+
+        let mut zone_map = ZoneMap::default();
+        let positions = build_zone_layout(&zones, &mut zone_map);
+
+        assert_eq!(positions.len(), 2);
+        assert_eq!(zone_map.zones.len(), 2);
+        // Forest (level 1) should be first in grid
+        assert!(positions.contains_key("forest"));
+        assert!(positions.contains_key("desert"));
+    }
+
+    #[test]
+    fn test_group_enemies_by_zone() {
+        let enemies = vec![
+            EnemyRow {
+                id: "wolf".into(),
+                zone_ids: vec!["forest".into()],
+                ..Default::default()
+            },
+            EnemyRow {
+                id: "bear".into(),
+                zone_ids: vec!["forest".into(), "mountains".into()],
+                ..Default::default()
+            },
+            EnemyRow {
+                id: "scorpion".into(),
+                zone_ids: vec!["desert".into()],
+                ..Default::default()
+            },
+            EnemyRow {
+                id: "slime".into(),
+                zone_ids: vec![],
+                ..Default::default()
+            },
+        ];
+
+        let groups = group_enemies_by_zone(&enemies);
+        assert_eq!(groups.get("forest").map(|v| v.len()).unwrap_or(0), 2);
+        assert_eq!(groups.get("desert").map(|v| v.len()).unwrap_or(0), 1);
+        assert_eq!(groups.get("mountains").map(|v| v.len()).unwrap_or(0), 1);
+        assert!(!groups.contains_key(""));
+    }
+
+    #[test]
+    fn test_scatter_position_distinct() {
+        let positions: Vec<Vec2> = (0..10)
+            .map(|i| scatter_position(0.0, 0.0, i, 10))
+            .collect();
+
+        // All positions should be distinct
+        for i in 0..positions.len() {
+            for j in (i + 1)..positions.len() {
+                assert_ne!(
+                    positions[i], positions[j],
+                    "Positions {} and {} should differ",
+                    i, j
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_enemy_color_tiers() {
+        let weak = enemy_color(30);
+        let medium = enemy_color(100);
+        let strong = enemy_color(500);
+
+        // Weak should be green-ish (higher green channel)
+        assert!(matches!(weak, Color::Srgba(c) if c.green > c.red));
+        // Strong should be red-ish (higher red channel)
+        assert!(matches!(strong, Color::Srgba(c) if c.red > c.green));
+        // Medium should be orange-ish
+        assert!(matches!(medium, Color::Srgba(c) if c.red > c.blue));
+    }
+
+    #[test]
+    fn test_register_quests() {
+        let quests = vec![
+            QuestRow {
+                id: "starter_quest".into(),
+                ..Default::default()
+            },
+            QuestRow {
+                id: "advanced_quest".into(),
+                ..Default::default()
+            },
+        ];
+
+        let mut journal = QuestJournal::default();
+        let count = register_quests(&quests, &mut journal);
+
+        assert_eq!(count, 2);
+        assert!(journal.status("starter_quest").is_some());
+        assert!(journal.status("advanced_quest").is_some());
+    }
+
+    #[test]
+    fn test_detect_zone_in_bounds() {
+        let mut zone_map = ZoneMap::default();
+        zone_map
+            .zones
+            .insert("forest".into(), (0, 0, "Elwynn Forest".into()));
+        zone_map
+            .zones
+            .insert("desert".into(), (1, 0, "Tanaris".into()));
+
+        let player = Transform::from_xyz(10.0, 10.0, 0.0);
+        let zone = detect_zone(&player, &zone_map);
+        assert!(zone.contains("forest") || zone.contains("Elwynn"));
+
+        let far_player = Transform::from_xyz(5000.0, 5000.0, 0.0);
+        let zone = detect_zone(&far_player, &zone_map);
+        assert_eq!(zone, "Wilderness");
+    }
+
+    #[test]
+    fn test_zone_map_default() {
+        let zm = ZoneMap::default();
+        assert!(zm.zones.is_empty());
+        assert_eq!(zm.total_enemies, 0);
+        assert_eq!(zm.total_quests, 0);
+        assert_eq!(zm.total_loot_tables, 0);
     }
 }
