@@ -115,6 +115,25 @@ fn handle_story_events(
                 battle_pending.0 = true;
                 next_state.set(GameState::Cellar);
             }
+            "QuestAccept_grove" => {
+                info!("Story Event: Quest accepted — purify_grove");
+                quest_journal.accept("purify_grove");
+                quest_journal.add_objective("purify_grove", "defeat_corruption", 4);
+                flags.0.insert("QuestAccepted_grove".to_string(), true);
+            }
+            "EnterCorruptedGrove" => {
+                info!("Story Event: Entering corrupted grove");
+                next_state.set(GameState::CorruptedGrove);
+            }
+            "QuestTurnIn_grove" => {
+                info!("Story Event: Quest turned in — purify_grove");
+                quest_journal.turn_in("purify_grove");
+                inventory.add_currency("gold", 75);
+                flags.0.insert("QuestTurnedIn_grove".to_string(), true);
+                if let Some(ref mut flash) = flash_events {
+                    flash.write(ScreenFlashEvent::gold());
+                }
+            }
             "DemoComplete" => {
                 info!("Story Event: Demo complete!");
                 flags.0.insert("DemoComplete".to_string(), true);

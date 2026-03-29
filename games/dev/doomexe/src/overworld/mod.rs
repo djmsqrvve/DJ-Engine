@@ -138,6 +138,36 @@ fn setup_overworld(
         OverworldEntity,
     ));
 
+    // Grove entrance portal (dark green at east edge)
+    commands.spawn((
+        Name::new("Grove Entrance"),
+        Sprite {
+            color: Color::srgb(0.1, 0.2, 0.08),
+            custom_size: Some(Vec2::new(48.0, 48.0)),
+            ..default()
+        },
+        Transform::from_xyz(200.0, -200.0, 9.0),
+        NPC {
+            id: "grove_entrance".to_string(),
+        },
+        CollisionComponent {
+            body_type: BodyType::Static,
+            box_size: Some(Vec3Data::new(56.0, 56.0, 0.0)),
+            is_trigger: true,
+            ..Default::default()
+        },
+        InteractivityComponent {
+            trigger_type: TriggerType::Npc,
+            trigger_id: "grove_entrance".to_string(),
+            events: dj_engine::data::InteractivityEvents {
+                on_interact: Some("start_dialogue".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        OverworldEntity,
+    ));
+
     // Central blocker used to prove collision resolution in the overworld.
     commands.spawn((
         Name::new("Corrupted Wall"),
@@ -238,6 +268,7 @@ fn npc_base_color(id: &str) -> Color {
         "vendor" => Color::srgb(0.5, 0.35, 0.2),
         "village_elder" => Color::srgb(0.2, 0.6, 0.3),
         "cellar_entrance" => Color::srgb(0.15, 0.1, 0.05),
+        "grove_entrance" => Color::srgb(0.1, 0.2, 0.08),
         _ => Color::WHITE,
     }
 }

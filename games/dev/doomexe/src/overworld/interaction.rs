@@ -323,14 +323,83 @@ pub fn interaction_check(
             let mut graph = StoryGraph::new();
             let end = graph.add(StoryNode::End);
 
-            // After quest complete — turn-in dialogue
-            let reward_done = graph.add(StoryNode::Dialogue {
+            // After grove quest turned in
+            let grove_done = graph.add(StoryNode::Dialogue {
                 speaker: "Village Elder".to_string(),
-                text: "The village is safe. You've earned your rest, hero.".to_string(),
+                text: "Both threats vanquished. You are a true hero of this village.".to_string(),
                 portrait: Some("elder".to_string()),
                 next: Some(end),
             });
-            let branch_turned_in = graph.add(StoryNode::Branch {
+            let branch_grove_done = graph.add(StoryNode::Branch {
+                flag: "QuestTurnedIn_grove".to_string(),
+                if_true: Some(grove_done),
+                if_false: Some(end), // placeholder — filled below
+            });
+
+            // Grove quest complete — turn in
+            let grove_turn_in_text = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "The grove is cleansed? Incredible! Here — 75 gold for your bravery."
+                    .to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(end),
+            });
+            let grove_turn_in_event = graph.add(StoryNode::Event {
+                event_id: "QuestTurnIn_grove".to_string(),
+                payload: "".to_string(),
+                next: Some(grove_turn_in_text),
+            });
+            let branch_grove_complete = graph.add(StoryNode::Branch {
+                flag: "QuestComplete_grove".to_string(),
+                if_true: Some(grove_turn_in_event),
+                if_false: Some(end), // placeholder
+            });
+
+            // Grove quest in progress
+            let grove_in_progress = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "The corruption still festers in the grove. Destroy those creatures!"
+                    .to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(end),
+            });
+
+            // After cellar turned in — offer grove quest
+            let grove_accept_event = graph.add(StoryNode::Event {
+                event_id: "QuestAccept_grove".to_string(),
+                payload: "".to_string(),
+                next: Some(end),
+            });
+            let grove_accept2 = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "The grove entrance is to the south-east. The corruption is strong there."
+                    .to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(grove_accept_event),
+            });
+            let grove_accept1 = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "With the cellar clean, there's another threat. The grove to the east is corrupted. Treants and shadow spiders lurk within. 75 gold reward."
+                    .to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(grove_accept2),
+            });
+
+            // Branch: grove accepted? check progress. Not accepted? offer quest.
+            let branch_grove_accepted = graph.add(StoryNode::Branch {
+                flag: "QuestAccepted_grove".to_string(),
+                if_true: Some(branch_grove_complete),
+                if_false: Some(grove_accept1),
+            });
+
+            // After cellar turned in, either grove is done or offer grove
+            let reward_done = graph.add(StoryNode::Branch {
+                flag: "QuestTurnedIn_grove".to_string(),
+                if_true: Some(grove_done),
+                if_false: Some(branch_grove_accepted),
+            });
+
+            let _branch_turned_in = graph.add(StoryNode::Branch {
                 flag: "QuestTurnedIn_cellar".to_string(),
                 if_true: Some(reward_done),
                 if_false: Some(end), // placeholder — filled below
@@ -433,6 +502,42 @@ pub fn interaction_check(
 
             let root = graph.add(StoryNode::Branch {
                 flag: "QuestAccepted_cellar".to_string(),
+                if_true: Some(enter_text),
+                if_false: Some(locked),
+            });
+
+            graph.set_start(root);
+            executor.start(graph);
+            next_state.set(GameState::NarratorDialogue);
+        }
+        "grove_entrance" => {
+            let mut graph = StoryGraph::new();
+            let end = graph.add(StoryNode::End);
+
+            let enter = graph.add(StoryNode::Event {
+                event_id: "EnterCorruptedGrove".to_string(),
+                payload: "".to_string(),
+                next: None,
+            });
+            let enter_text = graph.add(StoryNode::Dialogue {
+                speaker: "System".to_string(),
+                text: "You step into the corrupted grove. Dark energy pulses through the trees..."
+                    .to_string(),
+                portrait: Some("system".to_string()),
+                next: Some(enter),
+            });
+
+            let locked = graph.add(StoryNode::Dialogue {
+                speaker: "System".to_string(),
+                text:
+                    "A dark forest path. The corruption feels strong here. Clear the cellar first."
+                        .to_string(),
+                portrait: Some("system".to_string()),
+                next: Some(end),
+            });
+
+            let root = graph.add(StoryNode::Branch {
+                flag: "QuestTurnedIn_cellar".to_string(),
                 if_true: Some(enter_text),
                 if_false: Some(locked),
             });

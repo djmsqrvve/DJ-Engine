@@ -11,6 +11,7 @@ use types::DoomExeAppConfig;
 mod assets;
 mod battle;
 mod cellar;
+mod corrupted_grove;
 mod dialogue;
 mod gameover;
 mod hamster;
@@ -88,6 +89,33 @@ fn build_game_database() -> dj_engine::data::database::Database {
     rat_loot.add_entry("health_potion", 0.3, 1);
     db.loot_tables.push(rat_loot);
 
+    // -- Corrupted Grove items --
+    db.items.push(ItemRow {
+        id: "shadow_bark".into(),
+        name: [("en".into(), "Shadow Bark".into())].into(),
+        sell_value: 12,
+        max_stack: 10,
+        ..Default::default()
+    });
+    db.items.push(ItemRow {
+        id: "corruption_sap".into(),
+        name: [("en".into(), "Corruption Sap".into())].into(),
+        sell_value: 20,
+        max_stack: 5,
+        ..Default::default()
+    });
+
+    let mut treant_loot = LootTableRow::new("treant_loot");
+    treant_loot.add_entry("shadow_bark", 0.7, 1);
+    treant_loot.add_entry("corruption_sap", 0.3, 1);
+    treant_loot.add_entry("health_potion", 0.2, 1);
+    db.loot_tables.push(treant_loot);
+
+    let mut spider_loot = LootTableRow::new("spider_loot");
+    spider_loot.add_entry("corruption_sap", 0.5, 1);
+    spider_loot.add_entry("glitch_shard", 0.15, 1);
+    db.loot_tables.push(spider_loot);
+
     db
 }
 
@@ -142,6 +170,7 @@ fn main() {
         .add_plugins(dialogue::DialoguePlugin)
         .add_plugins(battle::BattlePlugin)
         .add_plugins(cellar::CellarPlugin)
+        .add_plugins(corrupted_grove::CorruptedGrovePlugin)
         .add_plugins(gameover::GameOverPlugin)
         .add_plugins(pause::PausePlugin)
         .add_plugins(assets::GameAssetsPlugin)
