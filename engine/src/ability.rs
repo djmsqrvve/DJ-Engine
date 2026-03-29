@@ -308,4 +308,65 @@ mod tests {
         assert_eq!(stats.hp, 70); // 40 + 30
         assert_eq!(stats.mana, 35); // 50 - 15
     }
+
+    #[test]
+    fn test_ability_heal_capped_at_max_hp() {
+        let (mut app, caster) = test_app();
+
+        // Slight damage
+        app.world_mut()
+            .get_mut::<CombatStatsComponent>(caster)
+            .unwrap()
+            .hp = 95;
+
+        app.world_mut()
+            .resource_mut::<Messages<UseAbilityRequest>>()
+            .write(UseAbilityRequest {
+                caster,
+                target: None,
+                ability_id: "big_heal".into(),
+                mana_cost: 5,
+                cooldown: 0.0,
+                damage: None,
+                heal: Some(50),
+                effect_id: None,
+                effect_duration: None,
+            });
+
+        app.update();
+
+        let stats = app.world().get::<CombatStatsComponent>(caster).unwrap();
+        assert_eq!(stats.hp, 100); // capped at max_hp
+    }
+
+    #[test]
+    fn test_ability_zero_mana_cost_always_works() {
+        let (mut app, caster) = test_app();
+
+        // Set mana to 0
+        app.world_mut()
+            .get_mut::<CombatStatsComponent>(caster)
+            .unwrap()
+            .mana = 0;
+
+        app.world_mut()
+            .resource_mut::<Messages<UseAbilityRequest>>()
+            .write(UseAbilityRequest {
+                caster,
+                target: None,
+                ability_id: "free_spell".into(),
+                mana_cost: 0,
+                cooldown: 1.0,
+                damage: None,
+                heal: Some(10),
+                effect_id: None,
+                effect_duration: None,
+            });
+
+        app.update();
+
+        let stats = app.world().get::<CombatStatsComponent>(caster).unwrap();
+        // Mana still 0 (0 - 0 = 0), but ability should work
+        assert_eq!(stats.mana, 0);
+    }
 }

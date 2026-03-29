@@ -878,4 +878,108 @@ mod tests {
         assert!(!neighbors.contains(&e0));
         assert!(neighbors.contains(&e1));
     }
+
+    #[test]
+    fn test_should_collide_mutual_layers() {
+        let a = make_test_collider(1, 2); // layer=1, mask=2
+        let b = make_test_collider(2, 1); // layer=2, mask=1
+        assert!(should_collide(a, b), "Mutual layer/mask should collide");
+    }
+
+    #[test]
+    fn test_should_collide_one_sided_fails() {
+        let a = make_test_collider(1, 2); // layer=1, mask=2
+        let b = make_test_collider(2, 4); // layer=2, mask=4 (doesn't match a's layer)
+        assert!(!should_collide(a, b), "One-sided mask should NOT collide");
+    }
+
+    #[test]
+    fn test_should_collide_same_layer_mask() {
+        let a = make_test_collider(1, 1);
+        let b = make_test_collider(1, 1);
+        assert!(should_collide(a, b));
+    }
+
+    #[test]
+    fn test_should_collide_zero_mask_never_collides() {
+        let a = make_test_collider(1, 0);
+        let b = make_test_collider(1, 1);
+        assert!(!should_collide(a, b));
+    }
+
+    #[test]
+    fn test_aabb_overlap_touching_edges() {
+        let a = Aabb {
+            min: Vec2::new(0.0, 0.0),
+            max: Vec2::new(10.0, 10.0),
+        };
+        // Touching at edge (max.x == min.x) — should NOT overlap
+        let b = Aabb {
+            min: Vec2::new(10.0, 0.0),
+            max: Vec2::new(20.0, 10.0),
+        };
+        assert!(!a.overlaps(b));
+    }
+
+    #[test]
+    fn test_aabb_overlap_partially() {
+        let a = Aabb {
+            min: Vec2::new(0.0, 0.0),
+            max: Vec2::new(10.0, 10.0),
+        };
+        let b = Aabb {
+            min: Vec2::new(5.0, 5.0),
+            max: Vec2::new(15.0, 15.0),
+        };
+        assert!(a.overlaps(b));
+    }
+
+    #[test]
+    fn test_aabb_from_center() {
+        let aabb = Aabb::from_center_half_extents(Vec2::new(5.0, 5.0), Vec2::new(3.0, 4.0));
+        assert_eq!(aabb.min, Vec2::new(2.0, 1.0));
+        assert_eq!(aabb.max, Vec2::new(8.0, 9.0));
+    }
+
+    #[test]
+    fn test_runtime_collider_center_with_offset() {
+        let collider = RuntimeCollider {
+            offset: Vec2::new(5.0, -3.0),
+            ..make_test_collider(1, 1)
+        };
+        let center = collider.center_at(Vec3::new(10.0, 20.0, 0.0));
+        assert_eq!(center, Vec2::new(15.0, 17.0));
+    }
+
+    #[test]
+    fn test_collider_shape_bounds() {
+        let box_shape = RuntimeColliderShape::Box {
+            half_extents: Vec2::new(5.0, 10.0),
+        };
+        assert_eq!(box_shape.bounds_half_extents(), Vec2::new(5.0, 10.0));
+
+        let circle_shape = RuntimeColliderShape::Circle { radius: 8.0 };
+        assert_eq!(circle_shape.bounds_half_extents(), Vec2::new(8.0, 8.0));
+    }
+
+    #[test]
+    fn test_trigger_contacts_empty() {
+        let contacts = TriggerContacts::default();
+        let (_world, entities) = spawn_test_entities(1);
+        assert!(contacts.contacts_for(entities[0]).is_empty());
+    }
+
+    fn make_test_collider(layer_bits: u32, mask_bits: u32) -> RuntimeCollider {
+        RuntimeCollider {
+            enabled: true,
+            body_type: BodyType::Static,
+            shape: RuntimeColliderShape::Box {
+                half_extents: Vec2::new(16.0, 16.0),
+            },
+            offset: Vec2::ZERO,
+            layer_bits,
+            mask_bits,
+            is_trigger: false,
+        }
+    }
 }

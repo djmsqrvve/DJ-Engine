@@ -222,4 +222,48 @@ mod tests {
         assert!(!cooldowns.cooldowns.contains_key("fireball"));
         assert!(cooldowns.cooldowns.contains_key("heal"));
     }
+
+    #[test]
+    fn test_remove_nonexistent_effect() {
+        let mut effects = StatusEffectsComponent::default();
+        assert!(!remove_effect(&mut effects, "not_here"));
+    }
+
+    #[test]
+    fn test_apply_multiple_different_effects() {
+        let mut effects = StatusEffectsComponent::default();
+        apply_effect(&mut effects, "poison", 5.0, 1);
+        apply_effect(&mut effects, "haste", 10.0, 2);
+        apply_effect(&mut effects, "shield", 3.0, 1);
+        assert_eq!(effects.effects.len(), 3);
+    }
+
+    #[test]
+    fn test_effect_duration_refresh_takes_max() {
+        let mut effects = StatusEffectsComponent::default();
+        apply_effect(&mut effects, "buff", 3.0, 1);
+        apply_effect(&mut effects, "buff", 8.0, 0);
+        assert!((effects.effects[0].remaining_duration - 8.0).abs() < f32::EPSILON);
+
+        // Shorter refresh doesn't reduce
+        apply_effect(&mut effects, "buff", 2.0, 0);
+        assert!((effects.effects[0].remaining_duration - 8.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_cooldown_not_started_is_not_on_cooldown() {
+        let cooldowns = AbilityCooldownsComponent::default();
+        assert!(!is_on_cooldown(&cooldowns, "any_ability"));
+    }
+
+    #[test]
+    fn test_multiple_cooldowns_independent() {
+        let mut cooldowns = AbilityCooldownsComponent::default();
+        start_cooldown(&mut cooldowns, "fireball", 3.0);
+        start_cooldown(&mut cooldowns, "heal", 1.5);
+
+        assert!(is_on_cooldown(&cooldowns, "fireball"));
+        assert!(is_on_cooldown(&cooldowns, "heal"));
+        assert!(!is_on_cooldown(&cooldowns, "ice_bolt"));
+    }
 }

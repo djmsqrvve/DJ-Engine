@@ -403,4 +403,32 @@ mod tests {
             assert!(!has_save_scoped(&project_a, 0));
         });
     }
+
+    #[test]
+    fn test_sanitize_replaces_special_chars() {
+        assert_eq!(sanitize_scope_component("hello world"), "hello_world");
+        assert_eq!(sanitize_scope_component("foo/bar"), "foo_bar");
+        assert_eq!(sanitize_scope_component("test@123"), "test_123");
+    }
+
+    #[test]
+    fn test_sanitize_preserves_valid_chars() {
+        assert_eq!(sanitize_scope_component("my-project_01"), "my-project_01");
+        assert_eq!(sanitize_scope_component("ABC"), "ABC");
+    }
+
+    #[test]
+    fn test_sanitize_unicode() {
+        assert_eq!(sanitize_scope_component("hëllö"), "h_ll_");
+        assert_eq!(sanitize_scope_component("日本語"), "___");
+    }
+
+    #[test]
+    fn test_save_data_default_fields() {
+        let data = SaveData::default();
+        assert!(data.flags.is_empty());
+        assert!(data.variables.is_empty());
+        assert!(data.game_state.is_empty());
+        assert!(data.project_id.is_none());
+    }
 }

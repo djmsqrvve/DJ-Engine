@@ -349,4 +349,51 @@ mod tests {
         // Flat 20 damage with 0 defense, +/- variance
         assert!(target_stats.hp < 50);
     }
+
+    #[test]
+    fn test_zero_attack_clamps_to_min() {
+        let config = CombatConfig::default();
+        let (damage, _) = calculate_damage(&config, 0, 0, 0.0, 0.5, 0.5);
+        assert_eq!(damage, config.min_damage);
+    }
+
+    #[test]
+    fn test_no_crit_at_zero_chance() {
+        let config = CombatConfig::default();
+        let (_, is_crit) = calculate_damage(&config, 50, 0, 0.0, 0.0, 0.5);
+        assert!(!is_crit, "0% crit chance should never crit");
+    }
+
+    #[test]
+    fn test_always_crit_at_full_chance() {
+        let config = CombatConfig::default();
+        let (_, is_crit) = calculate_damage(&config, 50, 0, 1.0, 0.5, 0.5);
+        assert!(is_crit, "100% crit chance should always crit");
+    }
+
+    #[test]
+    fn test_crit_multiplier_applied() {
+        let config = CombatConfig {
+            crit_multiplier: 3.0,
+            ..default()
+        };
+        let (damage, is_crit) = calculate_damage(&config, 100, 0, 1.0, 0.0, 0.5);
+        assert!(is_crit);
+        assert_eq!(damage, 300);
+    }
+
+    #[test]
+    fn test_combat_config_default() {
+        let config = CombatConfig::default();
+        assert_eq!(config.min_damage, 1);
+        assert_eq!(config.crit_multiplier, 2.0);
+        assert!(config.defense_factor > 0.0);
+    }
+
+    #[test]
+    fn test_attack_cooldown_custom_duration() {
+        let cooldown = AttackCooldown::new(2.5);
+        assert!(!cooldown.ready());
+        assert_eq!(cooldown.timer.duration().as_secs_f32(), 2.5);
+    }
 }

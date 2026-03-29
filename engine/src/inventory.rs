@@ -294,4 +294,54 @@ mod tests {
         let inv = Inventory::new(10);
         assert_eq!(inv.currency_balance("gold"), 0);
     }
+
+    #[test]
+    fn test_remove_across_multiple_stacks() {
+        let mut inv = Inventory::new(10);
+        inv.add_item("potion", 5, 5); // fills one stack
+        inv.add_item("potion", 3, 5); // second partial stack
+        assert_eq!(inv.count_item("potion"), 8);
+
+        let removed = inv.remove_item("potion", 7);
+        assert_eq!(removed, 7);
+        assert_eq!(inv.count_item("potion"), 1);
+    }
+
+    #[test]
+    fn test_add_overflow_creates_new_stacks() {
+        let mut inv = Inventory::new(10);
+        let leftover = inv.add_item("arrow", 15, 10);
+        assert_eq!(leftover, 0); // all 15 fit (10 + 5 across 2 stacks)
+        assert_eq!(inv.count_item("arrow"), 15);
+    }
+
+    #[test]
+    fn test_remove_more_than_have() {
+        let mut inv = Inventory::new(10);
+        inv.add_item("gem", 3, 99);
+        let removed = inv.remove_item("gem", 10);
+        assert_eq!(removed, 3); // only had 3
+        assert_eq!(inv.count_item("gem"), 0);
+    }
+
+    #[test]
+    fn test_inventory_capacity_full() {
+        let mut inv = Inventory::new(2);
+        inv.add_item("a", 1, 1);
+        inv.add_item("b", 1, 1);
+        let leftover = inv.add_item("c", 1, 1);
+        assert_eq!(leftover, 1); // no room
+    }
+
+    #[test]
+    fn test_multiple_currencies() {
+        let mut inv = Inventory::new(10);
+        inv.add_currency("gold", 100);
+        inv.add_currency("silver", 500);
+        inv.add_currency("honor", 25);
+
+        assert_eq!(inv.currency_balance("gold"), 100);
+        assert_eq!(inv.currency_balance("silver"), 500);
+        assert_eq!(inv.currency_balance("honor"), 25);
+    }
 }

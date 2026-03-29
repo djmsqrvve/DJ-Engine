@@ -201,4 +201,34 @@ mod tests {
         // Verify the portal entity was recognized (the mover triggered it).
         let _ = portal_entity;
     }
+
+    #[test]
+    fn test_active_zone_set() {
+        let mut zone = ActiveZone::default();
+        zone.zone_id = "dungeon_1".into();
+        assert_eq!(zone.zone_id, "dungeon_1");
+    }
+
+    #[test]
+    fn test_portal_component_defaults() {
+        let portal = PortalComponent {
+            target_zone_id: String::new(),
+            target_spawn_point: String::new(),
+        };
+        assert!(portal.target_zone_id.is_empty());
+        assert!(portal.target_spawn_point.is_empty());
+    }
+
+    #[test]
+    fn test_zone_transition_event_clone() {
+        let event = ZoneTransitionEvent {
+            from_zone_id: "a".into(),
+            to_zone_id: "b".into(),
+            spawn_point: "spawn".into(),
+            entity: Entity::from_bits(1),
+        };
+        let cloned = event.clone();
+        assert_eq!(event.from_zone_id, cloned.from_zone_id);
+        assert_eq!(event.to_zone_id, cloned.to_zone_id);
+    }
 }

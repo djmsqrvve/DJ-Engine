@@ -341,4 +341,73 @@ mod tests {
         assert_eq!(inv.capacity, 30);
         assert_eq!(inv.slots.len(), 30);
     }
+
+    #[test]
+    fn test_title_format_no_title_equipped() {
+        let pt = PlayerTitle::default();
+        let formatted = pt.format_name("PlayerOne", None);
+        assert_eq!(formatted, "PlayerOne");
+    }
+
+    #[test]
+    fn test_title_format_missing_from_database() {
+        let db = Database::default(); // no titles
+        let mut pt = PlayerTitle::default();
+        pt.earn("unknown");
+        pt.equip("unknown");
+
+        let formatted = pt.format_name("PlayerOne", Some(&db));
+        assert_eq!(formatted, "PlayerOne"); // falls back to base name
+    }
+
+    #[test]
+    fn test_weapon_skill_no_database_is_permissive() {
+        let wp = WeaponProficiencies::default();
+        assert!(wp.can_class_use_weapon("swords", "anything", None));
+    }
+
+    #[test]
+    fn test_weapon_skill_gain_without_database() {
+        let mut wp = WeaponProficiencies::default();
+        let level = wp.gain_skill("axes", 150, None);
+        // Without database, no max_skill cap → uses default 300
+        assert_eq!(level, 150);
+    }
+
+    #[test]
+    fn test_weapon_skill_gain_accumulates() {
+        let mut db = Database::default();
+        db.weapon_skills.push(WeaponSkillRow {
+            id: "swords".into(),
+            max_skill: 300,
+            classes: vec![],
+            ..default()
+        });
+
+        let mut wp = WeaponProficiencies::default();
+        wp.gain_skill("swords", 100, Some(&db));
+        wp.gain_skill("swords", 100, Some(&db));
+        let level = wp.gain_skill("swords", 50, Some(&db));
+        assert_eq!(level, 250);
+    }
+
+    #[test]
+    fn test_earn_title_idempotent() {
+        let mut pt = PlayerTitle::default();
+        pt.earn("champion");
+        pt.earn("champion"); // earning twice is fine
+        assert_eq!(pt.earned_titles.len(), 1);
+    }
+
+    #[test]
+    fn test_unequip_title() {
+        let mut pt = PlayerTitle::default();
+        pt.earn("champion");
+        pt.equip("champion");
+        assert!(pt.active_title_id.is_some());
+
+        pt.active_title_id = None; // unequip
+        let formatted = pt.format_name("Player", None);
+        assert_eq!(formatted, "Player");
+    }
 }

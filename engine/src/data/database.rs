@@ -1483,4 +1483,42 @@ mod tests {
         assert!(db.find_mount("nonexistent").is_none());
         assert!(db.find_guild("nonexistent").is_none());
     }
+
+    #[test]
+    fn test_enemy_row_new() {
+        let enemy = EnemyRow::new("goblin", "Goblin Scout");
+        assert_eq!(enemy.id, "goblin");
+        assert_eq!(enemy.name.get("en").unwrap(), "Goblin Scout");
+        assert_eq!(enemy.hp, 100);
+        assert!(enemy.zone_ids.is_empty());
+    }
+
+    #[test]
+    fn test_database_default_empty() {
+        let db = Database::default();
+        assert!(db.enemies.is_empty());
+        assert!(db.items.is_empty());
+        assert!(db.quests.is_empty());
+        assert!(db.npcs.is_empty());
+        assert!(db.abilities.is_empty());
+        assert!(db.zones.is_empty());
+    }
+
+    #[test]
+    fn test_loot_table_add_entry() {
+        let mut table = LootTableRow::new("wolf_loot");
+        table.add_entry("wolf_pelt", 0.8, 1);
+        table.add_entry("wolf_fang", 0.3, 2);
+        assert_eq!(table.entries.len(), 2);
+        assert_eq!(table.entries[0].item_id, "wolf_pelt");
+        assert_eq!(table.entries[1].max_quantity, 2);
+    }
+
+    #[test]
+    fn test_quest_rewards_default() {
+        let rewards = QuestRewards::default();
+        assert_eq!(rewards.gold, 0);
+        assert_eq!(rewards.experience, 0);
+        assert!(rewards.item_rewards.is_empty());
+    }
 }
