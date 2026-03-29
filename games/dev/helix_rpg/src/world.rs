@@ -61,6 +61,43 @@ struct ZoneMap {
     total_equipment: usize,
 }
 
+/// Tracks player experience and level.
+#[derive(Resource)]
+struct PlayerXp {
+    xp: u32,
+    level: u32,
+    kills: u32,
+}
+
+impl Default for PlayerXp {
+    fn default() -> Self {
+        Self {
+            xp: 0,
+            level: 1,
+            kills: 0,
+        }
+    }
+}
+
+impl PlayerXp {
+    /// XP needed for the next level.
+    fn xp_to_next(&self) -> u32 {
+        self.level * 100
+    }
+
+    /// Add XP and return true if leveled up.
+    fn add_xp(&mut self, amount: u32) -> bool {
+        self.xp += amount;
+        if self.xp >= self.xp_to_next() {
+            self.xp -= self.xp_to_next();
+            self.level += 1;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Markers
 // ---------------------------------------------------------------------------
@@ -92,6 +129,7 @@ pub struct WorldPlugin;
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ZoneMap>()
+            .init_resource::<PlayerXp>()
             .add_systems(Startup, setup_world)
             .add_systems(
                 Update,
@@ -352,7 +390,21 @@ fn setup_world(
     quest_journal.accept("helix_hunt");
     quest_journal.add_objective("helix_hunt", "defeat_enemies", enemy_count as u32);
 
-    inventory.add_currency("gold", 100);
+    // Starter inventory from TOML data
+    if let Some(db) = &database {
+        // Give starter consumables (first 3 from registry)
+        for consumable in db.consumables.iter().take(3) {
+            inventory.add_item(&consumable.id, 2, consumable.stack_size as u32);
+            info!("Helix RPG: starter item '{}'", consumable.id);
+        }
+
+        // Give starter currencies from registry
+        for currency in db.currencies.iter().take(3) {
+            inventory.add_currency(&currency.id, 50);
+        }
+    } else {
+        inventory.add_currency("gold", 100);
+    }
 
     // HUD
     commands.spawn((
@@ -546,8 +598,9 @@ fn player_attack(
 fn handle_damage(
     mut events: MessageReader<DamageEvent>,
     mut quest_journal: ResMut<QuestJournal>,
+    mut player_xp: ResMut<PlayerXp>,
     mut commands: Commands,
-    enemy_query: Query<&HelixEnemy>,
+    enemy_query: Query<(&HelixEnemy, &CombatStatsComponent)>,
     player_query: Query<Entity, With<Player>>,
     mut shake_events: MessageWriter<ScreenShakeEvent>,
     mut flash_events: MessageWriter<ScreenFlashEvent>,
@@ -563,16 +616,45 @@ fn handle_damage(
         }
 
         if event.target_defeated {
-            if let Ok(enemy) = enemy_query.get(event.target) {
+            if let Ok((enemy, stats)) = enemy_query.get(event.target) {
+                // XP reward based on enemy max_hp
+                let xp_reward = (stats.max_hp as u32).max(10);
+                player_xp.kills += 1;
+                let leveled = player_xp.add_xp(xp_reward);
+
                 info!(
-                    "Helix RPG: defeated '{}' in zone '{}' ({} damage, crit={})",
-                    enemy.enemy_id, enemy.zone_id, event.final_damage, event.is_critical
+                    "Helix RPG: defeated '{}' in zone '{}' (+{} XP, kill #{}) | Lv{} {}/{}",
+                    enemy.enemy_id,
+                    enemy.zone_id,
+                    xp_reward,
+                    player_xp.kills,
+                    player_xp.level,
+                    player_xp.xp,
+                    player_xp.xp_to_next()
                 );
+
                 particle_events.write(ParticleEvent {
                     position: Vec3::ZERO,
                     config: ParticleConfig::death_burst(),
                 });
-                flash_events.write(ScreenFlashEvent::gold());
+
+                if leveled {
+                    // Level-up FX
+                    flash_events.write(ScreenFlashEvent {
+                        color: Color::srgba(0.2, 0.8, 1.0, 0.5),
+                        duration: 0.8,
+                        intensity: 1.0,
+                    });
+                    shake_events.write(ScreenShakeEvent::heavy());
+                    particle_events.write(ParticleEvent {
+                        position: Vec3::ZERO,
+                        config: ParticleConfig::gold_sparkle(),
+                    });
+                    info!("Helix RPG: LEVEL UP! Now level {}", player_xp.level);
+                } else {
+                    flash_events.write(ScreenFlashEvent::gold());
+                }
+
                 quest_journal.progress_objective("helix_hunt", "defeat_enemies", 1);
                 commands.entity(event.target).despawn();
             }
@@ -611,6 +693,7 @@ fn update_hud(
     quest_journal: Res<QuestJournal>,
     inventory: Res<Inventory>,
     zone_map: Res<ZoneMap>,
+    player_xp: Res<PlayerXp>,
     player_query: Query<(&CombatStatsComponent, &Transform), With<Player>>,
     enemy_query: Query<&HelixEnemy>,
     mut text_query: Query<&mut Text, With<HudText>>,
@@ -633,9 +716,11 @@ fn update_hud(
     let current_zone = detect_zone(player_pos, &zone_map);
 
     **text = format!(
-        "HP: {}/{} | Mana: {} | Gold: {} | Enemies: {} | Zone: {} | Quest: {}\nDB: {} mobs, {} NPCs, {} abilities, {} equip, {} consumables | {} loot tables  [Space=Attack, WASD=Move]",
-        stats.hp, stats.max_hp, stats.mana, gold, enemies_alive,
-        current_zone, quest_status,
+        "Lv{} | HP: {}/{} | Mana: {} | XP: {}/{} | Kills: {} | Gold: {} | Enemies: {} | Zone: {}\nQuest: {} | {} mobs, {} NPCs, {} abilities, {} equip, {} consumables, {} loot  [Space=Attack, WASD=Move]",
+        player_xp.level,
+        stats.hp, stats.max_hp, stats.mana,
+        player_xp.xp, player_xp.xp_to_next(), player_xp.kills,
+        gold, enemies_alive, current_zone, quest_status,
         zone_map.total_enemies, zone_map.total_npcs, zone_map.total_abilities,
         zone_map.total_equipment, zone_map.total_consumables,
         zone_map.total_loot_tables,
@@ -882,5 +967,47 @@ mod tests {
         assert!(matches!(neutral, Color::Srgba(c) if c.red > 0.5 && c.green > 0.5));
         // Unknown defaults to green
         assert!(matches!(unknown, Color::Srgba(c) if c.green > c.red));
+    }
+
+    #[test]
+    fn test_player_xp_default() {
+        let xp = PlayerXp::default();
+        assert_eq!(xp.xp, 0);
+        assert_eq!(xp.level, 1);
+        assert_eq!(xp.kills, 0);
+        assert_eq!(xp.xp_to_next(), 100);
+    }
+
+    #[test]
+    fn test_player_xp_level_up() {
+        let mut xp = PlayerXp::default();
+        assert!(!xp.add_xp(50));
+        assert_eq!(xp.level, 1);
+        assert_eq!(xp.xp, 50);
+
+        assert!(xp.add_xp(60)); // 50 + 60 = 110 >= 100
+        assert_eq!(xp.level, 2);
+        assert_eq!(xp.xp, 10); // overflow
+        assert_eq!(xp.xp_to_next(), 200); // level 2 * 100
+    }
+
+    #[test]
+    fn test_player_xp_multi_level() {
+        let mut xp = PlayerXp::default();
+        xp.add_xp(100); // level 1 -> 2
+        assert_eq!(xp.level, 2);
+        xp.add_xp(200); // level 2 -> 3
+        assert_eq!(xp.level, 3);
+    }
+
+    #[test]
+    fn test_player_xp_kills_tracked() {
+        let mut xp = PlayerXp::default();
+        xp.kills += 1;
+        xp.add_xp(30);
+        xp.kills += 1;
+        xp.add_xp(30);
+        assert_eq!(xp.kills, 2);
+        assert_eq!(xp.xp, 60);
     }
 }
