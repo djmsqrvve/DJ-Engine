@@ -88,3 +88,54 @@ pub(super) fn register_types(app: &mut App) {
         .register_type::<CollisionShape>()
         .register_type::<CollisionComponent>();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_body_type_default_is_static() {
+        assert_eq!(BodyType::default(), BodyType::Static);
+    }
+
+    #[test]
+    fn test_collision_shape_default_is_box() {
+        assert_eq!(CollisionShape::default(), CollisionShape::Box);
+    }
+
+    #[test]
+    fn test_collision_component_default() {
+        let c = CollisionComponent::default();
+        assert!(c.enabled);
+        assert_eq!(c.body_type, BodyType::Static);
+        assert_eq!(c.shape, CollisionShape::Box);
+        assert!(c.box_size.is_some());
+        assert!(c.circle_radius.is_none());
+        assert!(c.polygon_points.is_empty());
+        assert!(!c.is_trigger);
+        assert_eq!(c.layer, "default");
+        assert_eq!(c.mask, vec!["default"]);
+    }
+
+    #[test]
+    fn test_collision_component_serde_roundtrip() {
+        let c = CollisionComponent {
+            body_type: BodyType::Kinematic,
+            shape: CollisionShape::Circle,
+            circle_radius: Some(16.0),
+            is_trigger: true,
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        let c2: CollisionComponent = serde_json::from_str(&json).unwrap();
+        assert_eq!(c, c2);
+    }
+
+    #[test]
+    fn test_body_type_serde() {
+        let json = serde_json::to_string(&BodyType::Dynamic).unwrap();
+        assert_eq!(json, "\"dynamic\"");
+        let bt: BodyType = serde_json::from_str(&json).unwrap();
+        assert_eq!(bt, BodyType::Dynamic);
+    }
+}

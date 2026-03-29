@@ -208,4 +208,46 @@ mod tests {
         let deserialized: Grid<String> = serde_json::from_str(&json).unwrap();
         assert_eq!(grid, deserialized);
     }
+
+    #[test]
+    fn single_cell_grid() {
+        let grid: Grid<i32> = Grid::new(1, 1);
+        assert_eq!(grid.len(), 1);
+        assert_eq!(grid.get(0, 0), Some(&0));
+        assert_eq!(grid.neighbors(0, 0).len(), 0);
+    }
+
+    #[test]
+    fn grid_is_empty_check() {
+        let empty: Grid<i32> = Grid::new(0, 0);
+        assert!(empty.is_empty());
+
+        let full: Grid<i32> = Grid::new(2, 2);
+        assert!(!full.is_empty());
+    }
+
+    #[test]
+    fn set_multiple_cells() {
+        let mut grid: Grid<i32> = Grid::new(3, 3);
+        grid.set(0, 0, 1);
+        grid.set(1, 1, 5);
+        grid.set(2, 2, 9);
+        assert_eq!(grid.get(0, 0), Some(&1));
+        assert_eq!(grid.get(1, 1), Some(&5));
+        assert_eq!(grid.get(2, 2), Some(&9));
+        assert_eq!(grid.get(0, 1), Some(&0)); // unchanged
+    }
+
+    #[test]
+    fn neighbors_edge_cell() {
+        let grid: Grid<i32> = Grid::new(4, 4);
+        let edge = grid.neighbors(0, 2);
+        assert_eq!(edge.len(), 3); // up, down, right
+    }
+
+    #[test]
+    fn from_vec_wrong_length_fails() {
+        assert!(Grid::<i32>::from_vec(3, 3, vec![1, 2]).is_none());
+        assert!(Grid::<i32>::from_vec(2, 2, vec![1, 2, 3, 4, 5]).is_none());
+    }
 }

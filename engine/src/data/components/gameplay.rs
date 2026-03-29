@@ -236,3 +236,51 @@ pub(super) fn register_types(app: &mut App) {
         .register_type::<SpawnerWave>()
         .register_type::<SpawnerComponent>();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_targeting_mode_default() {
+        assert_eq!(TargetingMode::default(), TargetingMode::First);
+    }
+
+    #[test]
+    fn test_npc_component_default() {
+        let npc = NpcComponent::default();
+        assert!(npc.npc_id.is_empty());
+        assert!(npc.display_name.is_empty());
+        assert!(npc.quest_ids.is_empty());
+    }
+
+    #[test]
+    fn test_combat_stats_default() {
+        let stats = CombatStatsComponent::default();
+        assert_eq!(stats.max_hp, 100);
+        assert_eq!(stats.hp, 100);
+        assert_eq!(stats.damage, 10);
+        assert_eq!(stats.defense, 0);
+    }
+
+    #[test]
+    fn test_combat_stats_loot_table_default_none() {
+        let stats = CombatStatsComponent::default();
+        assert!(stats.loot_table_id.is_none());
+    }
+
+    #[test]
+    fn test_enemy_component_default() {
+        let enemy = EnemyComponent::default();
+        assert!(enemy.enemy_id.is_empty());
+    }
+
+    #[test]
+    fn test_spawner_component_default() {
+        let spawner = SpawnerComponent::default();
+        assert_eq!(spawner.wave_count, 1);
+        assert_eq!(spawner.spawn_interval, 1.0);
+        assert!(!spawner.loop_waves);
+        assert!(spawner.waves.is_empty());
+    }
+}

@@ -214,4 +214,51 @@ mod tests {
         assert_eq!(GAME_WIDTH as u32, 320);
         assert_eq!(GAME_HEIGHT as u32, 240);
     }
+
+    #[test]
+    fn test_crt_config_disabled() {
+        let config = CrtConfig {
+            enabled: false,
+            ..Default::default()
+        };
+        assert!(!config.enabled);
+        let enabled_flag: u32 = if config.enabled { 1 } else { 0 };
+        assert_eq!(enabled_flag, 0);
+    }
+
+    #[test]
+    fn test_crt_config_extreme_values() {
+        let config = CrtConfig {
+            enabled: true,
+            scanline_intensity: 1.0,
+            barrel_distortion: 1.0,
+            color_bleeding: 1.0,
+        };
+        // Should not panic when creating params
+        let params = CrtParams {
+            scanline_intensity: config.scanline_intensity,
+            barrel_distortion: config.barrel_distortion,
+            color_bleeding: config.color_bleeding,
+            enabled: 1,
+        };
+        assert_eq!(params.scanline_intensity, 1.0);
+    }
+
+    #[test]
+    fn test_crt_config_zero_values() {
+        let config = CrtConfig {
+            enabled: true,
+            scanline_intensity: 0.0,
+            barrel_distortion: 0.0,
+            color_bleeding: 0.0,
+        };
+        assert_eq!(config.scanline_intensity, 0.0);
+    }
+
+    #[test]
+    fn test_game_dimensions_ratio() {
+        // 320x240 = 4:3 aspect ratio
+        let ratio = GAME_WIDTH / GAME_HEIGHT;
+        assert!((ratio - (4.0 / 3.0)).abs() < 0.01);
+    }
 }
