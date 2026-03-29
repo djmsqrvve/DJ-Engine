@@ -406,27 +406,34 @@ mod tests {
     }
 
     #[test]
-    fn test_cellar_has_3_rats() {
-        let rat_positions = [
-            Vec3::new(-100.0, 60.0, 10.0),
-            Vec3::new(80.0, 100.0, 10.0),
-            Vec3::new(0.0, -20.0, 10.0),
+    fn test_cellar_has_5_rats() {
+        let rat_data: [(Vec3, f32, i32, i32); 5] = [
+            (Vec3::new(-120.0, 60.0, 10.0), 24.0, 30, 5),
+            (Vec3::new(80.0, 100.0, 10.0), 24.0, 30, 5),
+            (Vec3::new(0.0, -20.0, 10.0), 24.0, 30, 5),
+            (Vec3::new(-60.0, 130.0, 10.0), 20.0, 20, 4),
+            (Vec3::new(120.0, 40.0, 10.0), 30.0, 45, 7),
         ];
-        assert_eq!(rat_positions.len(), 3);
+        assert_eq!(rat_data.len(), 5);
+        // Alpha rat has more HP
+        assert!(rat_data[4].2 > rat_data[0].2);
+        // Small rat is smaller
+        assert!(rat_data[3].1 < rat_data[0].1);
     }
 
     #[test]
     fn test_quest_progress_tracking() {
         let mut journal = QuestJournal::default();
         journal.accept("clear_the_cellar");
-        journal.add_objective("clear_the_cellar", "kill_rats", 3);
+        journal.add_objective("clear_the_cellar", "kill_rats", 5);
 
-        // Kill 2 rats
-        journal.progress_objective("clear_the_cellar", "kill_rats", 1);
-        journal.progress_objective("clear_the_cellar", "kill_rats", 1);
+        // Kill 4 rats
+        for _ in 0..4 {
+            journal.progress_objective("clear_the_cellar", "kill_rats", 1);
+        }
         assert!(!journal.all_objectives_complete("clear_the_cellar"));
 
-        // Kill 3rd rat
+        // Kill 5th rat
         let complete = journal.progress_objective("clear_the_cellar", "kill_rats", 1);
         assert!(complete);
         assert!(journal.all_objectives_complete("clear_the_cellar"));

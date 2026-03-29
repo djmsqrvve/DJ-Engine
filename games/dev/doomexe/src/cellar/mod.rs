@@ -1,6 +1,6 @@
 //! Cellar dungeon zone for DoomExe.
 //!
-//! Dark basement with 3 rat enemies. Player fights rats (real-time combat),
+//! Dark basement with 5 rat enemies (3 normal, 1 small, 1 alpha). Player fights rats (real-time combat),
 //! collects loot, finds a weapon chest, and progresses the "clear_the_cellar" quest.
 
 use crate::state::GameState;
@@ -93,28 +93,38 @@ fn setup_cellar(mut commands: Commands) {
         CellarEntity,
     ));
 
-    // 3 Rats spread across the cellar
-    let rat_positions = [
-        Vec3::new(-100.0, 60.0, 10.0),
-        Vec3::new(80.0, 100.0, 10.0),
-        Vec3::new(0.0, -20.0, 10.0),
+    // 5 Rats spread across the cellar (varied sizes and stats)
+    let rats: [(Vec3, f32, i32, i32); 5] = [
+        (Vec3::new(-120.0, 60.0, 10.0), 24.0, 30, 5), // normal rat
+        (Vec3::new(80.0, 100.0, 10.0), 24.0, 30, 5),  // normal rat
+        (Vec3::new(0.0, -20.0, 10.0), 24.0, 30, 5),   // normal rat
+        (Vec3::new(-60.0, 130.0, 10.0), 20.0, 20, 4), // small rat
+        (Vec3::new(120.0, 40.0, 10.0), 30.0, 45, 7),  // big rat (alpha)
     ];
 
-    for (i, pos) in rat_positions.iter().enumerate() {
+    for (i, &(pos, size, hp, damage)) in rats.iter().enumerate() {
+        let color = if size > 26.0 {
+            Color::srgb(0.6, 0.2, 0.1) // alpha rat = darker
+        } else if size < 22.0 {
+            Color::srgb(0.55, 0.35, 0.25) // small rat = lighter
+        } else {
+            Color::srgb(0.5, 0.25, 0.15) // normal
+        };
+
         commands.spawn((
             Name::new(format!("Rat {}", i + 1)),
             Sprite {
-                color: Color::srgb(0.5, 0.25, 0.15),
-                custom_size: Some(Vec2::new(24.0, 24.0)),
+                color,
+                custom_size: Some(Vec2::new(size, size)),
                 ..default()
             },
-            Transform::from_translation(*pos),
+            Transform::from_translation(pos),
             CellarRat { index: i },
             dj_engine::combat::AttackCooldown::new(2.0),
             dj_engine::data::components::CombatStatsComponent {
-                max_hp: 30,
-                hp: 30,
-                damage: 5,
+                max_hp: hp,
+                hp,
+                damage,
                 defense: 2,
                 crit_chance: 0.05,
                 loot_table_id: Some("rat_loot".into()),
@@ -137,7 +147,7 @@ fn setup_cellar(mut commands: Commands) {
         CellarEntity,
     ));
 
-    info!("Cellar: spawned 3 rats + weapon chest");
+    info!("Cellar: spawned 5 rats (3 normal, 1 small, 1 alpha) + weapon chest");
 }
 
 fn teardown_cellar(mut commands: Commands, query: Query<Entity, With<CellarEntity>>) {

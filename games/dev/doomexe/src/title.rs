@@ -64,7 +64,35 @@ fn setup_title_ui(mut commands: Commands, mut state: ResMut<TitleState>) {
                 },
                 TextColor(Color::srgb(0.8, 0.0, 0.0)),
                 Node {
-                    margin: UiRect::bottom(Val::Px(50.0)),
+                    margin: UiRect::bottom(Val::Px(8.0)),
+                    ..default()
+                },
+            ));
+
+            // Subtitle
+            parent.spawn((
+                Text::new("A Corrupted Hamster Narrator JRPG"),
+                TextFont {
+                    font_size: 16.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.5, 0.3, 0.3)),
+                Node {
+                    margin: UiRect::bottom(Val::Px(6.0)),
+                    ..default()
+                },
+            ));
+
+            // Version
+            parent.spawn((
+                Text::new("DJ Engine v0.1.0 | CRT Mode"),
+                TextFont {
+                    font_size: 12.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.3, 0.3, 0.3)),
+                Node {
+                    margin: UiRect::bottom(Val::Px(40.0)),
                     ..default()
                 },
             ));

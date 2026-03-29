@@ -60,7 +60,7 @@ fn handle_story_events(
             "QuestAccept_cellar" => {
                 info!("Story Event: Quest accepted — clear_the_cellar");
                 quest_journal.accept("clear_the_cellar");
-                quest_journal.add_objective("clear_the_cellar", "kill_rats", 3);
+                quest_journal.add_objective("clear_the_cellar", "kill_rats", 5);
                 flags.0.insert("QuestAccepted_cellar".to_string(), true);
             }
             "QuestTurnIn_cellar" => {
