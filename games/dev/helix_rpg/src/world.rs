@@ -53,8 +53,12 @@ struct ZoneMap {
     /// zone_id -> (grid_x, grid_y, display_name)
     zones: HashMap<String, (usize, usize, String)>,
     total_enemies: usize,
+    total_npcs: usize,
     total_quests: usize,
     total_loot_tables: usize,
+    total_abilities: usize,
+    total_consumables: usize,
+    total_equipment: usize,
 }
 
 // ---------------------------------------------------------------------------
@@ -239,10 +243,31 @@ fn setup_world(
             enemy_count += 1;
         }
 
-        // --- Spawn NPCs ---
+        // --- Spawn NPCs by zone (using location_tags) ---
+        let mut npc_zone_idx: HashMap<String, usize> = HashMap::new();
         for (i, npc_row) in db.npcs.iter().enumerate() {
-            let x = -200.0;
-            let y = -100.0 + i as f32 * 60.0;
+            // Try to place NPC in a zone from its location_tags
+            let npc_zone = npc_row
+                .location_tags
+                .iter()
+                .find(|tag| zone_positions.contains_key(*tag))
+                .cloned();
+
+            let (base_x, base_y) = if let Some(ref zone_id) = npc_zone {
+                let idx = npc_zone_idx.entry(zone_id.clone()).or_insert(0);
+                *idx += 1;
+                let (zx, zy) = zone_positions[zone_id];
+                // Offset NPCs to the edge of the zone
+                let offset = (*idx as f32) * 35.0;
+                (zx - ZONE_SIZE * 0.35 + offset, zy - ZONE_SIZE * 0.2)
+            } else {
+                // Unzoned NPCs go to a "town" area near origin
+                (
+                    -300.0 + (i % 10) as f32 * 50.0,
+                    -200.0 - (i / 10) as f32 * 50.0,
+                )
+            };
+
             let name = npc_row
                 .name
                 .get("en")
@@ -250,7 +275,7 @@ fn setup_world(
                 .unwrap_or_else(|| npc_row.id.clone());
             commands.spawn((
                 HelixNpc,
-                Transform::from_xyz(x, y, 0.0),
+                Transform::from_xyz(base_x, base_y, 0.0),
                 InteractivityComponent {
                     trigger_type: TriggerType::Npc,
                     trigger_id: npc_row.id.clone(),
@@ -268,26 +293,33 @@ fn setup_world(
                     ..default()
                 },
                 Sprite {
-                    color: Color::srgb(0.2, 0.8, 0.4),
-                    custom_size: Some(Vec2::new(28.0, 28.0)),
+                    color: npc_color(&npc_row.default_faction),
+                    custom_size: Some(Vec2::new(26.0, 26.0)),
                     ..default()
                 },
             ));
-            info!("Helix RPG: spawned NPC '{}'", name);
+            info!("Helix RPG: spawned NPC '{}' in {:?}", name, npc_zone);
         }
 
         // --- Register quests ---
         let quest_count = register_quests(&db.quests, &mut quest_journal);
 
         zone_map.total_enemies = enemy_count;
+        zone_map.total_npcs = db.npcs.len();
         zone_map.total_quests = quest_count;
         zone_map.total_loot_tables = db.loot_tables.len();
+        zone_map.total_abilities = db.abilities.len();
+        zone_map.total_consumables = db.consumables.len();
+        zone_map.total_equipment = db.equipment.len();
 
         info!(
-            "Helix RPG: loaded {} enemies across {} zones, {} NPCs, {} quests, {} loot tables",
+            "Helix RPG: loaded {} enemies, {} NPCs across {} zones | {} abilities, {} equipment, {} consumables | {} quests, {} loot tables",
             enemy_count,
-            zone_map.zones.len(),
             db.npcs.len(),
+            zone_map.zones.len(),
+            db.abilities.len(),
+            db.equipment.len(),
+            db.consumables.len(),
             quest_count,
             db.loot_tables.len(),
         );
@@ -391,6 +423,16 @@ fn scatter_position(origin_x: f32, origin_y: f32, index: usize, _total: usize) -
         origin_x + angle.cos() * radius,
         origin_y + angle.sin() * radius,
     )
+}
+
+/// Color NPCs based on faction.
+fn npc_color(faction: &str) -> Color {
+    match faction {
+        f if f.contains("alliance") || f.contains("friendly") => Color::srgb(0.2, 0.6, 1.0),
+        f if f.contains("horde") => Color::srgb(0.8, 0.3, 0.2),
+        f if f.contains("neutral") => Color::srgb(0.8, 0.8, 0.3),
+        _ => Color::srgb(0.2, 0.8, 0.4),
+    }
 }
 
 /// Color enemies based on HP — weak = green, medium = orange, strong = red.
@@ -591,10 +633,11 @@ fn update_hud(
     let current_zone = detect_zone(player_pos, &zone_map);
 
     **text = format!(
-        "HP: {}/{} | Mana: {} | Gold: {} | Enemies: {} | Quest: {} | Zone: {} | Quests: {} | Loot Tables: {}  [Space=Attack, WASD=Move]",
-        stats.hp, stats.max_hp, stats.mana, gold, enemies_alive, quest_status,
-        current_zone,
-        zone_map.total_quests,
+        "HP: {}/{} | Mana: {} | Gold: {} | Enemies: {} | Zone: {} | Quest: {}\nDB: {} mobs, {} NPCs, {} abilities, {} equip, {} consumables | {} loot tables  [Space=Attack, WASD=Move]",
+        stats.hp, stats.max_hp, stats.mana, gold, enemies_alive,
+        current_zone, quest_status,
+        zone_map.total_enemies, zone_map.total_npcs, zone_map.total_abilities,
+        zone_map.total_equipment, zone_map.total_consumables,
         zone_map.total_loot_tables,
     );
 }
@@ -816,7 +859,28 @@ mod tests {
         let zm = ZoneMap::default();
         assert!(zm.zones.is_empty());
         assert_eq!(zm.total_enemies, 0);
+        assert_eq!(zm.total_npcs, 0);
         assert_eq!(zm.total_quests, 0);
         assert_eq!(zm.total_loot_tables, 0);
+        assert_eq!(zm.total_abilities, 0);
+        assert_eq!(zm.total_consumables, 0);
+        assert_eq!(zm.total_equipment, 0);
+    }
+
+    #[test]
+    fn test_npc_color_by_faction() {
+        let alliance = npc_color("faction_alliance_main");
+        let horde = npc_color("faction_horde_main");
+        let neutral = npc_color("faction_neutral_vendor");
+        let unknown = npc_color("");
+
+        // Alliance should be blue-ish
+        assert!(matches!(alliance, Color::Srgba(c) if c.blue > c.red));
+        // Horde should be red-ish
+        assert!(matches!(horde, Color::Srgba(c) if c.red > c.blue));
+        // Neutral should be yellow-ish
+        assert!(matches!(neutral, Color::Srgba(c) if c.red > 0.5 && c.green > 0.5));
+        // Unknown defaults to green
+        assert!(matches!(unknown, Color::Srgba(c) if c.green > c.red));
     }
 }
