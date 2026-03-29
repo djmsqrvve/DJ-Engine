@@ -5,10 +5,17 @@ use bevy::window::PrimaryWindow;
 
 use crate::board::StrategoBoard;
 use crate::pieces::{army_composition, PieceRank, PlacedPiece, Team};
-use crate::rendering::{world_to_cell, StatusText};
+use crate::rendering::{cell_to_world, world_to_cell, StatusText};
 use crate::rules::{self, CombatResult};
 use crate::state::{GamePhase, GameResult};
 use crate::tutorial_steps::TutorialState;
+
+/// A short-lived combat effect particle.
+#[derive(Component)]
+pub struct CombatFx {
+    pub timer: Timer,
+    pub velocity: Vec2,
+}
 
 /// Temporary feedback message shown for a few seconds.
 #[derive(Resource, Default, Debug)]
@@ -155,6 +162,7 @@ pub fn setup_status_system(
 
 /// Handle clicks during Red's turn — select piece, then move.
 pub fn player_click_system(
+    mut commands: Commands,
     mouse: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_q: Query<(&Camera, &GlobalTransform)>,
@@ -200,8 +208,9 @@ pub fn player_click_system(
                 tutorial.first_combat_done = true;
             }
 
-            // Combat feedback.
+            // Combat feedback + visual FX.
             if let (Some(combat), Some(atk), Some(def)) = (combat, attacker_rank, defender_rank) {
+                let target_pos = cell_to_world(x, y);
                 match combat {
                     CombatResult::AttackerWins => {
                         feedback.set(format!(
@@ -209,6 +218,7 @@ pub fn player_click_system(
                             atk.name(),
                             def.name()
                         ));
+                        spawn_combat_fx(&mut commands, target_pos, Color::srgba(1.0, 0.9, 0.2, 0.8), 6);
                     }
                     CombatResult::DefenderWins => {
                         feedback.set(format!(
@@ -216,11 +226,17 @@ pub fn player_click_system(
                             def.name(),
                             atk.name()
                         ));
+                        let attacker_pos = cell_to_world(sx, sy);
+                        spawn_combat_fx(&mut commands, attacker_pos, Color::srgba(0.9, 0.2, 0.1, 0.9), 8);
                     }
                     CombatResult::BothDie => {
                         feedback.set(format!("Both {}s destroyed each other!", atk.name()));
+                        spawn_combat_fx(&mut commands, target_pos, Color::srgba(0.9, 0.2, 0.1, 0.9), 10);
+                        let attacker_pos = cell_to_world(sx, sy);
+                        spawn_combat_fx(&mut commands, attacker_pos, Color::srgba(0.9, 0.2, 0.1, 0.9), 10);
                     }
                     CombatResult::FlagCaptured(loser) => {
+                        spawn_combat_fx(&mut commands, target_pos, Color::srgba(1.0, 0.85, 0.0, 1.0), 16);
                         game_result.winner = Some(loser.opponent());
                         next_state.set(GamePhase::GameOver);
                         return;
@@ -328,5 +344,46 @@ pub fn restart_system(
         *tutorial = TutorialState::default();
         *feedback = FeedbackMessage::default();
         next_state.set(GamePhase::Setup);
+    }
+}
+
+/// Spawn particle burst at a world position.
+fn spawn_combat_fx(commands: &mut Commands, pos: Vec3, color: Color, count: u32) {
+    for i in 0..count {
+        let angle = i as f32 * std::f32::consts::TAU / count as f32;
+        let dir = Vec2::new(angle.cos(), angle.sin());
+        commands.spawn((
+            CombatFx {
+                timer: Timer::from_seconds(0.5, TimerMode::Once),
+                velocity: dir * 80.0,
+            },
+            Sprite {
+                color,
+                custom_size: Some(Vec2::new(4.0, 4.0)),
+                ..default()
+            },
+            Transform::from_xyz(pos.x + dir.x * 5.0, pos.y + dir.y * 5.0, 20.0),
+        ));
+    }
+}
+
+/// Animate and despawn combat FX particles.
+pub fn animate_combat_fx_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut CombatFx, &mut Transform, &mut Sprite)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut fx, mut transform, mut sprite) in &mut query {
+        fx.timer.tick(time.delta());
+        transform.translation.x += fx.velocity.x * dt;
+        transform.translation.y += fx.velocity.y * dt;
+
+        let alpha = 1.0 - fx.timer.fraction();
+        sprite.color = sprite.color.with_alpha(alpha);
+
+        if fx.timer.is_finished() {
+            commands.entity(entity).despawn();
+        }
     }
 }

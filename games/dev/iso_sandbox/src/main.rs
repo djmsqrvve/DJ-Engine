@@ -48,6 +48,7 @@ fn main() {
                     .after(input::click_place_system)
                     .after(input::click_remove_system),
                 rendering::sync_hover_system.after(input::hover_system),
+                input::animate_fx_system,
             ),
         )
         .run();

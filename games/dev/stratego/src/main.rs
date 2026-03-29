@@ -51,6 +51,7 @@ fn main() {
                     .after(input::player_click_system)
                     .after(ai::ai_turn_system),
                 rendering::sync_setup_zone_system,
+                input::animate_combat_fx_system,
             ),
         )
         // Setup phase
