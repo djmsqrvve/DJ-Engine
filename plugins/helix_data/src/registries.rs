@@ -343,4 +343,55 @@ en = "Test"
         assert_eq!(regs.items.len(), 0); // Missing file → empty registry
         assert_eq!(regs.total_entities(), 1);
     }
+
+    #[test]
+    fn load_lenient_with_invalid_toml_skips_gracefully() {
+        let dir = tempfile::tempdir().unwrap();
+        // Write invalid TOML that won't parse
+        std::fs::write(dir.path().join("abilities.toml"), "NOT VALID {{{{").unwrap();
+
+        let regs = load_helix_registries_lenient(dir.path()).expect("Lenient load should not fail");
+        assert_eq!(regs.abilities.len(), 0); // Failed parse → empty
+    }
+
+    #[test]
+    fn summary_has_26_kinds() {
+        let regs = HelixRegistries::default();
+        let summary = regs.summary();
+        assert_eq!(summary.len(), 26);
+        for (_, count) in &summary {
+            assert_eq!(*count, 0);
+        }
+    }
+
+    #[test]
+    fn load_real_data_mobs_have_content() {
+        let helix3d_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../helix/helix_standardization/dist/helix3d");
+        if !helix3d_dir.is_dir() {
+            eprintln!("Skipping: helix3d dir not found");
+            return;
+        }
+
+        let regs = load_helix_registries_lenient(&helix3d_dir).unwrap();
+        // Mobs should always load (no enum issues)
+        assert!(regs.mobs.len() >= 50, "Expected 50+ mobs, got {}", regs.mobs.len());
+        // Quests should always load
+        assert!(regs.quests.len() >= 60, "Expected 60+ quests, got {}", regs.quests.len());
+        // Zones should always load
+        assert!(regs.zones.len() >= 15, "Expected 15+ zones, got {}", regs.zones.len());
+    }
+
+    #[test]
+    fn load_real_data_loot_tables_populated() {
+        let helix3d_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../helix/helix_standardization/dist/helix3d");
+        if !helix3d_dir.is_dir() {
+            eprintln!("Skipping: helix3d dir not found");
+            return;
+        }
+
+        let regs = load_helix_registries_lenient(&helix3d_dir).unwrap();
+        assert!(regs.loot_tables.len() >= 30, "Expected 30+ loot tables, got {}", regs.loot_tables.len());
+    }
 }

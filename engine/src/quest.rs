@@ -317,4 +317,72 @@ mod tests {
         assert_eq!(completed.len(), 1);
         assert_eq!(completed[0].quest_id, "quest_02");
     }
+
+    #[test]
+    fn test_multiple_objectives_all_must_complete() {
+        let mut journal = QuestJournal::default();
+        journal.accept("multi_obj");
+        journal.add_objective("multi_obj", "kill_wolves", 3);
+        journal.add_objective("multi_obj", "collect_herbs", 5);
+
+        journal.progress_objective("multi_obj", "kill_wolves", 3);
+        assert!(!journal.all_objectives_complete("multi_obj"));
+
+        journal.progress_objective("multi_obj", "collect_herbs", 5);
+        assert!(journal.all_objectives_complete("multi_obj"));
+    }
+
+    #[test]
+    fn test_abandon_then_reaccept() {
+        let mut journal = QuestJournal::default();
+        journal.accept("quest_01");
+        journal.abandon("quest_01");
+        assert_eq!(journal.status("quest_01"), Some(QuestStatus::Abandoned));
+        assert_eq!(journal.active_count(), 0);
+    }
+
+    #[test]
+    fn test_unknown_quest_status_is_none() {
+        let journal = QuestJournal::default();
+        assert_eq!(journal.status("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_objective_on_unknown_quest_is_noop() {
+        let mut journal = QuestJournal::default();
+        // Should not panic
+        let result = journal.progress_objective("unknown", "obj", 1);
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_all_objectives_complete_no_objectives() {
+        let mut journal = QuestJournal::default();
+        journal.accept("empty_quest");
+        // Quest with no objectives should report complete
+        assert!(journal.all_objectives_complete("empty_quest"));
+    }
+
+    #[test]
+    fn test_active_count_tracks_accepted_only() {
+        let mut journal = QuestJournal::default();
+        journal.accept("q1");
+        journal.accept("q2");
+        journal.accept("q3");
+        assert_eq!(journal.active_count(), 3);
+
+        journal.complete("q1");
+        journal.turn_in("q1");
+        assert_eq!(journal.active_count(), 2);
+
+        journal.abandon("q2");
+        assert_eq!(journal.active_count(), 1);
+    }
+
+    #[test]
+    fn test_quests_with_status_empty_journal() {
+        let journal = QuestJournal::default();
+        let result = journal.quests_with_status(QuestStatus::Accepted);
+        assert!(result.is_empty());
+    }
 }

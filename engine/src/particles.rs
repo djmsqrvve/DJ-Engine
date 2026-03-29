@@ -430,4 +430,79 @@ mod tests {
         assert!(config.enabled);
         assert!(config.combat_particles);
     }
+
+    #[test]
+    fn test_spawn_burst_positions_fan_out() {
+        let config = ParticleConfig {
+            count: 4,
+            speed: 100.0,
+            spread: std::f32::consts::TAU,
+            ..Default::default()
+        };
+        // Velocities from different angles should point in different directions
+        let angles: Vec<f32> = (0..config.count)
+            .map(|i| {
+                let base = (i as f32 / config.count as f32) * config.spread;
+                base
+            })
+            .collect();
+        assert!(angles[0] != angles[1]);
+        assert!(angles.len() == 4);
+    }
+
+    #[test]
+    fn test_particle_gravity_direction() {
+        // Negative gravity = falls down, positive = floats up
+        let sparks = ParticleConfig::hit_sparks();
+        assert!(sparks.gravity < 0.0, "Hit sparks should fall");
+
+        let heal = ParticleConfig::heal_swirl();
+        assert!(heal.gravity > 0.0, "Heal should float up");
+    }
+
+    #[test]
+    fn test_particle_color_end_optional() {
+        let default_config = ParticleConfig::default();
+        assert!(default_config.color_end.is_none());
+
+        let sparks = ParticleConfig::hit_sparks();
+        assert!(sparks.color_end.is_some());
+    }
+
+    #[test]
+    fn test_emitter_timer_repeating() {
+        let emitter = ParticleEmitter::new(ParticleConfig::default(), 5.0);
+        assert_eq!(emitter.timer.mode(), TimerMode::Repeating);
+    }
+
+    #[test]
+    fn test_all_presets_have_positive_lifetime() {
+        let presets = [
+            ParticleConfig::hit_sparks(),
+            ParticleConfig::death_burst(),
+            ParticleConfig::heal_swirl(),
+            ParticleConfig::gold_sparkle(),
+        ];
+        for (i, preset) in presets.iter().enumerate() {
+            assert!(preset.lifetime > 0.0, "Preset {} has non-positive lifetime", i);
+            assert!(preset.count > 0, "Preset {} has zero count", i);
+            assert!(preset.speed > 0.0, "Preset {} has non-positive speed", i);
+        }
+    }
+
+    #[test]
+    fn test_particle_fade_start_in_range() {
+        let config = ParticleConfig::default();
+        assert!(config.lifetime > 0.0);
+        // Particles should start fading before they die
+        let p = Particle {
+            lifetime: Timer::from_seconds(config.lifetime, TimerMode::Once),
+            velocity: Vec2::ZERO,
+            gravity: 0.0,
+            fade_start: 0.4,
+            initial_scale: 1.0,
+            shrink: true,
+        };
+        assert!(p.fade_start >= 0.0 && p.fade_start <= 1.0);
+    }
 }

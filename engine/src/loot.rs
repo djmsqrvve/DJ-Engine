@@ -190,4 +190,55 @@ mod tests {
         let (_, qty) = roll_loot_entry(&entry, 0.5).unwrap();
         assert!((5..=10).contains(&qty));
     }
+
+    #[test]
+    fn test_roll_loot_entry_at_boundary() {
+        let entry = LootEntry {
+            item_id: "gem".into(),
+            chance: 0.5,
+            min_quantity: 1,
+            max_quantity: 1,
+        };
+        // Roll exactly at chance boundary — should NOT drop (roll < chance)
+        assert!(roll_loot_entry(&entry, 0.5).is_none());
+        // Roll just below — should drop
+        assert!(roll_loot_entry(&entry, 0.49).is_some());
+    }
+
+    #[test]
+    fn test_roll_loot_table_multiple_guaranteed() {
+        let mut table = LootTableRow::new("multi");
+        table.add_entry("gold", 1.0, 3);
+        table.add_entry("silver", 1.0, 2);
+        table.add_entry("bronze", 1.0, 1);
+
+        let drops = roll_loot_table(&table);
+        assert_eq!(drops.len(), 3);
+    }
+
+    #[test]
+    fn test_empty_loot_table() {
+        let table = LootTableRow::new("empty");
+        let drops = roll_loot_table(&table);
+        assert!(drops.is_empty());
+    }
+
+    #[test]
+    fn test_loot_table_row_new() {
+        let table = LootTableRow::new("test");
+        assert_eq!(table.id, "test");
+        assert!(table.entries.is_empty());
+    }
+
+    #[test]
+    fn test_min_equals_max_quantity() {
+        let entry = LootEntry {
+            item_id: "exact".into(),
+            chance: 1.0,
+            min_quantity: 5,
+            max_quantity: 5,
+        };
+        let (_, qty) = roll_loot_entry(&entry, 0.0).unwrap();
+        assert_eq!(qty, 5);
+    }
 }

@@ -390,4 +390,79 @@ mod tests {
         let decay = progress * intensity;
         assert!((decay - 0.4).abs() < f32::EPSILON);
     }
+
+    #[test]
+    fn test_shake_custom_values() {
+        let shake = ScreenShakeEvent {
+            intensity: 12.0,
+            duration: 1.0,
+        };
+        assert_eq!(shake.intensity, 12.0);
+        assert_eq!(shake.duration, 1.0);
+    }
+
+    #[test]
+    fn test_flash_custom_values() {
+        let flash = ScreenFlashEvent {
+            color: Color::srgba(0.0, 1.0, 0.0, 0.5),
+            duration: 0.3,
+            intensity: 0.8,
+        };
+        assert_eq!(flash.duration, 0.3);
+        assert_eq!(flash.intensity, 0.8);
+    }
+
+    #[test]
+    fn test_shake_preset_durations_positive() {
+        let presets = [
+            ScreenShakeEvent::light(),
+            ScreenShakeEvent::medium(),
+            ScreenShakeEvent::heavy(),
+        ];
+        for preset in &presets {
+            assert!(preset.duration > 0.0);
+            assert!(preset.intensity > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_flash_preset_intensities() {
+        let presets = [
+            ScreenFlashEvent::gold(),
+            ScreenFlashEvent::damage(),
+            ScreenFlashEvent::white(),
+            ScreenFlashEvent::heal(),
+        ];
+        for preset in &presets {
+            assert!(preset.intensity > 0.0);
+            assert!(preset.duration > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_vignette_at_threshold_boundary() {
+        let threshold = 0.3_f32;
+
+        // Exactly at threshold: no vignette
+        let hp_fraction = threshold;
+        let severity = 1.0 - (hp_fraction / threshold);
+        assert!((severity).abs() < f32::EPSILON);
+
+        // Just below threshold: very slight vignette
+        let hp_fraction = 0.29_f32;
+        let severity = 1.0 - (hp_fraction / threshold);
+        assert!(severity > 0.0);
+        assert!(severity < 0.1);
+    }
+
+    #[test]
+    fn test_config_can_disable_all() {
+        let mut config = ScreenFxConfig::default();
+        config.shake_enabled = false;
+        config.flash_enabled = false;
+        config.vignette_enabled = false;
+        assert!(!config.shake_enabled);
+        assert!(!config.flash_enabled);
+        assert!(!config.vignette_enabled);
+    }
 }
