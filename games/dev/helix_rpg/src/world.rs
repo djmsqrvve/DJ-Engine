@@ -172,10 +172,7 @@ fn setup_world(
         let enemies_by_zone = group_enemies_by_zone(&db.enemies);
 
         for (zone_id, enemies) in &enemies_by_zone {
-            let (origin_x, origin_y) = zone_positions
-                .get(zone_id)
-                .copied()
-                .unwrap_or((0.0, 0.0));
+            let (origin_x, origin_y) = zone_positions.get(zone_id).copied().unwrap_or((0.0, 0.0));
 
             for (i, enemy_row) in enemies.iter().enumerate() {
                 let pos = scatter_position(origin_x, origin_y, i, enemies.len());
@@ -348,10 +345,7 @@ fn setup_world(
 // ---------------------------------------------------------------------------
 
 /// Build a grid layout for zones. Returns zone_id -> (world_x, world_y).
-fn build_zone_layout(
-    zones: &[ZoneRow],
-    zone_map: &mut ZoneMap,
-) -> HashMap<String, (f32, f32)> {
+fn build_zone_layout(zones: &[ZoneRow], zone_map: &mut ZoneMap) -> HashMap<String, (f32, f32)> {
     let mut positions = HashMap::new();
 
     // Sort zones by level_min for spatial coherence
@@ -749,9 +743,7 @@ mod tests {
 
     #[test]
     fn test_scatter_position_distinct() {
-        let positions: Vec<Vec2> = (0..10)
-            .map(|i| scatter_position(0.0, 0.0, i, 10))
-            .collect();
+        let positions: Vec<Vec2> = (0..10).map(|i| scatter_position(0.0, 0.0, i, 10)).collect();
 
         // All positions should be distinct
         for i in 0..positions.len() {

@@ -375,11 +375,23 @@ en = "Test"
 
         let regs = load_helix_registries_lenient(&helix3d_dir).unwrap();
         // Mobs should always load (no enum issues)
-        assert!(regs.mobs.len() >= 50, "Expected 50+ mobs, got {}", regs.mobs.len());
+        assert!(
+            regs.mobs.len() >= 50,
+            "Expected 50+ mobs, got {}",
+            regs.mobs.len()
+        );
         // Quests should always load
-        assert!(regs.quests.len() >= 60, "Expected 60+ quests, got {}", regs.quests.len());
+        assert!(
+            regs.quests.len() >= 60,
+            "Expected 60+ quests, got {}",
+            regs.quests.len()
+        );
         // Zones should always load
-        assert!(regs.zones.len() >= 15, "Expected 15+ zones, got {}", regs.zones.len());
+        assert!(
+            regs.zones.len() >= 15,
+            "Expected 15+ zones, got {}",
+            regs.zones.len()
+        );
     }
 
     #[test]
@@ -392,6 +404,10 @@ en = "Test"
         }
 
         let regs = load_helix_registries_lenient(&helix3d_dir).unwrap();
-        assert!(regs.loot_tables.len() >= 30, "Expected 30+ loot tables, got {}", regs.loot_tables.len());
+        assert!(
+            regs.loot_tables.len() >= 30,
+            "Expected 30+ loot tables, got {}",
+            regs.loot_tables.len()
+        );
     }
 }

@@ -218,7 +218,12 @@ pub fn player_click_system(
                             atk.name(),
                             def.name()
                         ));
-                        spawn_combat_fx(&mut commands, target_pos, Color::srgba(1.0, 0.9, 0.2, 0.8), 6);
+                        spawn_combat_fx(
+                            &mut commands,
+                            target_pos,
+                            Color::srgba(1.0, 0.9, 0.2, 0.8),
+                            6,
+                        );
                     }
                     CombatResult::DefenderWins => {
                         feedback.set(format!(
@@ -227,16 +232,36 @@ pub fn player_click_system(
                             atk.name()
                         ));
                         let attacker_pos = cell_to_world(sx, sy);
-                        spawn_combat_fx(&mut commands, attacker_pos, Color::srgba(0.9, 0.2, 0.1, 0.9), 8);
+                        spawn_combat_fx(
+                            &mut commands,
+                            attacker_pos,
+                            Color::srgba(0.9, 0.2, 0.1, 0.9),
+                            8,
+                        );
                     }
                     CombatResult::BothDie => {
                         feedback.set(format!("Both {}s destroyed each other!", atk.name()));
-                        spawn_combat_fx(&mut commands, target_pos, Color::srgba(0.9, 0.2, 0.1, 0.9), 10);
+                        spawn_combat_fx(
+                            &mut commands,
+                            target_pos,
+                            Color::srgba(0.9, 0.2, 0.1, 0.9),
+                            10,
+                        );
                         let attacker_pos = cell_to_world(sx, sy);
-                        spawn_combat_fx(&mut commands, attacker_pos, Color::srgba(0.9, 0.2, 0.1, 0.9), 10);
+                        spawn_combat_fx(
+                            &mut commands,
+                            attacker_pos,
+                            Color::srgba(0.9, 0.2, 0.1, 0.9),
+                            10,
+                        );
                     }
                     CombatResult::FlagCaptured(loser) => {
-                        spawn_combat_fx(&mut commands, target_pos, Color::srgba(1.0, 0.85, 0.0, 1.0), 16);
+                        spawn_combat_fx(
+                            &mut commands,
+                            target_pos,
+                            Color::srgba(1.0, 0.85, 0.0, 1.0),
+                            16,
+                        );
                         game_result.winner = Some(loser.opponent());
                         next_state.set(GamePhase::GameOver);
                         return;

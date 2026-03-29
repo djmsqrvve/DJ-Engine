@@ -484,7 +484,11 @@ mod tests {
             ParticleConfig::gold_sparkle(),
         ];
         for (i, preset) in presets.iter().enumerate() {
-            assert!(preset.lifetime > 0.0, "Preset {} has non-positive lifetime", i);
+            assert!(
+                preset.lifetime > 0.0,
+                "Preset {} has non-positive lifetime",
+                i
+            );
             assert!(preset.count > 0, "Preset {} has zero count", i);
             assert!(preset.speed > 0.0, "Preset {} has non-positive speed", i);
         }
