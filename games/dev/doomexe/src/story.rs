@@ -88,6 +88,28 @@ fn handle_story_events(
                     );
                 }
             }
+            "VendorSell_rat_tail" => {
+                let sell_value = 3_u64;
+                if inventory.has_item("rat_tail", 1) {
+                    inventory.remove_item("rat_tail", 1);
+                    inventory.add_currency("gold", sell_value);
+                    info!("Vendor: sold 1 rat_tail for {} gold", sell_value);
+                } else {
+                    info!("Vendor: no rat_tail to sell");
+                }
+            }
+            "VendorSellAll_rat_tail" => {
+                let sell_value = 3_u64;
+                let count = inventory.count_item("rat_tail");
+                if count > 0 {
+                    inventory.remove_item("rat_tail", count);
+                    let total = sell_value * count as u64;
+                    inventory.add_currency("gold", total);
+                    info!("Vendor: sold {} rat_tails for {} gold", count, total);
+                } else {
+                    info!("Vendor: no rat_tails to sell");
+                }
+            }
             "EnterCellar" => {
                 info!("Story Event: Entering cellar");
                 battle_pending.0 = true;

@@ -258,6 +258,30 @@ pub fn interaction_check(
                 next: Some(end),
             });
 
+            // Sell flow
+            let sold_tail = graph.add(StoryNode::Dialogue {
+                speaker: "Old Ratcatcher".to_string(),
+                text: "Rat tail, eh? Here's 3 gold. I know what these are worth.".to_string(),
+                portrait: Some("vendor".to_string()),
+                next: Some(end),
+            });
+            let sell_tail = graph.add(StoryNode::Event {
+                event_id: "VendorSell_rat_tail".to_string(),
+                payload: "".to_string(),
+                next: Some(sold_tail),
+            });
+            let sold_all_tails = graph.add(StoryNode::Dialogue {
+                speaker: "Old Ratcatcher".to_string(),
+                text: "I'll take the lot. Here's your coin.".to_string(),
+                portrait: Some("vendor".to_string()),
+                next: Some(end),
+            });
+            let sell_all_tails = graph.add(StoryNode::Event {
+                event_id: "VendorSellAll_rat_tail".to_string(),
+                payload: "".to_string(),
+                next: Some(sold_all_tails),
+            });
+
             let greeting = graph.add(StoryNode::Choice {
                 speaker: "Old Ratcatcher".to_string(),
                 prompt: "What'll it be?".to_string(),
@@ -265,6 +289,16 @@ pub fn interaction_check(
                     GraphChoice {
                         text: "Buy Health Potion (10 gold)".into(),
                         next: Some(buy),
+                        flag_required: None,
+                    },
+                    GraphChoice {
+                        text: "Sell Rat Tail (3 gold)".into(),
+                        next: Some(sell_tail),
+                        flag_required: None,
+                    },
+                    GraphChoice {
+                        text: "Sell All Rat Tails".into(),
+                        next: Some(sell_all_tails),
                         flag_required: None,
                     },
                     GraphChoice {
