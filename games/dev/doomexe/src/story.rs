@@ -155,8 +155,9 @@ fn handle_story_events(
                 }
             }
             "DemoComplete" => {
-                info!("Story Event: Demo complete!");
+                info!("Story Event: Demo complete! Entering victory screen.");
                 flags.0.insert("DemoComplete".to_string(), true);
+                next_state.set(GameState::Victory);
                 if let Some(ref mut flash) = flash_events {
                     flash.write(ScreenFlashEvent::gold());
                 }

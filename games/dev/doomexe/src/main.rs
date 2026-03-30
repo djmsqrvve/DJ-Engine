@@ -24,6 +24,7 @@ mod state;
 mod story;
 mod title;
 mod types;
+mod victory;
 
 fn build_game_database() -> dj_engine::data::database::Database {
     use dj_engine::data::database::*;
@@ -210,6 +211,7 @@ fn main() {
         .add_plugins(corrupted_grove::CorruptedGrovePlugin)
         .add_plugins(haunted_crypt::HauntedCryptPlugin)
         .add_plugins(gameover::GameOverPlugin)
+        .add_plugins(victory::VictoryPlugin)
         .add_plugins(pause::PausePlugin)
         .add_plugins(assets::GameAssetsPlugin)
         .add_systems(Startup, spawn_health_vignette)
