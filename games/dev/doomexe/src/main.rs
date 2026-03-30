@@ -15,6 +15,7 @@ mod corrupted_grove;
 mod dialogue;
 mod gameover;
 mod hamster;
+mod haunted_crypt;
 mod hud;
 mod overworld;
 mod pause;
@@ -116,6 +117,42 @@ fn build_game_database() -> dj_engine::data::database::Database {
     spider_loot.add_entry("glitch_shard", 0.15, 1);
     db.loot_tables.push(spider_loot);
 
+    // -- Haunted Crypt items --
+    db.items.push(ItemRow {
+        id: "bone_dust".into(),
+        name: [("en".into(), "Bone Dust".into())].into(),
+        sell_value: 8,
+        max_stack: 20,
+        ..Default::default()
+    });
+    db.items.push(ItemRow {
+        id: "soul_shard".into(),
+        name: [("en".into(), "Soul Shard".into())].into(),
+        sell_value: 35,
+        max_stack: 5,
+        ..Default::default()
+    });
+    db.items.push(ItemRow {
+        id: "lichs_staff".into(),
+        name: [("en".into(), "Lich's Staff".into())].into(),
+        damage: 8,
+        price: 200,
+        sell_value: 80,
+        max_stack: 1,
+        ..Default::default()
+    });
+
+    let mut skeleton_loot = LootTableRow::new("skeleton_loot");
+    skeleton_loot.add_entry("bone_dust", 0.6, 1);
+    skeleton_loot.add_entry("health_potion", 0.25, 1);
+    db.loot_tables.push(skeleton_loot);
+
+    let mut lich_loot = LootTableRow::new("lich_loot");
+    lich_loot.add_entry("soul_shard", 1.0, 2);
+    lich_loot.add_entry("lichs_staff", 1.0, 1);
+    lich_loot.add_entry("health_potion", 1.0, 3);
+    db.loot_tables.push(lich_loot);
+
     db
 }
 
@@ -171,6 +208,7 @@ fn main() {
         .add_plugins(battle::BattlePlugin)
         .add_plugins(cellar::CellarPlugin)
         .add_plugins(corrupted_grove::CorruptedGrovePlugin)
+        .add_plugins(haunted_crypt::HauntedCryptPlugin)
         .add_plugins(gameover::GameOverPlugin)
         .add_plugins(pause::PausePlugin)
         .add_plugins(assets::GameAssetsPlugin)

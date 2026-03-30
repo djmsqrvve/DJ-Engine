@@ -323,13 +323,77 @@ pub fn interaction_check(
             let mut graph = StoryGraph::new();
             let end = graph.add(StoryNode::End);
 
-            // After grove quest turned in
-            let grove_done = graph.add(StoryNode::Dialogue {
+            // After crypt turned in — final victory
+            let all_done = graph.add(StoryNode::Dialogue {
                 speaker: "Village Elder".to_string(),
-                text: "Both threats vanquished. You are a true hero of this village.".to_string(),
+                text: "All three threats vanquished. You are the greatest hero this village has ever known!"
+                    .to_string(),
                 portrait: Some("elder".to_string()),
                 next: Some(end),
             });
+
+            // Crypt quest turn-in
+            let crypt_reward_text = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "The lich is destroyed?! Here — 150 gold and the lich's own staff! You've saved us all."
+                    .to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(end),
+            });
+            let crypt_turn_in_event = graph.add(StoryNode::Event {
+                event_id: "QuestTurnIn_crypt".to_string(),
+                payload: "".to_string(),
+                next: Some(crypt_reward_text),
+            });
+            let branch_crypt_complete = graph.add(StoryNode::Branch {
+                flag: "QuestComplete_crypt".to_string(),
+                if_true: Some(crypt_turn_in_event),
+                if_false: Some(end),
+            });
+
+            // Crypt quest in progress
+            let _crypt_in_progress = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "The lich still haunts the crypt. Be brave!".to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(end),
+            });
+
+            // Crypt quest accept
+            let crypt_accept_event = graph.add(StoryNode::Event {
+                event_id: "QuestAccept_crypt".to_string(),
+                payload: "".to_string(),
+                next: Some(end),
+            });
+            let crypt_accept2 = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "The crypt entrance is to the far south-east. May the light guide you."
+                    .to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(crypt_accept_event),
+            });
+            let crypt_accept1 = graph.add(StoryNode::Dialogue {
+                speaker: "Village Elder".to_string(),
+                text: "One final threat remains. A lich has awakened in the old crypt. Destroy it — 150 gold and the lich's weapon are yours."
+                    .to_string(),
+                portrait: Some("elder".to_string()),
+                next: Some(crypt_accept2),
+            });
+
+            // Branch: crypt accepted? check progress. Not accepted? offer quest.
+            let branch_crypt_accepted = graph.add(StoryNode::Branch {
+                flag: "QuestAccepted_crypt".to_string(),
+                if_true: Some(branch_crypt_complete),
+                if_false: Some(crypt_accept1),
+            });
+
+            // After grove turned in — offer crypt or show crypt done
+            let grove_done = graph.add(StoryNode::Branch {
+                flag: "QuestTurnedIn_crypt".to_string(),
+                if_true: Some(all_done),
+                if_false: Some(branch_crypt_accepted),
+            });
+
             let branch_grove_done = graph.add(StoryNode::Branch {
                 flag: "QuestTurnedIn_grove".to_string(),
                 if_true: Some(grove_done),
@@ -538,6 +602,41 @@ pub fn interaction_check(
 
             let root = graph.add(StoryNode::Branch {
                 flag: "QuestTurnedIn_cellar".to_string(),
+                if_true: Some(enter_text),
+                if_false: Some(locked),
+            });
+
+            graph.set_start(root);
+            executor.start(graph);
+            next_state.set(GameState::NarratorDialogue);
+        }
+        "crypt_entrance" => {
+            let mut graph = StoryGraph::new();
+            let end = graph.add(StoryNode::End);
+
+            let enter = graph.add(StoryNode::Event {
+                event_id: "EnterHauntedCrypt".to_string(),
+                payload: "".to_string(),
+                next: None,
+            });
+            let enter_text = graph.add(StoryNode::Dialogue {
+                speaker: "System".to_string(),
+                text: "Cold air rushes from the crypt entrance. You descend into darkness..."
+                    .to_string(),
+                portrait: Some("system".to_string()),
+                next: Some(enter),
+            });
+
+            let locked = graph.add(StoryNode::Dialogue {
+                speaker: "System".to_string(),
+                text: "Ancient stone doors sealed shut. The grove must be cleansed first."
+                    .to_string(),
+                portrait: Some("system".to_string()),
+                next: Some(end),
+            });
+
+            let root = graph.add(StoryNode::Branch {
+                flag: "QuestTurnedIn_grove".to_string(),
                 if_true: Some(enter_text),
                 if_false: Some(locked),
             });

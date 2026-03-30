@@ -134,6 +134,26 @@ fn handle_story_events(
                     flash.write(ScreenFlashEvent::gold());
                 }
             }
+            "QuestAccept_crypt" => {
+                info!("Story Event: Quest accepted — cleanse_the_crypt");
+                quest_journal.accept("cleanse_the_crypt");
+                quest_journal.add_objective("cleanse_the_crypt", "defeat_lich", 1);
+                flags.0.insert("QuestAccepted_crypt".to_string(), true);
+            }
+            "EnterHauntedCrypt" => {
+                info!("Story Event: Entering haunted crypt");
+                next_state.set(GameState::HauntedCrypt);
+            }
+            "QuestTurnIn_crypt" => {
+                info!("Story Event: Quest turned in — cleanse_the_crypt");
+                quest_journal.turn_in("cleanse_the_crypt");
+                inventory.add_currency("gold", 150);
+                inventory.add_item("lichs_staff", 1, 1);
+                flags.0.insert("QuestTurnedIn_crypt".to_string(), true);
+                if let Some(ref mut flash) = flash_events {
+                    flash.write(ScreenFlashEvent::gold());
+                }
+            }
             "DemoComplete" => {
                 info!("Story Event: Demo complete!");
                 flags.0.insert("DemoComplete".to_string(), true);

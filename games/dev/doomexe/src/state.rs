@@ -7,6 +7,7 @@ pub enum GameState {
     Overworld,
     Cellar,
     CorruptedGrove,
+    HauntedCrypt,
 
     // Narrative states
     NarratorDialogue,
@@ -26,11 +27,15 @@ impl GameState {
             GameState::CorruptedGrove => {
                 &[GameState::Overworld, GameState::Battle, GameState::GameOver]
             }
+            GameState::HauntedCrypt => {
+                &[GameState::Overworld, GameState::Battle, GameState::GameOver]
+            }
             GameState::NarratorDialogue => &[
                 GameState::Overworld,
                 GameState::Battle,
                 GameState::Cellar,
                 GameState::CorruptedGrove,
+                GameState::HauntedCrypt,
             ],
             GameState::Battle => &[GameState::Overworld, GameState::GameOver],
             GameState::GameOver => &[GameState::TitleScreen],
