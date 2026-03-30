@@ -189,8 +189,34 @@ fn setup_world(
         // --- Zone layout ---
         let zone_positions = build_zone_layout(&db.zones, &mut zone_map);
 
-        // --- Spawn zone labels ---
+        // --- Spawn zone ground tiles + labels ---
         for (zone_id, &(origin_x, origin_y)) in &zone_positions {
+            let level = zone_map
+                .zones
+                .get(zone_id)
+                .map(|(_, _, _)| 0) // We don't store level_min in ZoneMap, use zone_id hash
+                .unwrap_or(0);
+
+            // Zone ground tile — themed color based on zone name
+            commands.spawn((
+                Sprite {
+                    color: zone_ground_color(zone_id),
+                    custom_size: Some(Vec2::new(ZONE_SIZE * 0.9, ZONE_SIZE * 0.9)),
+                    ..default()
+                },
+                Transform::from_xyz(origin_x, origin_y, -1.0),
+            ));
+
+            // Zone border — darker outline
+            commands.spawn((
+                Sprite {
+                    color: Color::srgba(0.2, 0.2, 0.3, 0.3),
+                    custom_size: Some(Vec2::new(ZONE_SIZE * 0.95, ZONE_SIZE * 0.95)),
+                    ..default()
+                },
+                Transform::from_xyz(origin_x, origin_y, -2.0),
+            ));
+
             if let Some(&(_, _, ref display_name)) = zone_map.zones.get(zone_id) {
                 commands.spawn((
                     ZoneLabel,
@@ -475,6 +501,44 @@ fn scatter_position(origin_x: f32, origin_y: f32, index: usize, _total: usize) -
         origin_x + angle.cos() * radius,
         origin_y + angle.sin() * radius,
     )
+}
+
+/// Zone ground color based on zone ID — creates themed biomes.
+fn zone_ground_color(zone_id: &str) -> Color {
+    // Hash-based theming for zones we don't know by name
+    let hash: u32 = zone_id
+        .bytes()
+        .fold(0u32, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u32));
+    match zone_id {
+        id if id.contains("forest") || id.contains("wood") => {
+            Color::srgba(0.06, 0.12, 0.04, 0.4) // dark green
+        }
+        id if id.contains("desert") || id.contains("barrens") || id.contains("durotar") => {
+            Color::srgba(0.15, 0.12, 0.06, 0.4) // sandy brown
+        }
+        id if id.contains("mountain") || id.contains("peak") || id.contains("highland") => {
+            Color::srgba(0.1, 0.1, 0.12, 0.4) // gray stone
+        }
+        id if id.contains("swamp") || id.contains("marsh") || id.contains("wetland") => {
+            Color::srgba(0.06, 0.1, 0.06, 0.4) // murky green
+        }
+        id if id.contains("undead") || id.contains("plague") || id.contains("tirisfal") => {
+            Color::srgba(0.1, 0.06, 0.1, 0.4) // dark purple
+        }
+        id if id.contains("snow") || id.contains("winter") || id.contains("dun_morogh") => {
+            Color::srgba(0.12, 0.12, 0.14, 0.4) // icy blue-gray
+        }
+        id if id.contains("coast") || id.contains("shore") || id.contains("darkshore") => {
+            Color::srgba(0.05, 0.08, 0.12, 0.4) // coastal blue
+        }
+        _ => {
+            // Generate a subtle tint from hash
+            let r = 0.05 + (hash % 10) as f32 * 0.01;
+            let g = 0.05 + ((hash / 10) % 10) as f32 * 0.01;
+            let b = 0.05 + ((hash / 100) % 10) as f32 * 0.01;
+            Color::srgba(r, g, b, 0.35)
+        }
+    }
 }
 
 /// Color NPCs based on faction.
@@ -1009,5 +1073,36 @@ mod tests {
         xp.add_xp(30);
         assert_eq!(xp.kills, 2);
         assert_eq!(xp.xp, 60);
+    }
+
+    #[test]
+    fn test_zone_ground_color_forest() {
+        let color = zone_ground_color("elwynn_forest");
+        // Forest zones should be green-tinted
+        assert!(matches!(color, Color::Srgba(c) if c.green > c.red));
+    }
+
+    #[test]
+    fn test_zone_ground_color_desert() {
+        let color = zone_ground_color("tanaris_desert");
+        // Desert zones should be brown/sandy
+        assert!(matches!(color, Color::Srgba(c) if c.red > c.blue));
+    }
+
+    #[test]
+    fn test_zone_ground_color_unknown() {
+        let color = zone_ground_color("unknown_zone_xyz");
+        // Unknown zones should still produce a valid color
+        assert!(matches!(color, Color::Srgba(_)));
+    }
+
+    #[test]
+    fn test_zone_ground_colors_distinct() {
+        let forest = zone_ground_color("forest_zone");
+        let desert = zone_ground_color("desert_zone");
+        let mountain = zone_ground_color("mountain_zone");
+        // Different zone types should produce different colors
+        assert_ne!(forest, desert);
+        assert_ne!(desert, mountain);
     }
 }
