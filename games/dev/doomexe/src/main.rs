@@ -19,6 +19,7 @@ mod haunted_crypt;
 mod hud;
 mod overworld;
 mod pause;
+mod screen_fade;
 mod scripting;
 mod state;
 mod story;
@@ -213,6 +214,7 @@ fn main() {
         .add_plugins(gameover::GameOverPlugin)
         .add_plugins(victory::VictoryPlugin)
         .add_plugins(pause::PausePlugin)
+        .add_plugins(screen_fade::ScreenFadePlugin)
         .add_plugins(assets::GameAssetsPlugin)
         .add_systems(Startup, spawn_health_vignette)
         .run();
